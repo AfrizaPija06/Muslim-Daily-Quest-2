@@ -33,7 +33,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
     }
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const user = users.find((u: any) => u.username === username && u.password === password);
+    
     if (user) {
+      // Logic for Status Check
+      // If status is undefined, treat as 'active' (backward compatibility for old data)
+      const status = user.status || 'active';
+
+      if (status === 'pending') {
+        setError('Akun Anda masih menunggu persetujuan Mentor.');
+        return;
+      }
+
+      if (status === 'rejected') {
+        setError('Maaf, pendaftaran Anda ditolak.');
+        return;
+      }
+
       setCurrentUser(user);
       localStorage.setItem('nur_quest_session', JSON.stringify(user));
       const savedData = localStorage.getItem(`ibadah_tracker_${user.username}`);

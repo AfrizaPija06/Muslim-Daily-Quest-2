@@ -2,6 +2,7 @@
 export type PrayerState = 0 | 1 | 2; // 0: None, 1: Home, 2: Mosque
 export type Role = 'mentee' | 'mentor';
 export type AppTheme = 'default' | 'legends';
+export type UserStatus = 'active' | 'pending' | 'rejected';
 
 export interface User {
   fullName: string;
@@ -9,6 +10,7 @@ export interface User {
   password?: string;
   group: string;
   role: Role;
+  status?: UserStatus; // Optional for backward compatibility
 }
 
 export interface DayData {
