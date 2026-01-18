@@ -1,7 +1,26 @@
 
 import React from 'react';
-import { Home, Church } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { PrayerState } from '../types';
+
+// Custom Mosque Icon Component
+const MosqueIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M12 3a5 5 0 0 0-5 5v3H4v8h16v-8h-3V8a5 5 0 0 0-5-5z" /> {/* Dome & Base */}
+    <path d="M12 2v1" /> {/* Alam/Crescent Pole */}
+    <path d="M10 21h4" /> {/* Door */}
+    <path d="M8 11h8" /> {/* Decorative line */}
+  </svg>
+);
 
 interface PrayerCellProps {
   state: PrayerState;
@@ -22,7 +41,7 @@ const PrayerCell: React.FC<PrayerCellProps> = ({ state, isLocked, onClick, theme
 
   return (
     <button onClick={onClick} className={`w-12 h-12 mx-auto rounded-xl border flex items-center justify-center transition-all relative overflow-hidden group ${bgClass}`}>
-      {state === 1 ? <Home className={`w-5 h-5 ${themeStyles.icons.home}`} /> : state === 2 ? <Church className={`w-5 h-5 ${themeStyles.icons.mosque}`} /> : <div className="w-2 h-2 rounded-full bg-slate-700/50" />}
+      {state === 1 ? <Home className={`w-5 h-5 ${themeStyles.icons.home}`} /> : state === 2 ? <MosqueIcon className={`w-5 h-5 ${themeStyles.icons.mosque}`} /> : <div className="w-2 h-2 rounded-full bg-slate-700/50" />}
       
       {/* Shine effect for Legends theme */}
       {currentTheme === 'legends' && state > 0 && (
