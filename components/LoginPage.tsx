@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Lock, ArrowRight, ShieldAlert, Crown } from 'lucide-react';
+import { Lock, ArrowRight, ShieldAlert, Crown, Eye, EyeOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { ADMIN_CREDENTIALS } from '../constants';
@@ -20,6 +20,7 @@ interface LoginPageProps {
 const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData, setError, error, themeStyles, toggleTheme, currentTheme }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +71,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
           </div>
           <div className="space-y-2">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className={`w-full rounded-xl py-4 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="••••••••" />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className={`w-full rounded-xl py-4 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} 
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 ${themeStyles.textSecondary} hover:text-white transition-colors`}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           <button className={`w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-6 flex items-center justify-center gap-2 ${themeStyles.buttonPrimary} uppercase tracking-wider`}>LOGIN <ArrowRight className="w-5 h-5" /></button>
         </form>

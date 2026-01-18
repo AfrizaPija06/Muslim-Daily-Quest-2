@@ -47,7 +47,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       <main className="flex-grow p-4 md:p-8 max-w-6xl mx-auto w-full space-y-8 pb-24">
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
            <StatCard label="Current Streak" value="4 DAYS" icon={<TrendingUp className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
-           <StatCard label="Prayer Points" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter(p => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
+           <StatCard label="Prayer Points" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
         </section>
 

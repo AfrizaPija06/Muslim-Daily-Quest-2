@@ -1,9 +1,32 @@
 
 import { Role, WeeklyData, DAYS_OF_WEEK } from './types';
 
+// Helper to safely read Environment Variables
+// Works with Vite (import.meta.env) or standard Node (process.env)
+const getEnv = (key: string, fallback: string) => {
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+      // @ts-ignore
+      return import.meta.env[key];
+    }
+  } catch (e) {}
+
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      // @ts-ignore
+      return process.env[key];
+    }
+  } catch (e) {}
+
+  return fallback;
+};
+
 export const ADMIN_CREDENTIALS = {
-  username: 'mentor_admin',
-  password: 'istiqamah2026',
+  // Gunakan variabel ini di Netlify: VITE_ADMIN_USERNAME & VITE_ADMIN_PASSWORD
+  username: getEnv('VITE_ADMIN_USERNAME', 'mentor_admin'),
+  password: getEnv('VITE_ADMIN_PASSWORD', 'istiqamah2026'),
   fullName: 'Ustadz Mentor',
   group: 'Pusat Mentoring',
   role: 'mentor' as Role

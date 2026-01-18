@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User as UserIcon, ShieldCheck, Scroll } from 'lucide-react';
+import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { MENTORING_GROUPS, Role, AppTheme } from '../types';
@@ -17,6 +17,8 @@ interface RegisterPageProps {
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, themeStyles, currentTheme, toggleTheme }) => {
   const [formData, setFormData] = useState({ fullName: '', username: '', password: '', confirmPassword: '', group: MENTORING_GROUPS[0] });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,8 +63,44 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
               {MENTORING_GROUPS.map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
             </select>
           </div>
-          <div className="space-y-2"><label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Password</label><input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="••••••••" /></div>
-          <div className="space-y-2"><label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Konfirmasi Password</label><input type="password" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="••••••••" /></div>
+          <div className="space-y-2">
+            <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Password</label>
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={formData.password} 
+                onChange={e => setFormData({...formData, password: e.target.value})} 
+                className={`w-full rounded-xl py-3 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} 
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 ${themeStyles.textSecondary} hover:text-white transition-colors`}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Konfirmasi Password</label>
+            <div className="relative">
+              <input 
+                type={showConfirmPassword ? "text" : "password"} 
+                value={formData.confirmPassword} 
+                onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
+                className={`w-full rounded-xl py-3 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} 
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 ${themeStyles.textSecondary} hover:text-white transition-colors`}
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
           <button className={`md:col-span-2 w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-4 flex items-center justify-center gap-2 uppercase tracking-wider ${themeStyles.buttonPrimary}`}>DAFTAR SEKARANG <ShieldCheck className="w-5 h-5" /></button>
         </form>
         <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary}`}>Sudah punya akun? <button onClick={() => setView('login')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Login</button></p>
