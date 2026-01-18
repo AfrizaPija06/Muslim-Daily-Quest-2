@@ -2,24 +2,28 @@
 import { Role, WeeklyData, DAYS_OF_WEEK } from './types';
 
 // Helper to safely read Environment Variables
-// Works with Vite (import.meta.env) or standard Node (process.env)
+// Prioritizes Vite's import.meta.env, handles process.env purely as a fallback 
+// but wrapped to avoid "process is not defined" runtime errors.
 const getEnv = (key: string, fallback: string) => {
+  // 1. Try Vite (Standard for this project structure)
   try {
     // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
-      return import.meta.env[key];
+      const val = import.meta.env[key];
+      if (val !== undefined) return val;
     }
   } catch (e) {}
 
+  // 2. Try Process (Node/Webpack compatibility) - STRICTLY CHECKED
   try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      // @ts-ignore
-      return process.env[key];
+    if (typeof process !== 'undefined' && process && process.env) {
+      const val = process.env[key];
+      if (val !== undefined) return val;
     }
   } catch (e) {}
 
+  // 3. Return Fallback
   return fallback;
 };
 
