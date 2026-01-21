@@ -4,7 +4,7 @@ import { WeeklyData, User, MENTORING_GROUPS } from '../types';
 
 /**
  * ApiService - Simulating a real Backend API Client
- * Used by professional engineers to separate UI from Data Logic.
+ * Robust implementation with Error Handling for Public KV usage.
  */
 class ApiService {
   private url: string;
@@ -16,15 +16,22 @@ class ApiService {
   // GET: Fetch all data from the "Server"
   async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
     try {
-      const response = await fetch(this.url);
+      // mode: 'cors' is crucial for cross-origin requests
+      const response = await fetch(this.url, { 
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       
-      // If 404, the key hasn't been created yet. This is normal for a new app instance.
+      // If 404, the key hasn't been created yet. This is normal.
       if (response.status === 404) {
         return { users: [], trackers: {}, groups: [] };
       }
       
       if (!response.ok) {
-        throw new Error(`Cloud storage returned status ${response.status}`);
+        throw new Error(`Cloud storage status: ${response.status}`);
       }
 
       const text = await response.text();
@@ -34,22 +41,30 @@ class ApiService {
 
       return JSON.parse(text);
     } catch (error) {
-      console.warn("[API] Fetch Warning:", error);
-      // Return local cache as a fallback so the app remains functional
+      console.warn("[API] Fetch Error (Offline Mode Active):", error);
+      // Fallback: Read from LocalStorage if network fails
       const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
       const localGroups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
-      return { users: localUsers, trackers: {}, groups: localGroups };
+      
+      // Collect all local trackers
+      const localTrackers: Record<string, WeeklyData> = {};
+      localUsers.forEach((u: User) => {
+        const t = localStorage.getItem(`ibadah_tracker_${u.username}`);
+        if(t) localTrackers[u.username] = JSON.parse(t);
+      });
+
+      return { users: localUsers, trackers: localTrackers, groups: localGroups };
     }
   }
 
   // POST: Update the "Server" state
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
     try {
-      // CRITICAL FIX: Removed 'Content-Type': 'application/json' header.
-      // Setting that header triggers a CORS Preflight (OPTIONS) request which often fails on free public KV workers.
-      // By sending plain text (JSON stringified), we treat it as a "Simple Request" which bypasses Preflight.
+      // Using 'no-cors' is tempting but prevents reading response status.
+      // We use standard fetch but rely on text/plain body to avoid Preflight.
       const response = await fetch(this.url, {
         method: 'POST',
+        mode: 'cors', 
         body: JSON.stringify(payload)
       });
       return response.ok;
@@ -61,42 +76,71 @@ class ApiService {
 
   /**
    * Smart Sync Logic:
-   * Compares local data with cloud data and merges them.
+   * Merges Local and Cloud data intelligently.
    */
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
     trackers: Record<string, WeeklyData>,
     groups: string[],
-    updatedLocalData?: WeeklyData 
+    updatedLocalData?: WeeklyData,
+    success: boolean
   }> {
-    const db = await this.fetchDatabase();
-    let trackers = db.trackers || {};
-    let users = db.users || [];
-    // Prioritize cloud groups if they exist, otherwise use local/default
-    let groups = (db.groups && db.groups.length > 0) ? db.groups : localGroups;
+    try {
+      const db = await this.fetchDatabase();
+      let trackers = db.trackers || {};
+      let users = db.users || [];
+      // Use cloud groups if available, else fallback to local
+      let groups = (db.groups && db.groups.length > 0) ? db.groups : localGroups;
 
-    // If user is logged in, push their local data to trackers
-    if (currentUser) {
-      const cloudTracker = trackers[currentUser.username];
+      // MERGE LOGIC: Users
+      // If we have local users not in cloud (registered offline), add them
+      const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
+      let needsPush = false;
+
+      localUsers.forEach((lUser: User) => {
+        if (!users.some(cUser => cUser.username === lUser.username)) {
+          users.push(lUser);
+          needsPush = true;
+        }
+      });
+
+      // If user is logged in, sync their tracker
+      let updatedLocalData: WeeklyData | undefined = undefined;
       
-      // If cloud has newer data, suggest update to UI
-      if (cloudTracker && cloudTracker.lastUpdated && new Date(cloudTracker.lastUpdated) > new Date(localData.lastUpdated)) {
-        return { users, trackers, groups, updatedLocalData: cloudTracker };
-      } else {
-        // Push local data to cloud (it's either newer or the first entry)
-        trackers[currentUser.username] = localData;
+      if (currentUser) {
+        const cloudTracker = trackers[currentUser.username];
         
-        // Also ensure groups are synced if we are pushing
-        await this.updateDatabase({ users, trackers, groups });
+        // Conflict Resolution:
+        // If Cloud is newer -> Update Local
+        // If Local is newer -> Update Cloud
+        if (cloudTracker && cloudTracker.lastUpdated && new Date(cloudTracker.lastUpdated) > new Date(localData.lastUpdated)) {
+          updatedLocalData = cloudTracker;
+        } else {
+          // Local is newer (or Cloud is empty), push to cloud list
+          // But only push if there's an actual difference or it's missing
+          if (!cloudTracker || new Date(localData.lastUpdated) > new Date(cloudTracker.lastUpdated || 0)) {
+            trackers[currentUser.username] = localData;
+            needsPush = true;
+          }
+        }
       }
-    } else {
-      // Even if not logged in (or just syncing in background), ensure DB structure exists
-      if (!db.groups || db.groups.length === 0) {
-        await this.updateDatabase({ users, trackers, groups: localGroups });
-      }
-    }
 
-    return { users, trackers, groups };
+      // If we merged anything new into the objects, push back to server
+      if (needsPush) {
+         const pushSuccess = await this.updateDatabase({ users, trackers, groups });
+         if (!pushSuccess) return { users, trackers, groups, updatedLocalData, success: false };
+      }
+
+      return { users, trackers, groups, updatedLocalData, success: true };
+    } catch (e) {
+      console.error("Sync Critical Fail", e);
+      return { 
+        users: JSON.parse(localStorage.getItem('nur_quest_users') || '[]'), 
+        trackers: {}, 
+        groups: localGroups, 
+        success: false 
+      };
+    }
   }
 }
 

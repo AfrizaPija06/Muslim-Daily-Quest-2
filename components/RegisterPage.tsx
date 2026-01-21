@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff, Clock, Loader2 } from 'lucide-react';
+import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff, Clock, Loader2, WifiOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { Role, AppTheme, User, UserStatus } from '../types';
@@ -22,6 +23,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isOfflineReg, setIsOfflineReg] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,9 +31,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
     if (formData.password !== formData.confirmPassword) { setError("Password konfirmasi tidak cocok."); return; }
     
     setIsRegistering(true);
+    setIsOfflineReg(false);
 
     try {
-      // 1. Check Local Storage first for immediate feedback
+      // 1. Validation Local
       const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
       if (localUsers.some((u: any) => u.username === formData.username) || formData.username === ADMIN_CREDENTIALS.username) { 
         setError("Username sudah digunakan."); 
@@ -43,35 +46,41 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
       const { confirmPassword, ...rest } = formData;
       const newUser: User = { ...rest, role: 'mentee', status: 'pending' };
 
-      // 2. Fetch latest Cloud Data to ensure we don't overwrite others and check duplicates globally
-      const db = await api.fetchDatabase();
-      const cloudUsers = db.users || [];
+      // 2. Try Fetch Cloud
+      let cloudUsers = [];
+      try {
+        const db = await api.fetchDatabase();
+        cloudUsers = db.users || [];
+        
+        // Global Validation
+        if (cloudUsers.some((u: any) => u.username === formData.username)) {
+          setError("Username sudah digunakan (terdeteksi di server).");
+          setIsRegistering(false);
+          return;
+        }
 
-      if (cloudUsers.some((u: any) => u.username === formData.username)) {
-        setError("Username sudah digunakan (terdeteksi di server).");
-        setIsRegistering(false);
-        return;
+        // 3. Try Update Cloud
+        const updatedUsers = [...cloudUsers, newUser];
+        const pushSuccess = await api.updateDatabase({ ...db, users: updatedUsers });
+
+        if (!pushSuccess) throw new Error("Push Failed");
+
+        // Sync Local with Cloud result
+        localStorage.setItem('nur_quest_users', JSON.stringify(updatedUsers));
+
+      } catch (netErr) {
+        // --- OFFLINE FALLBACK ---
+        console.warn("Network failed, saving locally first.");
+        const updatedLocal = [...localUsers, newUser];
+        localStorage.setItem('nur_quest_users', JSON.stringify(updatedLocal));
+        setIsOfflineReg(true);
       }
-
-      // 3. Update Cloud Database
-      const updatedUsers = [...cloudUsers, newUser];
-      const pushSuccess = await api.updateDatabase({
-        ...db,
-        users: updatedUsers
-      });
-
-      if (!pushSuccess) {
-        throw new Error("Gagal menghubungi server. Periksa koneksi internet.");
-      }
-
-      // 4. Update Local Storage (Sync with what we just pushed)
-      localStorage.setItem('nur_quest_users', JSON.stringify(updatedUsers));
       
       setSuccess(true);
       setError(null);
     } catch (err) {
       console.error(err);
-      setError("Terjadi kesalahan jaringan saat mendaftar. Coba lagi.");
+      setError("Terjadi kesalahan sistem. Coba lagi.");
     } finally {
       setIsRegistering(false);
     }
@@ -83,13 +92,18 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
         <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
         <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-8 ${themeStyles.glow} relative z-10 text-center`}>
           <div className="flex justify-center mb-6">
-            <div className={`p-4 rounded-full border-2 ${currentTheme === 'legends' ? 'border-[#d4af37] bg-[#d4af37]/10' : 'border-emerald-500 bg-emerald-500/10'}`}>
-              <Clock className={`w-12 h-12 ${themeStyles.textAccent}`} />
+            <div className={`p-4 rounded-full border-2 ${isOfflineReg ? 'border-yellow-500 bg-yellow-500/10' : (currentTheme === 'legends' ? 'border-[#d4af37] bg-[#d4af37]/10' : 'border-emerald-500 bg-emerald-500/10')}`}>
+              {isOfflineReg ? <WifiOff className={`w-12 h-12 ${isOfflineReg ? 'text-yellow-500' : themeStyles.textAccent}`} /> : <Clock className={`w-12 h-12 ${themeStyles.textAccent}`} />}
             </div>
           </div>
-          <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} mb-4`}>Pendaftaran Berhasil!</h2>
+          <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} mb-4`}>
+            {isOfflineReg ? 'Disimpan Offline' : 'Pendaftaran Berhasil!'}
+          </h2>
           <p className={`${themeStyles.textSecondary} mb-8`}>
-            Data Anda telah dikirim ke Server Admin. Akun sedang menunggu persetujuan Mentor. Silakan cek secara berkala.
+            {isOfflineReg 
+              ? "Koneksi ke server gagal, namun data tersimpan di HP ini. Silakan Login, data akan otomatis dikirim saat koneksi stabil."
+              : "Data Anda telah dikirim ke Server Admin. Akun sedang menunggu persetujuan Mentor."
+            }
           </p>
           <button 
             onClick={() => { setView('login'); setSuccess(false); }}

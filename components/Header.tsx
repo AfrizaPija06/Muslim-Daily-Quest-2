@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, RefreshCw } from 'lucide-react';
 import { User, AppTheme } from '../types';
 import ThemeToggle from './ThemeToggle';
 
@@ -13,9 +13,10 @@ interface HeaderProps {
   themeStyles: any;
   currentTheme: AppTheme;
   toggleTheme: () => void;
+  performSync?: () => Promise<void>;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme, performSync }) => {
   const isLegends = currentTheme === 'legends';
 
   return (
@@ -38,6 +39,15 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {performSync && (
+            <button 
+              onClick={performSync} 
+              className={`p-3 border rounded-xl hover:text-emerald-500 transition-all ${themeStyles.inputBg} ${themeStyles.border} ${themeStyles.textSecondary}`}
+              title="Force Sync Data"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          )}
           <ThemeToggle currentTheme={currentTheme} toggleTheme={toggleTheme} themeStyles={themeStyles} />
           <nav className={`flex items-center gap-1 p-1 rounded-xl border ${themeStyles.border} ${themeStyles.inputBg}`}>
             <button onClick={() => setView('tracker')} className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${activeView === 'tracker' ? themeStyles.activeTab : themeStyles.inactiveTab}`}>TRACKER</button>

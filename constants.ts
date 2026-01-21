@@ -27,10 +27,9 @@ export const ADMIN_CREDENTIALS = {
   role: 'mentor' as Role
 };
 
-// PUBLIC CLOUD SYNC CONFIG (Using a public KV store for demo purposes)
-// Ini adalah "Database" sementara agar semua orang terhubung
-// Updated to v2 to ensure fresh connection
-export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_global_v2";
+// PUBLIC CLOUD SYNC CONFIG
+// Menggunakan endpoint v3 untuk sesi baru yang bersih
+export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v3";
 
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({

@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from '.
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { CloudOff, RefreshCw, Activity } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity, CheckCircle } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
@@ -45,30 +45,35 @@ const App: React.FC = () => {
     try {
       const result = await api.sync(currentUser, data, groups);
       
-      // Update local storage for all users (for leaderboard)
-      localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
-      
-      // Update groups if cloud has them
-      if (result.groups && result.groups.length > 0) {
-        setGroups(result.groups);
-        localStorage.setItem('nur_quest_groups', JSON.stringify(result.groups));
-      }
+      if (result.success) {
+        setIsOnline(true);
+        addLog("Sync Successful.");
 
-      Object.keys(result.trackers).forEach(uname => {
-        if (uname !== currentUser?.username) {
-          localStorage.setItem(`ibadah_tracker_${uname}`, JSON.stringify(result.trackers[uname]));
+        // Update local storage for all users (for leaderboard)
+        localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
+        
+        // Update groups if cloud has them
+        if (result.groups && result.groups.length > 0) {
+          setGroups(result.groups);
+          localStorage.setItem('nur_quest_groups', JSON.stringify(result.groups));
         }
-      });
 
-      // Update current user tracker if cloud has newer data
-      if (result.updatedLocalData) {
-        addLog("Received newer data from cloud.");
-        setData(result.updatedLocalData);
-        localStorage.setItem(`ibadah_tracker_${currentUser?.username}`, JSON.stringify(result.updatedLocalData));
+        Object.keys(result.trackers).forEach(uname => {
+          if (uname !== currentUser?.username) {
+            localStorage.setItem(`ibadah_tracker_${uname}`, JSON.stringify(result.trackers[uname]));
+          }
+        });
+
+        // Update current user tracker if cloud has newer data
+        if (result.updatedLocalData) {
+          addLog("Received newer data from cloud.");
+          setData(result.updatedLocalData);
+          localStorage.setItem(`ibadah_tracker_${currentUser?.username}`, JSON.stringify(result.updatedLocalData));
+        }
+      } else {
+        setIsOnline(false);
+        addLog("Sync completed locally (Network Issue).");
       }
-
-      setIsOnline(true);
-      addLog("Sync Successful.");
     } catch (e) {
       setIsOnline(false);
       addLog("Sync Failed: Check internet connection.");
@@ -133,7 +138,7 @@ const App: React.FC = () => {
     // We manually call updateDatabase here to ensure immediate push
     await api.updateDatabase({ 
       users: users, 
-      trackers: trackers, // ideally we'd fetch all trackers, but for group update this is safe enough for demo
+      trackers: trackers, 
       groups: newGroups 
     });
     performSync();
@@ -161,17 +166,20 @@ const App: React.FC = () => {
   return (
     <>
       {/* PROFESSIONAL STATUS INDICATOR */}
-      <div className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-default group">
+      <div 
+        onClick={performSync}
+        className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group"
+      >
         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
            {isOnline ? <Activity className="w-4 h-4 text-emerald-500 animate-pulse" /> : <CloudOff className="w-4 h-4 text-red-500" />}
         </div>
         <div className="flex flex-col">
           <span className={`text-[9px] font-black uppercase tracking-tighter ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
-            {isOnline ? 'Backend Online' : 'Backend Error'}
+            {isOnline ? 'System Online' : 'Offline Mode'}
           </span>
           <span className="text-[8px] text-white/40 uppercase font-bold flex items-center gap-1">
-            {isSyncing ? 'Synchronizing...' : 'Idle'}
-            {isSyncing && <RefreshCw className="w-2 h-2 animate-spin" />}
+            {isSyncing ? 'Syncing...' : isOnline ? 'Connected' : 'Tap to Retry'}
+            {isSyncing ? <RefreshCw className="w-2 h-2 animate-spin" /> : isOnline && <CheckCircle className="w-2 h-2 text-emerald-500" />}
           </span>
         </div>
       </div>
