@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
-import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff, Clock } from 'lucide-react';
+import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff, Clock, Loader2 } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
-import { Role, AppTheme } from '../types';
+import { Role, AppTheme, User, UserStatus } from '../types';
 import { ADMIN_CREDENTIALS } from '../constants';
+import { api } from '../services/ApiService';
 
 interface RegisterPageProps {
   setView: (view: any) => void;
@@ -21,21 +21,60 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fullName || !formData.username || !formData.password) { setError("Semua field wajib diisi."); return; }
     if (formData.password !== formData.confirmPassword) { setError("Password konfirmasi tidak cocok."); return; }
     
-    const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-    if (users.some((u: any) => u.username === formData.username) || formData.username === ADMIN_CREDENTIALS.username) { setError("Username sudah digunakan."); return; }
-    
-    // Create new user with PENDING status
-    const newUser = { ...formData, role: 'mentee' as Role, status: 'pending' };
-    
-    localStorage.setItem('nur_quest_users', JSON.stringify([...users, newUser]));
-    setSuccess(true);
-    setError(null);
+    setIsRegistering(true);
+
+    try {
+      // 1. Check Local Storage first for immediate feedback
+      const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
+      if (localUsers.some((u: any) => u.username === formData.username) || formData.username === ADMIN_CREDENTIALS.username) { 
+        setError("Username sudah digunakan."); 
+        setIsRegistering(false);
+        return; 
+      }
+
+      // Create new user object
+      const { confirmPassword, ...rest } = formData;
+      const newUser: User = { ...rest, role: 'mentee', status: 'pending' };
+
+      // 2. Fetch latest Cloud Data to ensure we don't overwrite others and check duplicates globally
+      const db = await api.fetchDatabase();
+      const cloudUsers = db.users || [];
+
+      if (cloudUsers.some((u: any) => u.username === formData.username)) {
+        setError("Username sudah digunakan (terdeteksi di server).");
+        setIsRegistering(false);
+        return;
+      }
+
+      // 3. Update Cloud Database
+      const updatedUsers = [...cloudUsers, newUser];
+      const pushSuccess = await api.updateDatabase({
+        ...db,
+        users: updatedUsers
+      });
+
+      if (!pushSuccess) {
+        throw new Error("Gagal menghubungi server. Periksa koneksi internet.");
+      }
+
+      // 4. Update Local Storage (Sync with what we just pushed)
+      localStorage.setItem('nur_quest_users', JSON.stringify(updatedUsers));
+      
+      setSuccess(true);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Terjadi kesalahan jaringan saat mendaftar. Coba lagi.");
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   if (success) {
@@ -50,7 +89,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
           </div>
           <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} mb-4`}>Pendaftaran Berhasil!</h2>
           <p className={`${themeStyles.textSecondary} mb-8`}>
-            Akun Anda telah dibuat dan sedang menunggu persetujuan dari Mentor. Silakan cek secara berkala.
+            Data Anda telah dikirim ke Server Admin. Akun sedang menunggu persetujuan Mentor. Silakan cek secara berkala.
           </p>
           <button 
             onClick={() => { setView('login'); setSuccess(false); }}
@@ -85,15 +124,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
         <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2 space-y-2">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Nama Lengkap</label>
-            <input value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="Ahmad Al-Fatih" />
+            <input value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="Ahmad Al-Fatih" disabled={isRegistering} />
           </div>
           <div className="space-y-2">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Username</label>
-            <input value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="mentee_01" />
+            <input value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="mentee_01" disabled={isRegistering} />
           </div>
           <div className="space-y-2">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Kelompok</label>
-            <select value={formData.group} onChange={e => setFormData({...formData, group: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} appearance-none`}>
+            <select value={formData.group} onChange={e => setFormData({...formData, group: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} appearance-none`} disabled={isRegistering}>
               {groups.map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
             </select>
           </div>
@@ -106,6 +145,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
                 onChange={e => setFormData({...formData, password: e.target.value})} 
                 className={`w-full rounded-xl py-3 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} 
                 placeholder="••••••••" 
+                disabled={isRegistering}
               />
               <button
                 type="button"
@@ -125,6 +165,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
                 onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
                 className={`w-full rounded-xl py-3 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} 
                 placeholder="••••••••" 
+                disabled={isRegistering}
               />
               <button
                 type="button"
@@ -135,7 +176,16 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
               </button>
             </div>
           </div>
-          <button className={`md:col-span-2 w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-4 flex items-center justify-center gap-2 uppercase tracking-wider ${themeStyles.buttonPrimary}`}>DAFTAR SEKARANG <ShieldCheck className="w-5 h-5" /></button>
+          <button 
+            disabled={isRegistering}
+            className={`md:col-span-2 w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-4 flex items-center justify-center gap-2 uppercase tracking-wider ${themeStyles.buttonPrimary} ${isRegistering ? 'opacity-70 cursor-wait' : ''}`}
+          >
+            {isRegistering ? (
+              <>Mengirim ke Server... <Loader2 className="w-5 h-5 animate-spin" /></>
+            ) : (
+              <>DAFTAR SEKARANG <ShieldCheck className="w-5 h-5" /></>
+            )}
+          </button>
         </form>
         <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary}`}>Sudah punya akun? <button onClick={() => setView('login')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Login</button></p>
       </div>

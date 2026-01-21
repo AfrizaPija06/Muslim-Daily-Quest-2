@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -140,7 +139,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             </h2>
             <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Production Environment • ID: NUR_QUEST_PROD_01</p>
           </div>
-          <button onClick={() => XLSX.writeFile(XLSX.utils.book_append_sheet(XLSX.utils.book_new(), XLSX.utils.json_to_sheet(menteesData), "Mentees"), "Global_Export.xlsx")} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary}`}>
+          <button onClick={() => {
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(menteesData), "Mentees");
+            XLSX.writeFile(wb, "Global_Export.xlsx");
+          }} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary}`}>
             <Download className="w-4 h-4" /> Export DB
           </button>
         </div>

@@ -45,12 +45,11 @@ class ApiService {
   // POST: Update the "Server" state
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
     try {
+      // CRITICAL FIX: Removed 'Content-Type': 'application/json' header.
+      // Setting that header triggers a CORS Preflight (OPTIONS) request which often fails on free public KV workers.
+      // By sending plain text (JSON stringified), we treat it as a "Simple Request" which bypasses Preflight.
       const response = await fetch(this.url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-          // Removed custom headers to avoid CORS preflight failures on public endpoints
-        },
         body: JSON.stringify(payload)
       });
       return response.ok;

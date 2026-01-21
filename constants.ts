@@ -29,7 +29,8 @@ export const ADMIN_CREDENTIALS = {
 
 // PUBLIC CLOUD SYNC CONFIG (Using a public KV store for demo purposes)
 // Ini adalah "Database" sementara agar semua orang terhubung
-export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_global_v1";
+// Updated to v2 to ensure fresh connection
+export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_global_v2";
 
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({
