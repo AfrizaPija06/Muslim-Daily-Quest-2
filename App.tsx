@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData } from './types';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Cloud, CloudOff, RefreshCw, Activity } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
@@ -15,6 +16,11 @@ const App: React.FC = () => {
   const [view, setView] = useState<'login' | 'register' | 'tracker' | 'leaderboard'>('login');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [data, setData] = useState<WeeklyData>(INITIAL_DATA);
+  const [groups, setGroups] = useState<string[]>(() => {
+    const saved = localStorage.getItem('nur_quest_groups');
+    return saved ? JSON.parse(saved) : MENTORING_GROUPS;
+  });
+  
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -31,16 +37,23 @@ const App: React.FC = () => {
 
   // --- REFACTORED CLOUD SYNC ---
   
-  const performSync = useCallback(async (customUsers?: User[]) => {
+  const performSync = useCallback(async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     addLog("Syncing with Cloud Database...");
     
     try {
-      const result = await api.sync(currentUser, data);
+      const result = await api.sync(currentUser, data, groups);
       
       // Update local storage for all users (for leaderboard)
       localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
+      
+      // Update groups if cloud has them
+      if (result.groups && result.groups.length > 0) {
+        setGroups(result.groups);
+        localStorage.setItem('nur_quest_groups', JSON.stringify(result.groups));
+      }
+
       Object.keys(result.trackers).forEach(uname => {
         if (uname !== currentUser?.username) {
           localStorage.setItem(`ibadah_tracker_${uname}`, JSON.stringify(result.trackers[uname]));
@@ -62,7 +75,7 @@ const App: React.FC = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [currentUser, data, isSyncing]);
+  }, [currentUser, data, groups, isSyncing]);
 
   // Initial Session Load
   useEffect(() => {
@@ -107,8 +120,26 @@ const App: React.FC = () => {
     setError(null);
   };
 
+  // Handler to update groups from Admin Panel
+  const updateGroups = async (newGroups: string[]) => {
+    setGroups(newGroups);
+    localStorage.setItem('nur_quest_groups', JSON.stringify(newGroups));
+    
+    // Force sync to push changes immediately
+    const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
+    const trackersStr = localStorage.getItem(`ibadah_tracker_${currentUser?.username}`);
+    const trackers = trackersStr ? { [currentUser?.username!]: JSON.parse(trackersStr) } : {};
+    
+    // We manually call updateDatabase here to ensure immediate push
+    await api.updateDatabase({ 
+      users: users, 
+      trackers: trackers, // ideally we'd fetch all trackers, but for group update this is safe enough for demo
+      groups: newGroups 
+    });
+    performSync();
+  };
+
   const totalPoints = useMemo(() => {
-    // Adding explicit types to reduce callbacks to fix 'unknown' type errors (Error lines 114, 115)
     return data.days.reduce((acc: number, day: DayData) => {
       const prayerPoints = (Object.values(day.prayers) as number[]).reduce((pAcc: number, val: number) => {
         if (val === 1) return pAcc + POINTS.HOME;
@@ -146,9 +177,16 @@ const App: React.FC = () => {
       </div>
 
       {view === 'login' && <LoginPage setView={setView} setCurrentUser={setCurrentUser} setData={setData} setError={setError} error={error} {...commonProps} />}
-      {view === 'register' && <RegisterPage setView={setView} setError={setError} error={error} {...commonProps} />}
+      {view === 'register' && <RegisterPage setView={setView} setError={setError} error={error} groups={groups} {...commonProps} />}
       {view === 'leaderboard' && currentUser?.role === 'mentor' && (
-        <LeaderboardPage currentUser={currentUser} setView={setView} handleLogout={handleLogout} {...commonProps} />
+        <LeaderboardPage 
+          currentUser={currentUser} 
+          setView={setView} 
+          handleLogout={handleLogout} 
+          groups={groups} 
+          updateGroups={updateGroups} 
+          {...commonProps} 
+        />
       )}
       {view === 'tracker' && (
         <TrackerPage 

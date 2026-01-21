@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server } from 'lucide-react';
+import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -18,6 +18,8 @@ interface LeaderboardPageProps {
   toggleTheme: () => void;
   performSync: (users?: User[]) => Promise<void>;
   networkLogs: string[];
+  groups: string[];
+  updateGroups: (newGroups: string[]) => Promise<void>;
 }
 
 interface LeaderboardData {
@@ -28,14 +30,18 @@ interface LeaderboardData {
   monthlyPoints: number; 
   activeDays: number;
   lastUpdated: string;
+  status: string;
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs 
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups
 }) => {
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'network'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'network' | 'groups'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  
+  // Group Management State
+  const [newGroupName, setNewGroupName] = useState('');
 
   const loadData = () => {
     const usersStr = localStorage.getItem('nur_quest_users');
@@ -102,6 +108,23 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     loadData(); 
   };
 
+  const handleAddGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) return;
+    if (groups.includes(newGroupName)) return;
+
+    const updatedGroups = [...groups, newGroupName];
+    await updateGroups(updatedGroups);
+    setNewGroupName('');
+  };
+
+  const handleDeleteGroup = async (groupName: string) => {
+    if (confirm(`Are you sure you want to disband '${groupName}'? Users in this group will not be deleted but will belong to a non-existent group.`)) {
+      const updatedGroups = groups.filter(g => g !== groupName);
+      await updateGroups(updatedGroups);
+    }
+  };
+
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
 
   return (
@@ -122,13 +145,14 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </button>
         </div>
 
-        <div className="flex gap-6 border-b border-white/5 pb-0">
+        <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
           {[
             { id: 'leaderboard', label: 'Global Ranking', icon: <Trophy className="w-4 h-4" /> },
             { id: 'requests', label: 'Auth Requests', icon: <UserPlus className="w-4 h-4" />, count: pendingUsers.length },
+            { id: 'groups', label: 'Factions', icon: <Flag className="w-4 h-4" /> },
             { id: 'network', label: 'Server Logs', icon: <Terminal className="w-4 h-4" /> }
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id ? `${themeStyles.textAccent} border-current` : 'text-white/30 border-transparent hover:text-white'}`}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? `${themeStyles.textAccent} border-current` : 'text-white/30 border-transparent hover:text-white'}`}>
               {tab.icon} {tab.label} {tab.count ? <span className="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">{tab.count}</span> : null}
             </button>
           ))}
@@ -188,6 +212,47 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 </div>
               </div>
             ))}
+          </section>
+        ) : activeTab === 'groups' ? (
+          /* GROUP MANAGEMENT */
+          <section className="space-y-6">
+             <div className={`${themeStyles.card} rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-center`}>
+                <div className="flex-1 w-full">
+                  <h3 className="text-sm font-bold uppercase tracking-widest mb-1">Establish New Faction</h3>
+                  <p className="text-xs opacity-50">Create a new group for mentees to join.</p>
+                </div>
+                <form onSubmit={handleAddGroup} className="flex gap-2 w-full md:w-auto">
+                  <input 
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="e.g. Salahuddin Al-Ayyubi"
+                    className={`rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} min-w-[250px]`}
+                  />
+                  <button type="submit" className={`px-4 rounded-xl ${themeStyles.buttonPrimary} flex items-center justify-center`}>
+                    <PlusCircle className="w-5 h-5" />
+                  </button>
+                </form>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {groups.map(group => (
+                  <div key={group} className={`${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg bg-white/5`}>
+                        <Flag className={`w-4 h-4 ${themeStyles.textAccent}`} />
+                      </div>
+                      <span className="font-bold text-sm uppercase tracking-wider">{group}</span>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteGroup(group)}
+                      className="p-2 text-white/20 hover:text-red-500 transition-colors"
+                      title="Disband Faction"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+             </div>
           </section>
         ) : (
           /* NETWORK LOGS (Ala Backend) */

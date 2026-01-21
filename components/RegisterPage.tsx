@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff, Clock } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
-import { MENTORING_GROUPS, Role, AppTheme } from '../types';
+import { Role, AppTheme } from '../types';
 import { ADMIN_CREDENTIALS } from '../constants';
 
 interface RegisterPageProps {
@@ -13,10 +13,11 @@ interface RegisterPageProps {
   themeStyles: any;
   currentTheme: AppTheme;
   toggleTheme: () => void;
+  groups: string[];
 }
 
-const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, themeStyles, currentTheme, toggleTheme }) => {
-  const [formData, setFormData] = useState({ fullName: '', username: '', password: '', confirmPassword: '', group: MENTORING_GROUPS[0] });
+const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, themeStyles, currentTheme, toggleTheme, groups }) => {
+  const [formData, setFormData] = useState({ fullName: '', username: '', password: '', confirmPassword: '', group: groups[0] || 'Umum' });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -93,7 +94,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
           <div className="space-y-2">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Kelompok</label>
             <select value={formData.group} onChange={e => setFormData({...formData, group: e.target.value})} className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} appearance-none`}>
-              {MENTORING_GROUPS.map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
+              {groups.map(g => <option key={g} value={g} className="bg-slate-900">{g}</option>)}
             </select>
           </div>
           <div className="space-y-2">
