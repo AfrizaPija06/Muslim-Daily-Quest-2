@@ -50,62 +50,38 @@ export const MENTORING_GROUPS = [
 ];
 
 // --- AVATAR SYSTEM CONFIGURATION ---
+// Menggunakan Avatar Lokal (Custom User Collection)
+// File harus ada di folder: /public/avatars/
+// Penamaan file: 1.png, 2.png, 3.png, ... s/d 24.png
 
-/* 
-  INSTRUKSI PENTING:
-  1. Pastikan file ada di folder: public/avatars/
-  2. Penulisan nama file di sini MENGGUNAKAN %20 sebagai pengganti spasi.
-     Contoh: "Black Boys.png" ditulis "/avatars/Black%20Boys.png"
-  3. Pastikan Besar/Kecil huruf nama file SAMA PERSIS dengan di folder.
-*/
-
-export const AVAILABLE_AVATARS = [
-  { 
-    id: 'char_1', 
-    name: 'Adventurer', 
-    url: '/avatars/Black%20Boys.png' 
-  },
-  { 
-    id: 'char_2', 
-    name: 'Warrior', 
-    url: '/avatars/Blue%20Cool.png' 
-  },
-  { 
-    id: 'char_3', 
-    name: 'Mage', 
-    url: '/avatars/Greenew.png' 
-  },
-  { 
-    id: 'char_4', 
-    name: 'Rogue', 
-    url: '/avatars/Red%20Fire.png' 
-  },
-  { 
-    id: 'char_5', 
-    name: 'Paladin', 
-    url: '/avatars/The%20Orange.png' 
-  },
-  { 
-    id: 'char_6', 
-    name: 'Cleric', 
-    url: '/avatars/White%20Bros.png' 
-  },
-];
+export const AVAILABLE_AVATARS = Array.from({ length: 24 }, (_, i) => {
+  const id = String(i + 1);
+  return {
+    id,
+    name: `Avatar ${id}`,
+    url: `/avatars/${id}.png` // Path ke file lokal
+  };
+});
 
 export const getAvatarSrc = (seedOrId?: string) => {
-  // Default fallback jika kosong
+  // 1. Default fallback ke Avatar 1
   if (!seedOrId) return AVAILABLE_AVATARS[0].url;
   
-  // 1. Cek jika seed adalah ID dari preset kita (char_1, char_2, dst)
+  // 2. Cek jika seed adalah ID dari list preset (misal "1", "5")
   const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
   if (found) return found.url;
 
-  // 2. Jika seed adalah path file lokal (diawali /) atau URL online (http)
-  if (seedOrId.startsWith('/') || seedOrId.startsWith('http')) {
+  // 3. Support input manual angka (misal user punya 50 avatar, tapi list cuma tampil 24)
+  if (!isNaN(Number(seedOrId))) {
+    return `/avatars/${seedOrId}.png`;
+  }
+
+  // 4. Jika URL lengkap (http/https) atau path lokal (/)
+  if (seedOrId.startsWith('http') || seedOrId.startsWith('/')) {
     return seedOrId;
   }
 
-  // 3. Fallback terakhir: Generator online (DiceBear)
-  // Ini akan muncul jika file lokal tidak ditemukan sama sekali
+  // 5. Fallback Terakhir (DiceBear) 
+  // Untuk user lama yang username-nya belum diganti ke ID angka, agar gambar tidak broken.
   return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seedOrId}`;
 };

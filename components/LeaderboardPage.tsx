@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -117,6 +117,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     const usersStr = localStorage.getItem('nur_quest_users');
     let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
     
+    // Strict update local state
     allUsers = allUsers.map(u => {
       if (u.username === username) return { ...u, status: action === 'approve' ? 'active' : 'rejected' };
       return u;
@@ -124,7 +125,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
     localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
     
-    // Pro-style: Push updated user list to cloud
+    // Sync to cloud
     const currentDb = await api.fetchDatabase();
     await api.updateDatabase({ ...currentDb, users: allUsers });
     
@@ -132,37 +133,42 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     setIsProcessing(false);
   };
 
-  // NEW: Feature to Remove/Kick User
+  // NEW: Feature to Remove/Kick User (PERMANENT DELETE)
   const handleKickUser = async (targetUsername: string, targetName: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus ${targetName} dari grup? Data mereka akan disembunyikan.`)) return;
+    if (!confirm(`PERINGATAN: Apakah Anda yakin ingin MENGHAPUS PERMANEN user ${targetName}? \n\nData tidak dapat dikembalikan dan akan hilang dari database.`)) return;
     
     setIsProcessing(true);
     try {
-      // 1. Update State Langsung (Optimistic UI Update) agar terlihat cepat
-      setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
+      // 1. Delete from Server First (Most Important)
+      const success = await api.deleteUser(targetUsername);
 
-      // 2. Update LocalStorage
-      const usersStr = localStorage.getItem('nur_quest_users');
-      let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-      
-      // Set status to rejected effectively removes them from active lists
-      allUsers = allUsers.map(u => {
-        if (u.username === targetUsername) return { ...u, status: 'rejected' as const };
-        return u;
-      });
+      if (success) {
+        // 2. Remove from Local UI State
+        setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
+        setPendingUsers(prev => prev.filter(m => m.username !== targetUsername));
 
-      localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
+        // 3. Remove from LocalStorage (Strict Filter)
+        const usersStr = localStorage.getItem('nur_quest_users');
+        if (usersStr) {
+          const allUsers = JSON.parse(usersStr) as User[];
+          const filteredUsers = allUsers.filter(u => u.username !== targetUsername);
+          localStorage.setItem('nur_quest_users', JSON.stringify(filteredUsers));
+        }
+
+        // 4. Remove User Specific Tracker Data
+        localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
+
+        alert(`User ${targetName} berhasil dihapus permanen.`);
+      } else {
+        throw new Error("Gagal menghapus dari server.");
+      }
       
-      // 3. Sync to cloud (Background process)
-      const currentDb = await api.fetchDatabase();
-      await api.updateDatabase({ ...currentDb, users: allUsers });
-      
-      // 4. Final Reload to ensure consistency
+      // 5. Final Reload
       loadData();
       
-    } catch (e) {
-      alert("Gagal menghapus user. Cek koneksi internet.");
-      loadData(); // Revert UI if failed
+    } catch (e: any) {
+      alert(`Gagal menghapus user: ${e.message}`);
+      loadData(); 
     } finally {
       setIsProcessing(false);
     }
@@ -282,11 +288,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                           {m.role !== 'mentor' && (
                             <button 
                               onClick={() => handleKickUser(m.username, m.fullName)}
-                              className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
-                              title="Remove User"
+                              className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50"
+                              title="Delete Permanently"
                               disabled={isProcessing}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           )}
                         </td>

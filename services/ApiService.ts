@@ -87,6 +87,37 @@ class ApiService {
     }
   }
 
+  // PERMANENT DELETE USER
+  async deleteUser(username: string): Promise<boolean> {
+    try {
+      console.log(`[SUPABASE] Permanently deleting user: ${username}`);
+      
+      // 1. Delete Tracker Data First (Child Table)
+      const { error: trackerError } = await supabase
+        .from('app_trackers')
+        .delete()
+        .eq('username', username);
+      
+      if (trackerError) {
+        console.error("Error deleting tracker:", trackerError);
+        // Continue anyway to try deleting user
+      }
+
+      // 2. Delete User Data (Parent Table)
+      const { error: userError } = await supabase
+        .from('app_users')
+        .delete()
+        .eq('username', username);
+
+      if (userError) throw userError;
+
+      return true;
+    } catch (error) {
+      console.error("[SUPABASE] Delete User Error:", error);
+      return false;
+    }
+  }
+
   // Sync Logic (Called periodically by App.tsx)
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
