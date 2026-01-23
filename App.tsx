@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from '.
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2 } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
@@ -56,6 +56,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncErrorMsg, setSyncErrorMsg] = useState<string>("");
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
     return (localStorage.getItem('nur_quest_theme') as AppTheme) || 'default';
@@ -81,6 +82,7 @@ const App: React.FC = () => {
       
       if (result.success) {
         setIsOnline(true);
+        setSyncErrorMsg("");
         addLog("Sync Successful.");
 
         // Update local storage for all users (for leaderboard)
@@ -106,11 +108,13 @@ const App: React.FC = () => {
         }
       } else {
         setIsOnline(false);
-        // Show specific error if available
-        addLog(`Sync Failed: ${result.errorMessage || "Network Issue"}`);
+        const msg = result.errorMessage || "Network Issue";
+        setSyncErrorMsg(msg);
+        addLog(`Sync Failed: ${msg}`);
       }
     } catch (e: any) {
       setIsOnline(false);
+      setSyncErrorMsg(e.message || "Unknown Error");
       addLog(`Sync Error: ${e.message || "Unknown"}`);
     } finally {
       setIsSyncing(false);
@@ -209,6 +213,9 @@ const App: React.FC = () => {
     );
   }
 
+  // Check if error is specifically about missing tables
+  const isTableError = syncErrorMsg.toLowerCase().includes("relation") || syncErrorMsg.toLowerCase().includes("does not exist");
+
   return (
     <>
       {/* PROFESSIONAL STATUS INDICATOR */}
@@ -221,7 +228,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex flex-col">
           <span className={`text-[9px] font-black uppercase tracking-tighter ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
-            {isOnline ? 'System Online' : 'Offline Mode'}
+            {isOnline ? 'System Online' : (isTableError ? 'Database Missing' : 'Offline Mode')}
           </span>
           <span className="text-[8px] text-white/40 uppercase font-bold flex items-center gap-1">
             {isSyncing ? 'Syncing...' : isOnline ? 'Connected' : 'Tap to Retry'}
@@ -229,6 +236,14 @@ const App: React.FC = () => {
           </span>
         </div>
       </div>
+      
+      {/* DB Missing Alert */}
+      {!isOnline && isTableError && (
+        <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500">
+          <Database className="w-3 h-3 inline mr-2" />
+          Critical: Database Tables Not Found. Please run the SQL Setup Script in Supabase SQL Editor.
+        </div>
+      )}
 
       {view === 'login' && <LoginPage setView={setView} setCurrentUser={setCurrentUser} setData={setData} setError={setError} error={error} {...commonProps} />}
       {view === 'register' && <RegisterPage setView={setView} setError={setError} error={error} groups={groups} {...commonProps} />}
