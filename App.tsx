@@ -177,7 +177,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
     performSync();
-    const interval = setInterval(performSync, 20000);
+    // OPTIMIZED: Increased sync interval to 60s (was 20s) to prevent Netlify/Server throttling
+    const interval = setInterval(performSync, 60000);
     return () => clearInterval(interval);
   }, [performSync, isResetting]);
 

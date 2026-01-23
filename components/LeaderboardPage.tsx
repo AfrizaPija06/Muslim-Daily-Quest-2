@@ -90,7 +90,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); 
+    // OPTIMIZED: Increased interval to 60000ms (60s) to strictly conserve bandwidth
+    const interval = setInterval(loadData, 60000); 
     return () => clearInterval(interval);
   }, []);
 
