@@ -68,9 +68,13 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       const processed = allUsers
         .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
         .map(u => {
+          // FIX: Use prop 'currentUser' for self to ensure instant update UI (bypassing localstorage lag)
+          const isMe = u.username === currentUser.username;
+          const displayUser = isMe ? currentUser : u;
+
           let trackerData: WeeklyData | null = null;
           
-          if (u.username === currentUser.username) {
+          if (isMe) {
             trackerData = data;
           } else {
             const str = localStorage.getItem(`ibadah_tracker_${u.username}`);
@@ -90,12 +94,12 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
           }
 
           return {
-            username: u.username,
-            fullName: u.fullName,
-            group: u.group,
+            username: displayUser.username,
+            fullName: displayUser.fullName,
+            group: displayUser.group,
             points: pts,
             monthlyPoints: pts * 4,
-            role: u.role
+            role: displayUser.role
           };
         });
       
@@ -103,7 +107,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     };
 
     loadLeaderboard();
-  }, [data, currentUser.username]);
+    // FIX: Dependency changed from [..., currentUser.username] to [..., currentUser]
+    // This ensures re-render when FullName or Avatar changes, not just ID.
+  }, [data, currentUser]);
 
   const sortedWeekly = useMemo(() => [...leaderboard].sort((a, b) => b.points - a.points).slice(0, 10), [leaderboard]);
   const sortedMonthly = useMemo(() => [...leaderboard].sort((a, b) => b.monthlyPoints - a.monthlyPoints).slice(0, 10), [leaderboard]);

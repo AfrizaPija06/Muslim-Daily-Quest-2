@@ -55,6 +55,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     const activeUsers = allUsers
       .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
       .map(u => {
+        // FIX: Prioritize prop 'currentUser' if matching ID to show instant updates
+        const isMe = currentUser && u.username === currentUser.username;
+        const displayUser = isMe ? currentUser : u;
+
         const trackerStr = localStorage.getItem(`ibadah_tracker_${u.username}`);
         const trackerData: WeeklyData | null = trackerStr ? JSON.parse(trackerStr) : null;
         
@@ -74,15 +78,15 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         }
 
         return {
-          fullName: u.fullName,
-          username: u.username,
-          group: u.group,
+          fullName: displayUser.fullName,
+          username: displayUser.username,
+          group: displayUser.group,
           points,
           monthlyPoints: points * 4,
           activeDays,
           lastUpdated: trackerData?.lastUpdated || 'No Data',
           status: 'active',
-          role: u.role
+          role: displayUser.role
         };
       });
 
