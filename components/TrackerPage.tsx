@@ -26,6 +26,7 @@ interface MiniLeaderboardData {
   group: string;
   points: number;
   monthlyPoints: number;
+  role: string;
 }
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
@@ -50,8 +51,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       const usersStr = localStorage.getItem('nur_quest_users');
       const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
       
+      // MODIFIED: Include mentors in the mini leaderboard
       const processed = allUsers
-        .filter(u => u.role === 'mentee' && (u.status === 'active' || u.status === undefined))
+        .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
         .map(u => {
           // If current user, use live state 'data', otherwise fetch from localstorage
           let trackerData: WeeklyData | null = null;
@@ -80,7 +82,8 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             fullName: u.fullName,
             group: u.group,
             points: pts,
-            monthlyPoints: pts * 4 // Simulation for season
+            monthlyPoints: pts * 4, // Simulation for season
+            role: u.role
           };
         });
       
@@ -111,8 +114,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                     <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
                   </td>
                   <td className="px-1 py-3">
-                    <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px]`}>
+                    <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px] flex items-center gap-1`}>
                       {user.fullName.split(' ')[0]}
+                      {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
                     </div>
                     <div className="text-[9px] opacity-60 uppercase">{user.group}</div>
                   </td>
@@ -140,7 +144,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         
         {/* Stat Cards (Top) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
-           <StatCard label="Current Streak" value="4 DAYS" icon={<TrendingUp className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
+           <StatCard label="Current Streak" value="24/31" icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
            <StatCard label="Prayer Points" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
         </section>

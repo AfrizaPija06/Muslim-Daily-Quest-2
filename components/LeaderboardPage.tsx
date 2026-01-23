@@ -31,6 +31,7 @@ interface LeaderboardData {
   activeDays: number;
   lastUpdated: string;
   status: string;
+  role: string;
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
@@ -48,8 +49,9 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     const usersStr = localStorage.getItem('nur_quest_users');
     const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
     
-    const activeMentees = allUsers
-      .filter(u => u.role === 'mentee' && (u.status === 'active' || u.status === undefined))
+    // MODIFIED: Filter now includes BOTH mentors and mentees
+    const activeUsers = allUsers
+      .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
       .map(u => {
         const trackerStr = localStorage.getItem(`ibadah_tracker_${u.username}`);
         const trackerData: WeeklyData | null = trackerStr ? JSON.parse(trackerStr) : null;
@@ -77,11 +79,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           monthlyPoints: points * 4,
           activeDays,
           lastUpdated: trackerData?.lastUpdated || 'No Data',
-          status: 'active'
+          status: 'active',
+          role: u.role
         };
       });
 
-    setMenteesData(activeMentees);
+    setMenteesData(activeUsers);
     setPendingUsers(allUsers.filter(u => u.role === 'mentee' && u.status === 'pending'));
   };
 
@@ -186,14 +189,14 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <div className={`${themeStyles.card} rounded-3xl overflow-hidden`}>
               <div className="p-6 border-b border-white/5 bg-white/5">
                 <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                  <Database className="w-4 h-4 text-emerald-500" /> Database: Mentees_Rankings
+                  <Database className="w-4 h-4 text-emerald-500" /> Database: Global Rankings
                 </h3>
               </div>
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5">
                     <th className="px-6 py-4">Rank</th>
-                    <th className="px-6 py-4">Mentee Name</th>
+                    <th className="px-6 py-4">User Name</th>
                     <th className="px-6 py-4">Group</th>
                     <th className="px-6 py-4 text-right">Points</th>
                   </tr>
@@ -202,13 +205,16 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                   {sortedWeekly.map((m, i) => (
                     <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-6 py-4 font-black opacity-30">#{i+1}</td>
-                      <td className="px-6 py-4 font-bold">{m.fullName}</td>
+                      <td className="px-6 py-4 font-bold flex items-center gap-2">
+                        {m.fullName}
+                        {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">Mentor</span>}
+                      </td>
                       <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
                       <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
                     </tr>
                   ))}
                   {sortedWeekly.length === 0 && (
-                    <tr><td colSpan={4} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Mentees Found. Waiting for sync...</td></tr>
+                    <tr><td colSpan={4} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Users Found. Waiting for sync...</td></tr>
                   )}
                 </tbody>
               </table>
