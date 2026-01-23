@@ -22,8 +22,8 @@ const getEnv = (key: string, fallback: string) => {
 export const ADMIN_CREDENTIALS = {
   username: getEnv('VITE_ADMIN_USERNAME', 'mentor_admin'),
   password: getEnv('VITE_ADMIN_PASSWORD', 'istiqamah2026'),
-  fullName: 'Ustadz Mentor',
-  group: 'Pusat Mentoring',
+  fullName: 'Kak Afriza',
+  group: 'Mentoring Legends',
   role: 'mentor' as Role
 };
 
