@@ -128,8 +128,11 @@ class ApiService {
 
     } catch (error: any) {
       console.error("[SUPABASE] Sync Failed details:", error);
+      // PENTING: Ambil pesan error sejelas mungkin
+      const msg = error.message || (error.code ? `Code: ${error.code}` : (typeof error === 'object' ? JSON.stringify(error) : String(error)));
+      
       return { 
-        users: [], trackers: {}, groups: localGroups, success: false, errorMessage: error.message || "Unknown Connection Error"
+        users: [], trackers: {}, groups: localGroups, success: false, errorMessage: msg
       };
     }
   }

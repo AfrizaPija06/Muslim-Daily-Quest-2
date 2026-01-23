@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from '.
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database, AlertTriangle } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
@@ -16,7 +16,6 @@ const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
   // --- VERSION RESET LOGIC ---
-  // Runs immediately to ensure clean state for V7
   useEffect(() => {
     const APP_VERSION = 'v7_factory_reset';
     const storedVersion = localStorage.getItem('nur_quest_version');
@@ -25,7 +24,6 @@ const App: React.FC = () => {
       console.warn("System Update V7: Purging old data...");
       setIsResetting(true);
       
-      // Clear all app specific data
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -34,11 +32,7 @@ const App: React.FC = () => {
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
-      
-      // Set new version
       localStorage.setItem('nur_quest_version', APP_VERSION);
-      
-      // Slight delay to ensure storage writes complete before reload
       setTimeout(() => {
         window.location.reload();
       }, 500);
@@ -69,9 +63,7 @@ const App: React.FC = () => {
   };
 
   // --- REFACTORED CLOUD SYNC ---
-  
   const performSync = useCallback(async () => {
-    // Block sync if resetting
     if (isSyncing || isResetting) return;
     
     setIsSyncing(true);
@@ -85,10 +77,8 @@ const App: React.FC = () => {
         setSyncErrorMsg("");
         addLog("Sync Successful.");
 
-        // Update local storage for all users (for leaderboard)
         localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
         
-        // Update groups if cloud has them
         if (result.groups && result.groups.length > 0) {
           setGroups(result.groups);
           localStorage.setItem('nur_quest_groups', JSON.stringify(result.groups));
@@ -100,7 +90,6 @@ const App: React.FC = () => {
           }
         });
 
-        // Update current user tracker if cloud has newer data
         if (result.updatedLocalData) {
           addLog("Received newer data from cloud.");
           setData(result.updatedLocalData);
@@ -108,20 +97,19 @@ const App: React.FC = () => {
         }
       } else {
         setIsOnline(false);
-        const msg = result.errorMessage || "Network Issue";
+        const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
         addLog(`Sync Failed: ${msg}`);
       }
     } catch (e: any) {
       setIsOnline(false);
-      setSyncErrorMsg(e.message || "Unknown Error");
+      setSyncErrorMsg(e.message || "Critical System Error");
       addLog(`Sync Error: ${e.message || "Unknown"}`);
     } finally {
       setIsSyncing(false);
     }
   }, [currentUser, data, groups, isSyncing, isResetting]);
 
-  // Initial Session Load
   useEffect(() => {
     if (isResetting) return;
     const savedUser = localStorage.getItem('nur_quest_session');
@@ -134,7 +122,6 @@ const App: React.FC = () => {
     }
   }, [isResetting]);
 
-  // background polling
   useEffect(() => {
     if (isResetting) return;
     performSync();
@@ -142,7 +129,6 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [performSync, isResetting]);
 
-  // Push only when current user data changes locally
   useEffect(() => {
     if (currentUser && !isResetting) {
       localStorage.setItem(`ibadah_tracker_${currentUser.username}`, JSON.stringify(data));
@@ -166,12 +152,10 @@ const App: React.FC = () => {
     setError(null);
   };
 
-  // Handler to update groups from Admin Panel
   const updateGroups = async (newGroups: string[]) => {
     setGroups(newGroups);
     localStorage.setItem('nur_quest_groups', JSON.stringify(newGroups));
     
-    // Force sync to push changes immediately
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const trackersStr = localStorage.getItem(`ibadah_tracker_${currentUser?.username}`);
     const trackers = trackersStr ? { [currentUser?.username!]: JSON.parse(trackersStr) } : {};
@@ -213,35 +197,51 @@ const App: React.FC = () => {
     );
   }
 
-  // Check if error is specifically about missing tables
-  const isTableError = syncErrorMsg.toLowerCase().includes("relation") || syncErrorMsg.toLowerCase().includes("does not exist");
+  // --- ERROR DETECTION LOGIC ---
+  const errorLower = syncErrorMsg.toLowerCase();
+  
+  // 1. Database Table Missing (SQL not run)
+  const isTableError = errorLower.includes("relation") || errorLower.includes("does not exist") || errorLower.includes("42p01");
+  
+  // 2. Auth/Key Error
+  const isAuthError = errorLower.includes("api key") || errorLower.includes("jwt") || errorLower.includes("401");
+  
+  // 3. Generic Network/Paused Error
+  const isNetworkError = errorLower.includes("fetch") || errorLower.includes("network");
 
   return (
     <>
-      {/* PROFESSIONAL STATUS INDICATOR */}
+      {/* STATUS BAR WITH DEBUG INFO */}
       <div 
         onClick={performSync}
-        className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group"
+        className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group max-w-[80vw]"
       >
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
            {isOnline ? <Activity className="w-4 h-4 text-emerald-500 animate-pulse" /> : <CloudOff className="w-4 h-4 text-red-500" />}
         </div>
-        <div className="flex flex-col">
-          <span className={`text-[9px] font-black uppercase tracking-tighter ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
-            {isOnline ? 'System Online' : (isTableError ? 'Database Missing' : 'Offline Mode')}
+        <div className="flex flex-col overflow-hidden">
+          <span className={`text-[9px] font-black uppercase tracking-tighter truncate ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
+            {isOnline ? 'System Online' : (isTableError ? 'Database Missing' : isAuthError ? 'Auth Error' : 'Offline Mode')}
           </span>
-          <span className="text-[8px] text-white/40 uppercase font-bold flex items-center gap-1">
-            {isSyncing ? 'Syncing...' : isOnline ? 'Connected' : 'Tap to Retry'}
-            {isSyncing ? <RefreshCw className="w-2 h-2 animate-spin" /> : isOnline && <CheckCircle className="w-2 h-2 text-emerald-500" />}
+          <span className="text-[8px] text-white/40 uppercase font-bold flex items-center gap-1 truncate w-full">
+             {isSyncing ? 'Syncing...' : (isOnline ? 'Connected' : (syncErrorMsg || 'Check Connection'))}
+             {isSyncing && <RefreshCw className="w-2 h-2 animate-spin" />}
           </span>
         </div>
       </div>
       
-      {/* DB Missing Alert */}
+      {/* TOP ALERTS FOR CRITICAL ERRORS */}
       {!isOnline && isTableError && (
         <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500">
           <Database className="w-3 h-3 inline mr-2" />
-          Critical: Database Tables Not Found. Please run the SQL Setup Script in Supabase SQL Editor.
+          Critical: Tables Missing. Run SQL Setup Script in Supabase.
+        </div>
+      )}
+
+      {!isOnline && !isTableError && syncErrorMsg && (
+        <div className="fixed top-0 left-0 w-full bg-yellow-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500">
+          <AlertTriangle className="w-3 h-3 inline mr-2" />
+          {syncErrorMsg.substring(0, 50)}...
         </div>
       )}
 
