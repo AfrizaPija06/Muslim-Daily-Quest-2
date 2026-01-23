@@ -81,7 +81,12 @@ export const getAvatarSrc = (seedOrId?: string) => {
     return seedOrId;
   }
 
-  // 5. Fallback Terakhir (DiceBear) 
-  // Untuk user lama yang username-nya belum diganti ke ID angka, agar gambar tidak broken.
-  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seedOrId}`;
+  // 5. Fallback Local: Mapping string sembarang (misal username lama) ke salah satu avatar 1-24
+  // Ini menggantikan DiceBear agar semua tampilan menggunakan aset lokal
+  let hash = 0;
+  for (let i = 0; i < seedOrId.length; i++) {
+    hash = seedOrId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = (Math.abs(hash) % 24) + 1;
+  return `/avatars/${index}.png`;
 };

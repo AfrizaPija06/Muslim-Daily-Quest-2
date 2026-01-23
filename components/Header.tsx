@@ -58,7 +58,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = 'https://api.dicebear.com/9.x/adventurer/svg?seed=Fallback';
+    e.currentTarget.src = '/avatars/1.png';
   };
 
   return (
