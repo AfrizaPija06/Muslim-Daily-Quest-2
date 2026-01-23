@@ -15,7 +15,7 @@ export const THEMES = {
     textGold: 'text-yellow-500',
     card: 'glass-card border-emerald-500/20',
     border: 'border-emerald-500/20',
-    buttonPrimary: 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]',
+    buttonPrimary: 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)] text-white',
     inputBg: 'bg-slate-900/50',
     inputBorder: 'border-slate-700 focus:border-emerald-500',
     progressBar: 'from-emerald-600 via-emerald-400 to-yellow-500',
@@ -52,6 +52,32 @@ export const THEMES = {
       trophy: 'text-[#d4af37]',
       home: 'text-[#8a6e3e]',
       mosque: 'text-[#f0e6d2] drop-shadow-[0_0_8px_rgba(212,175,55,0.8)]',
+    }
+  },
+  light: {
+    id: 'light',
+    name: 'Modern Clean',
+    bg: 'bg-[#f8fafc]', // Slate 50
+    bgPatternColor: 'text-slate-200', // Subtle pattern
+    fontMain: 'font-sans',
+    fontDisplay: 'font-sans', // Clean sans-serif everywhere
+    textPrimary: 'text-slate-800',
+    textSecondary: 'text-slate-400',
+    textAccent: 'text-emerald-600',
+    textGold: 'text-amber-500',
+    card: 'bg-white border border-slate-200 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] rounded-2xl',
+    border: 'border-slate-200',
+    buttonPrimary: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20',
+    inputBg: 'bg-white',
+    inputBorder: 'border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
+    progressBar: 'from-emerald-500 to-emerald-600',
+    activeTab: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    inactiveTab: 'text-slate-400 hover:text-slate-600 hover:bg-slate-50',
+    glow: 'shadow-none', // Minimalist, no glow
+    icons: {
+      trophy: 'text-amber-500',
+      home: 'text-emerald-500',
+      mosque: 'text-emerald-700',
     }
   }
 };

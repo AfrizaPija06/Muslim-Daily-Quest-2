@@ -194,7 +194,11 @@ const App: React.FC = () => {
   }, [currentTheme]);
 
   const toggleTheme = () => {
-    setCurrentTheme(prev => prev === 'default' ? 'legends' : 'default');
+    setCurrentTheme(prev => {
+      if (prev === 'default') return 'legends';
+      if (prev === 'legends') return 'light';
+      return 'default';
+    });
   };
 
   const handleLogout = () => {
@@ -307,7 +311,7 @@ const App: React.FC = () => {
           handleLogout={handleLogout} 
           groups={groups} 
           updateGroups={updateGroups} 
-          handleUpdateProfile={handleUpdateProfile} // <-- FIX: Passing the function here
+          handleUpdateProfile={handleUpdateProfile} 
           {...commonProps} 
         />
       )}

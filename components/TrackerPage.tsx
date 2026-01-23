@@ -123,18 +123,18 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
   const MiniLeaderboardTable = ({ title, data, icon, type }: { title: string, data: MiniLeaderboardData[], icon: React.ReactNode, type: 'weekly' | 'monthly' }) => (
     <div className={`${themeStyles.card} rounded-xl overflow-hidden flex flex-col h-full`}>
-      <div className={`p-3 border-b ${themeStyles.border} flex items-center justify-between bg-white/5`}>
-        <h3 className={`${themeStyles.fontDisplay} text-sm font-bold tracking-wider flex items-center gap-2 uppercase`}>
+      <div className={`p-3 border-b ${themeStyles.border} flex items-center justify-between ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+        <h3 className={`${themeStyles.fontDisplay} text-sm font-bold tracking-wider flex items-center gap-2 uppercase ${themeStyles.textPrimary}`}>
           {icon} {title}
         </h3>
       </div>
       <div className="overflow-y-auto max-h-[500px]">
         <table className="w-full text-left">
-          <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : 'divide-slate-800'}`}>
+          <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : (currentTheme === 'light' ? 'divide-slate-100' : 'divide-slate-800')}`}>
             {data.map((user, idx) => {
               const isMe = user.username === currentUser.username;
               return (
-                <tr key={user.username} className={`${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : 'bg-emerald-500/20') : ''} hover:bg-white/5 transition-colors`}>
+                <tr key={user.username} className={`${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}>
                   <td className="px-3 py-3 w-8">
                     <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
                   </td>
@@ -149,7 +149,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                       <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
                     </div>
                   </td>
-                  <td className={`px-3 py-3 text-right text-xs font-bold ${themeStyles.fontDisplay}`}>
+                  <td className={`px-3 py-3 text-right text-xs font-bold ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
                     {type === 'weekly' ? user.points : user.monthlyPoints}
                   </td>
                 </tr>
@@ -186,7 +186,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
            {/* UPDATED: Month Progress Card */}
            <StatCard label={dateStats.label} value={dateStats.value} icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
            
-           <StatCard label="Prayer Points" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
+           <StatCard label="Prayer EXP" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
         </section>
 
@@ -206,8 +206,8 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
           {/* CENTER: Quest Board (Tracker) */}
           <div className="col-span-1 lg:col-span-6 space-y-6">
             <section className={`${themeStyles.card} rounded-xl overflow-hidden`}>
-              <div className={`p-4 border-b ${themeStyles.border} flex justify-between items-center bg-gradient-to-r from-transparent via-white/5 to-transparent`}>
-                <h2 className={`${themeStyles.fontDisplay} text-xl font-bold tracking-wider flex items-center gap-2 uppercase`}>
+              <div className={`p-4 border-b ${themeStyles.border} flex justify-between items-center ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-gradient-to-r from-transparent via-white/5 to-transparent'}`}>
+                <h2 className={`${themeStyles.fontDisplay} ${themeStyles.textPrimary} text-xl font-bold tracking-wider flex items-center gap-2 uppercase`}>
                   {currentTheme === 'legends' ? <Sword className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
                   {currentTheme === 'legends' ? 'Battle Log' : 'Weekly Quest Board'}
                 </h2>
@@ -222,10 +222,10 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                       <th className="px-6 py-4">Day</th>
                       {PRAYER_KEYS.map(k => <th key={k} className="px-2 py-4 text-center">{k.substring(0,3)}</th>)}
                       <th className="px-4 py-4 text-center">Tilawah</th>
-                      <th className="px-4 py-4 text-right">Pts</th>
+                      <th className="px-4 py-4 text-right">EXP</th>
                     </tr>
                   </thead>
-                  <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : 'divide-slate-800'}`}>
+                  <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : (currentTheme === 'light' ? 'divide-slate-100' : 'divide-slate-800')}`}>
                     {data.days.map((day, idx) => {
                       const dayPoints = calculateDayPoints(day);
                       const isToday = new Date().getDay() === (day.id + 1) % 7; 
@@ -296,7 +296,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                 </div>
                 <div className="text-right">
                   <span className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textGold}`}>{totalPoints}</span>
-                  <span className={`text-sm font-bold ml-1 ${themeStyles.textSecondary}`}>/ 735 PTS</span>
+                  <span className={`text-sm font-bold ml-1 ${themeStyles.textSecondary}`}>/ 735 EXP</span>
                 </div>
               </div>
               <div className={`relative h-6 w-full rounded-full border ${themeStyles.border} overflow-hidden ${themeStyles.inputBg} ${themeStyles.glow}`}>

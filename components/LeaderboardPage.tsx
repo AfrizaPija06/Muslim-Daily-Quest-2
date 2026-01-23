@@ -138,6 +138,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     
     setIsProcessing(true);
     try {
+      // 1. Update State Langsung (Optimistic UI Update) agar terlihat cepat
+      setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
+
+      // 2. Update LocalStorage
       const usersStr = localStorage.getItem('nur_quest_users');
       let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
       
@@ -149,14 +153,16 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
       localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
       
-      // Sync to cloud
+      // 3. Sync to cloud (Background process)
       const currentDb = await api.fetchDatabase();
       await api.updateDatabase({ ...currentDb, users: allUsers });
       
+      // 4. Final Reload to ensure consistency
       loadData();
-      alert(`${targetName} berhasil dihapus.`);
+      
     } catch (e) {
       alert("Gagal menghapus user. Cek koneksi internet.");
+      loadData(); // Revert UI if failed
     } finally {
       setIsProcessing(false);
     }
@@ -208,7 +214,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
               const wb = XLSX.utils.book_new();
               XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(menteesData), "Mentees");
               XLSX.writeFile(wb, "Global_Export.xlsx");
-            }} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary}`}>
+            }} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary} text-white`}>
               <Download className="w-4 h-4" /> Export DB
             </button>
           </div>
@@ -221,7 +227,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             { id: 'groups', label: 'Factions', icon: <Flag className="w-4 h-4" /> },
             { id: 'network', label: 'Server Logs', icon: <Terminal className="w-4 h-4" /> }
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? `${themeStyles.textAccent} border-current` : 'text-white/30 border-transparent hover:text-white'}`}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? `${themeStyles.textAccent} border-current` : 'opacity-40 border-transparent hover:opacity-100'}`}>
               {tab.icon} {tab.label} {tab.count ? <span className="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full">{tab.count}</span> : null}
             </button>
           ))}
@@ -237,24 +243,24 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             </section>
             
             <div className={`${themeStyles.card} rounded-3xl overflow-hidden`}>
-              <div className="p-6 border-b border-white/5 bg-white/5">
-                <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
+              <div className={`p-6 border-b ${themeStyles.border} ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+                <h3 className={`font-black text-xs uppercase tracking-widest flex items-center gap-2 ${themeStyles.textPrimary}`}>
                   <Database className="w-4 h-4 text-emerald-500" /> Database: Active Members
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5">
+                    <tr className={`text-[10px] uppercase font-black tracking-widest ${themeStyles.textSecondary} border-b ${themeStyles.border}`}>
                       <th className="px-6 py-4">Rank</th>
                       <th className="px-6 py-4">User Name</th>
                       <th className="px-6 py-4">Group</th>
                       <th className="px-6 py-4">Season Rank</th>
-                      <th className="px-6 py-4 text-right">Points</th>
+                      <th className="px-6 py-4 text-right">EXP</th>
                       <th className="px-6 py-4 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className={`divide-y ${currentTheme === 'light' ? 'divide-slate-100' : 'divide-white/5'}`}>
                     {sortedWeekly.map((m, i) => (
                       <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
                         <td className="px-6 py-4 font-black opacity-30">#{i+1}</td>
@@ -327,7 +333,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                     placeholder="e.g. Salahuddin Al-Ayyubi"
                     className={`rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} min-w-[250px]`}
                   />
-                  <button type="submit" className={`px-4 rounded-xl ${themeStyles.buttonPrimary} flex items-center justify-center`}>
+                  <button type="submit" className={`px-4 rounded-xl ${themeStyles.buttonPrimary} flex items-center justify-center text-white`}>
                     <PlusCircle className="w-5 h-5" />
                   </button>
                 </form>
@@ -337,14 +343,14 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 {groups.map(group => (
                   <div key={group} className={`${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`}>
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg bg-white/5`}>
+                      <div className={`p-2 rounded-lg ${currentTheme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}>
                         <Flag className={`w-4 h-4 ${themeStyles.textAccent}`} />
                       </div>
                       <span className="font-bold text-sm uppercase tracking-wider">{group}</span>
                     </div>
                     <button 
                       onClick={() => handleDeleteGroup(group)}
-                      className="p-2 text-white/20 hover:text-red-500 transition-colors"
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                       title="Disband Faction"
                     >
                       <Trash2 className="w-4 h-4" />
