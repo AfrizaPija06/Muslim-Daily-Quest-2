@@ -91,15 +91,49 @@ class ApiService {
     try {
       // 1. PUSH: If we are logged in, save our latest tracker data to Supabase
       if (currentUser) {
+        const trackerPayload = {
+          username: currentUser.username,
+          weekly_data: localData,
+          last_updated: new Date().toISOString()
+        };
+
         const { error } = await supabase
           .from('app_trackers')
-          .upsert({
-            username: currentUser.username,
-            weekly_data: localData,
-            last_updated: new Date().toISOString()
-          });
+          .upsert(trackerPayload);
         
-        if (error) throw error;
+        if (error) {
+          // CHECK FOR FOREIGN KEY VIOLATION (code 23503)
+          // This happens if the user exists in LocalStorage/Login but NOT in 'app_users' table (e.g. Admin or Fresh DB)
+          if (error.code === '23503') {
+            console.warn("[SUPABASE] User missing in DB (FK Violation). Auto-healing user record...");
+            
+            // 1b. Create the missing user record
+            const { error: userError } = await supabase
+              .from('app_users')
+              .upsert({
+                username: currentUser.username,
+                password: currentUser.password || 'default123', // Fallback
+                full_name: currentUser.fullName,
+                group_name: currentUser.group,
+                role: currentUser.role,
+                status: currentUser.status || 'active'
+              }, { onConflict: 'username' });
+
+            if (userError) throw userError;
+
+            // 1c. Retry the tracker update
+            const { error: retryError } = await supabase
+              .from('app_trackers')
+              .upsert(trackerPayload);
+            
+            if (retryError) throw retryError;
+            
+            console.log("[SUPABASE] Auto-heal successful.");
+          } else {
+            // Real Error
+            throw error;
+          }
+        }
       }
 
       // 2. PULL: Get latest world state
