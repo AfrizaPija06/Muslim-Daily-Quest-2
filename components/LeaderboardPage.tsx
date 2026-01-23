@@ -20,6 +20,7 @@ interface LeaderboardPageProps {
   networkLogs: string[];
   groups: string[];
   updateGroups: (newGroups: string[]) => Promise<void>;
+  handleUpdateProfile?: (user: User) => void; // <-- FIX: Added Prop Type
 }
 
 interface LeaderboardData {
@@ -35,7 +36,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'network' | 'groups'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -141,7 +142,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} />
+      {/* FIX: Passing handleUpdateProfile to Header */}
+      <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

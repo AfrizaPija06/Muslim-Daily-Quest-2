@@ -307,6 +307,7 @@ const App: React.FC = () => {
           handleLogout={handleLogout} 
           groups={groups} 
           updateGroups={updateGroups} 
+          handleUpdateProfile={handleUpdateProfile} // <-- FIX: Passing the function here
           {...commonProps} 
         />
       )}
