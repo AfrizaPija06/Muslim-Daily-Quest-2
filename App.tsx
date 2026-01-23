@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from '.
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { CloudOff, RefreshCw, Activity, CheckCircle } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2 } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
@@ -13,17 +13,19 @@ import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
 
 const App: React.FC = () => {
+  const [isResetting, setIsResetting] = useState(false);
+
   // --- VERSION RESET LOGIC ---
-  // Runs before anything else to ensure clean state for V6
+  // Runs immediately to ensure clean state for V7
   useEffect(() => {
-    const APP_VERSION = 'v6_factory_reset';
+    const APP_VERSION = 'v7_factory_reset';
     const storedVersion = localStorage.getItem('nur_quest_version');
     
     if (storedVersion !== APP_VERSION) {
-      console.warn("New System Version Detected. Performing Factory Reset on Local Data...");
+      console.warn("System Update V7: Purging old data...");
+      setIsResetting(true);
       
-      // Keep Admin Session if active? No, let's clear everything for safety.
-      // Filter and remove only app-related keys
+      // Clear all app specific data
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -36,8 +38,10 @@ const App: React.FC = () => {
       // Set new version
       localStorage.setItem('nur_quest_version', APP_VERSION);
       
-      // Force reload to re-initialize state with empty storage
-      window.location.reload();
+      // Slight delay to ensure storage writes complete before reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     }
   }, []);
 
@@ -66,7 +70,9 @@ const App: React.FC = () => {
   // --- REFACTORED CLOUD SYNC ---
   
   const performSync = useCallback(async () => {
-    if (isSyncing) return;
+    // Block sync if resetting
+    if (isSyncing || isResetting) return;
+    
     setIsSyncing(true);
     addLog("Syncing with Cloud Database...");
     
@@ -108,10 +114,11 @@ const App: React.FC = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [currentUser, data, groups, isSyncing]);
+  }, [currentUser, data, groups, isSyncing, isResetting]);
 
   // Initial Session Load
   useEffect(() => {
+    if (isResetting) return;
     const savedUser = localStorage.getItem('nur_quest_session');
     if (savedUser) {
       const user = JSON.parse(savedUser);
@@ -120,21 +127,22 @@ const App: React.FC = () => {
       const savedData = localStorage.getItem(`ibadah_tracker_${user.username}`);
       if (savedData) setData(JSON.parse(savedData));
     }
-  }, []);
+  }, [isResetting]);
 
   // background polling
   useEffect(() => {
+    if (isResetting) return;
     performSync();
     const interval = setInterval(performSync, 20000);
     return () => clearInterval(interval);
-  }, [performSync]);
+  }, [performSync, isResetting]);
 
   // Push only when current user data changes locally
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !isResetting) {
       localStorage.setItem(`ibadah_tracker_${currentUser.username}`, JSON.stringify(data));
     }
-  }, [data, currentUser]);
+  }, [data, currentUser, isResetting]);
 
   useEffect(() => {
     localStorage.setItem('nur_quest_theme', currentTheme);
@@ -163,7 +171,6 @@ const App: React.FC = () => {
     const trackersStr = localStorage.getItem(`ibadah_tracker_${currentUser?.username}`);
     const trackers = trackersStr ? { [currentUser?.username!]: JSON.parse(trackersStr) } : {};
     
-    // We manually call updateDatabase here to ensure immediate push
     await api.updateDatabase({ 
       users: users, 
       trackers: trackers, 
@@ -190,6 +197,16 @@ const App: React.FC = () => {
     performSync,
     networkLogs
   };
+
+  if (isResetting) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
+        <Loader2 className="w-10 h-10 animate-spin mb-4" />
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Update V7</h2>
+        <p className="text-xs text-white/50 mt-2">Purging cached data for clean install...</p>
+      </div>
+    );
+  }
 
   return (
     <>

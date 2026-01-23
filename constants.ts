@@ -28,8 +28,8 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // PUBLIC CLOUD SYNC CONFIG
-// Menggunakan endpoint v6 untuk koneksi BENAR-BENAR BERSIH (Factory Reset)
-export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v6";
+// Menggunakan endpoint v7 untuk koneksi BENAR-BENAR BERSIH (Factory Reset Phase 2)
+export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v7";
 
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({
