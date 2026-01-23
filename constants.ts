@@ -52,62 +52,68 @@ export const MENTORING_GROUPS = [
 // --- AVATAR SYSTEM CONFIGURATION ---
 
 /* 
-  INSTRUKSI PENTING:
-  Pastikan Anda telah membuat folder "avatars" di dalam folder "public".
-  Struktur folder harus seperti ini:
+  FIX: Menggunakan URL Online agar gambar langsung muncul & tidak hitam.
   
-  /public
-    /avatars
-       Black Boys.png
-       Blue Cool.png
-       ...dst
+  Jika nanti ingin pakai gambar sendiri (Lokal):
+  1. Masukkan file ke folder: public/avatars/
+  2. Ganti url di bawah menjadi: '/avatars/namafile.png'
 */
 
 export const AVAILABLE_AVATARS = [
   { 
     id: 'char_1', 
     name: 'Adventurer', 
-    // PERBAIKAN: Gunakan path '/avatars/...' (Hapus '/public' agar terbaca browser)
-    url: '/avatars/Black Boys.png' 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Felix' 
   },
   { 
     id: 'char_2', 
     name: 'Warrior', 
-    url: '/avatars/Blue Cool.png' 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Aneka' 
   },
   { 
     id: 'char_3', 
     name: 'Mage', 
-    url: '/avatars/Greenew.png' 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Scooter' 
   },
   { 
     id: 'char_4', 
     name: 'Rogue', 
-    url: '/avatars/Red Fire.png' 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Midnight' 
   },
   { 
     id: 'char_5', 
     name: 'Paladin', 
-    url: '/avatars/The Orange.png' 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Bandit' 
   },
   { 
     id: 'char_6', 
     name: 'Cleric', 
-    url: '/avatars/White Bros.png' 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Ginger' 
   },
-  
+  { 
+    id: 'char_7', 
+    name: 'Archer', 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Missy' 
+  },
+  { 
+    id: 'char_8', 
+    name: 'Knight', 
+    url: 'https://api.dicebear.com/9.x/adventurer/svg?seed=Trouble' 
+  },
 ];
 
 export const getAvatarSrc = (seedOrId?: string) => {
   if (!seedOrId) return AVAILABLE_AVATARS[0].url;
   
-  // Cek apakah seed adalah ID dari preset kita
+  // 1. Cek jika seed adalah ID dari daftar AVAILABLE_AVATARS
   const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
   if (found) return found.url;
 
-  // Fallback untuk user lama (backward compatibility) atau jika seed acak
-  // Jika seed diawali '/', asumsikan itu path lokal custom yang mungkin disimpan manual
-  if (seedOrId.startsWith('/')) return seedOrId;
+  // 2. Support URL lengkap atau path lokal (jika user input manual via database)
+  if (seedOrId.startsWith('/') || seedOrId.startsWith('http')) {
+    return seedOrId;
+  }
 
-  return `https://api.dicebear.com/7.x/adventurer/svg?seed=${seedOrId}`;
+  // 3. Fallback ke generator online jika seed tidak dikenali
+  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seedOrId}`;
 };

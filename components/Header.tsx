@@ -57,6 +57,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = 'https://api.dicebear.com/9.x/adventurer/svg?seed=Fallback';
+  };
+
   return (
     <>
       <header className={`sticky top-0 z-50 px-4 py-4 md:px-8 backdrop-blur-md border-b transition-colors duration-500 ${isLegends ? 'bg-[#1a0505]/90 border-[#d4af37]/30' : 'bg-slate-950/80 border-emerald-500/20'}`}>
@@ -68,7 +72,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               title="Edit Profile"
             >
               <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105 bg-black/50`}>
-                 <img src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username)} className="w-full h-full object-cover" alt="Avatar" />
+                 <img 
+                   src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username)} 
+                   onError={handleImageError}
+                   className="w-full h-full object-cover" 
+                   alt="Avatar" 
+                 />
               </div>
               {/* Dynamic Rank Badge */}
               <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
@@ -127,7 +136,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               {/* CURRENT AVATAR & RANK */}
               <div className="flex items-center gap-4 pb-4 border-b border-white/10">
                  <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
-                    <img src={getAvatarSrc(editForm.avatarSeed)} alt="Preview" className="w-full h-full object-cover" />
+                    <img 
+                      src={getAvatarSrc(editForm.avatarSeed)} 
+                      onError={handleImageError}
+                      alt="Preview" 
+                      className="w-full h-full object-cover" 
+                    />
                  </div>
                  <div>
                     <div className={`inline-flex items-center gap-2 px-3 py-1 mb-1 rounded-full border ${currentRank.bg}`}>
@@ -152,7 +166,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                            onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }))}
                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${isSelected ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') : 'border-transparent hover:border-white/30 opacity-70 hover:opacity-100'}`}
                          >
-                           <img src={avatar.url} alt={avatar.name} className="w-full h-full object-cover bg-black/40" />
+                           <img 
+                             src={avatar.url} 
+                             alt={avatar.name} 
+                             onError={handleImageError}
+                             className="w-full h-full object-cover bg-black/40" 
+                           />
                            {isSelected && (
                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                                <Check className="w-6 h-6 text-white drop-shadow-md" />
