@@ -68,7 +68,7 @@ export const AVAILABLE_AVATARS = [
     id: 'char_1', 
     name: 'Adventurer', 
     // PERBAIKAN: Gunakan path relatif root '/' bukan 'https://'
-    url: '/avatars/Black Boys.png' 
+    url: '/public/avatars/Black Boys.png' 
   },
   { 
     id: 'char_2', 
