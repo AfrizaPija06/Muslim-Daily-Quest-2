@@ -6,7 +6,7 @@ import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
-import { User, AppTheme, POINTS, WeeklyData } from '../types';
+import { User, AppTheme, POINTS, WeeklyData, getRankInfo } from '../types';
 import { api } from '../services/ApiService';
 
 interface LeaderboardPageProps {
@@ -29,6 +29,8 @@ interface LeaderboardData {
   group: string;
   points: number;
   monthlyPoints: number; 
+  rankName: string;
+  rankColor: string;
   activeDays: number;
   lastUpdated: string;
   status: string;
@@ -77,12 +79,17 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           });
         }
 
+        const monthlyPoints = points * 4;
+        const rankInfo = getRankInfo(monthlyPoints);
+
         return {
           fullName: displayUser.fullName,
           username: displayUser.username,
           group: displayUser.group,
           points,
-          monthlyPoints: points * 4,
+          monthlyPoints,
+          rankName: rankInfo.name,
+          rankColor: rankInfo.color,
           activeDays,
           lastUpdated: trackerData?.lastUpdated || 'No Data',
           status: 'active',
@@ -239,6 +246,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                       <th className="px-6 py-4">Rank</th>
                       <th className="px-6 py-4">User Name</th>
                       <th className="px-6 py-4">Group</th>
+                      <th className="px-6 py-4">Season Rank</th>
                       <th className="px-6 py-4 text-right">Points</th>
                       <th className="px-6 py-4 text-center">Action</th>
                     </tr>
@@ -255,6 +263,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                           {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">Mentor</span>}
                         </td>
                         <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>
+                            {m.rankName}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
                         <td className="px-6 py-4 text-center">
                           {m.role !== 'mentor' && (
@@ -271,7 +284,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                       </tr>
                     ))}
                     {sortedWeekly.length === 0 && (
-                      <tr><td colSpan={5} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Users Found. Waiting for sync...</td></tr>
+                      <tr><td colSpan={6} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Users Found. Waiting for sync...</td></tr>
                     )}
                   </tbody>
                 </table>

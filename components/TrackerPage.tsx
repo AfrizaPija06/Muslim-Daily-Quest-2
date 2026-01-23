@@ -6,7 +6,7 @@ import Header from './Header';
 import Footer from './Footer';
 import StatCard from './StatCard';
 import PrayerCell from './PrayerCell';
-import { PRAYER_KEYS, PrayerState, WeeklyData, DayData, POINTS, User } from '../types';
+import { PRAYER_KEYS, PrayerState, WeeklyData, DayData, POINTS, User, getRankInfo } from '../types';
 
 interface TrackerPageProps {
   currentUser: any;
@@ -27,6 +27,8 @@ interface MiniLeaderboardData {
   group: string;
   points: number;
   monthlyPoints: number;
+  rankName: string;
+  rankColor: string;
   role: string;
 }
 
@@ -93,12 +95,17 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             });
           }
 
+          const monthlyPts = pts * 4;
+          const rankInfo = getRankInfo(monthlyPts);
+
           return {
             username: displayUser.username,
             fullName: displayUser.fullName,
             group: displayUser.group,
             points: pts,
-            monthlyPoints: pts * 4,
+            monthlyPoints: monthlyPts,
+            rankName: rankInfo.name,
+            rankColor: rankInfo.color,
             role: displayUser.role
           };
         });
@@ -136,7 +143,11 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                       {user.fullName.split(' ')[0]}
                       {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
                     </div>
-                    <div className="text-[9px] opacity-60 uppercase">{user.group}</div>
+                    {/* Rank Indicator */}
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
+                      <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
+                    </div>
                   </td>
                   <td className={`px-3 py-3 text-right text-xs font-bold ${themeStyles.fontDisplay}`}>
                     {type === 'weekly' ? user.points : user.monthlyPoints}

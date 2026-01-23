@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle } from 'lucide-react';
-import { User, AppTheme } from '../types';
+import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle, Trophy } from 'lucide-react';
+import { User, AppTheme, getRankInfo } from '../types';
 import ThemeToggle from './ThemeToggle';
 
 interface HeaderProps {
@@ -17,7 +17,7 @@ interface HeaderProps {
   handleUpdateProfile?: (user: User) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme, performSync, handleUpdateProfile }) => {
+const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme, performSync, handleUpdateProfile, totalPoints }) => {
   const isLegends = currentTheme === 'legends';
   
   // Edit Profile State
@@ -27,6 +27,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     username: '',
     avatarSeed: ''
   });
+
+  // Calculate Season Points (Estimated as Weekly * 4 for this context)
+  const seasonPoints = totalPoints * 4;
+  const currentRank = getRankInfo(seasonPoints);
 
   const openProfileModal = () => {
     if (currentUser) {
@@ -70,14 +74,19 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105`}>
                  <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${currentUser?.avatarSeed || currentUser?.username}`} className="w-full h-full object-cover" alt="Avatar" />
               </div>
-              <div className={`absolute -bottom-1 -right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-tighter ${isLegends ? 'bg-[#d4af37] text-black' : 'bg-yellow-500 text-slate-900'}`}>
-                {currentUser?.role === 'mentor' ? 'ADMIN' : 'LVL 12'}
+              {/* Dynamic Rank Badge */}
+              <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
+                <Trophy className={`w-3 h-3 ${currentRank.color}`} />
+                <span className={`text-[8px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
+                  {currentRank.name}
+                </span>
               </div>
+              
               <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                  <UserCircle className="w-6 h-6 text-white" />
               </div>
             </button>
-            <div>
+            <div className="mt-2 md:mt-0">
               <h1 className={`text-xl md:text-2xl ${themeStyles.fontDisplay} font-bold tracking-wide ${themeStyles.textPrimary}`}>
                 {currentUser?.fullName.split(' ')[0].toUpperCase()}'S {currentUser?.role === 'mentor' ? 'HUB' : 'QUEST'}
               </h1>
@@ -124,9 +133,19 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                  <div className={`w-24 h-24 rounded-full overflow-hidden border-4 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${editForm.avatarSeed}`} alt="Preview" className="w-full h-full object-cover" />
                  </div>
+                 
+                 {/* Current Rank Display in Modal */}
+                 <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${currentRank.bg}`}>
+                    <Trophy className={`w-4 h-4 ${currentRank.color}`} />
+                    <span className={`text-xs font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
+                      {currentRank.name}
+                    </span>
+                 </div>
+                 <p className="text-[10px] opacity-50">Season EXP: {seasonPoints}</p>
+
                  <button 
                    onClick={randomizeAvatar}
-                   className={`text-xs flex items-center gap-2 px-4 py-2 rounded-full ${themeStyles.inputBg} hover:bg-white/10 transition-colors border ${themeStyles.border} ${themeStyles.textSecondary}`}
+                   className={`mt-2 text-xs flex items-center gap-2 px-4 py-2 rounded-full ${themeStyles.inputBg} hover:bg-white/10 transition-colors border ${themeStyles.border} ${themeStyles.textSecondary}`}
                  >
                    <RefreshCcw className="w-3 h-3" /> Randomize Look
                  </button>
