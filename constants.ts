@@ -54,7 +54,7 @@ export const MENTORING_GROUPS = [
 // File harus ada di folder: /public/avatars/
 // Penamaan file: 1.png, 2.png, 3.png, ... s/d 24.png
 
-export const AVAILABLE_AVATARS = Array.from({ length: 24 }, (_, i) => {
+export const AVAILABLE_AVATARS = Array.from({ length: 6 }, (_, i) => {
   const id = String(i + 1);
   return {
     id,
@@ -87,6 +87,6 @@ export const getAvatarSrc = (seedOrId?: string) => {
   for (let i = 0; i < seedOrId.length; i++) {
     hash = seedOrId.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = (Math.abs(hash) % 24) + 1;
+  const index = (Math.abs(hash) % 6) + 1;
   return `/avatars/${index}.png`;
 };
