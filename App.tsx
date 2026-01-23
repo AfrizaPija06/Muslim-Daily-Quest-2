@@ -106,11 +106,12 @@ const App: React.FC = () => {
         }
       } else {
         setIsOnline(false);
-        addLog("Sync completed locally (Network Issue).");
+        // Show specific error if available
+        addLog(`Sync Failed: ${result.errorMessage || "Network Issue"}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       setIsOnline(false);
-      addLog("Sync Failed: Check internet connection.");
+      addLog(`Sync Error: ${e.message || "Unknown"}`);
     } finally {
       setIsSyncing(false);
     }

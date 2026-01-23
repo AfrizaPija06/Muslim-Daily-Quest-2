@@ -1,3 +1,4 @@
+
 import { WeeklyData, User, MENTORING_GROUPS } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
@@ -47,18 +48,13 @@ class ApiService {
 
     } catch (error) {
       console.error("[SUPABASE] Fetch Error:", error);
-      // Fallback to empty if DB connection fails (e.g. invalid keys)
-      return { users: [], trackers: {}, groups: MENTORING_GROUPS };
+      throw error; // Throw error so sync knows it failed
     }
   }
 
   // Update Database (Called during Register or Admin updates)
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
     try {
-      // NOTE: In a real backend, we wouldn't send the WHOLE array.
-      // We would only insert the specific user. 
-      // But to keep 'App.tsx' compatible, we handle the payload logic here.
-
       // We focus on syncing USERS here (for Registration / Approval)
       // Upsert Users
       for (const user of payload.users) {
@@ -89,7 +85,8 @@ class ApiService {
     trackers: Record<string, WeeklyData>,
     groups: string[],
     updatedLocalData?: WeeklyData,
-    success: boolean
+    success: boolean,
+    errorMessage?: string
   }> {
     try {
       // 1. PUSH: If we are logged in, save our latest tracker data to Supabase
@@ -129,10 +126,10 @@ class ApiService {
         success: true 
       };
 
-    } catch (error) {
-      console.error("[SUPABASE] Sync Failed:", error);
+    } catch (error: any) {
+      console.error("[SUPABASE] Sync Failed details:", error);
       return { 
-        users: [], trackers: {}, groups: localGroups, success: false 
+        users: [], trackers: {}, groups: localGroups, success: false, errorMessage: error.message || "Unknown Connection Error"
       };
     }
   }

@@ -2,11 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 
 // --- CONFIGURATION ---
-// Pastikan URL dan Key diapit tanda kutip ("") agar menjadi string yang valid.
 
 const SUPABASE_URL = "https://fymoxcdhskimzxpljjgi.supabase.co";
-// Note: Key biasanya dimulai dengan "eyJh..." (JWT Token). 
-// Jika "sb_publishable..." ini gagal, cek lagi di Dashboard Supabase > Project Settings > API > anon public key.
-const SUPABASE_ANON_KEY = "sb_publishable_vpQxLyLUf2Vj8HL1XilpuQ_y7Qwpf4u";
+
+// PENTING: Key harus diawali dengan "eyJh..." (JWT Token).
+// Copy dari: Project Settings > API > Project API Keys > anon public
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5bW94Y2Roc2tpbXp4cGxqamdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjE5ODUsImV4cCI6MjA4NDczNzk4NX0.xToFicuRXwSH21iE0KM_UomxNFGx_2sPqgc55lHuwos";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
