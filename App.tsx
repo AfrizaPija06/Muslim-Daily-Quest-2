@@ -110,6 +110,58 @@ const App: React.FC = () => {
     }
   }, [currentUser, data, groups, isSyncing, isResetting]);
 
+  // --- UPDATE PROFILE (Edit User) ---
+  const handleUpdateProfile = async (updatedUser: User) => {
+    if (!currentUser) return;
+
+    try {
+      addLog("Updating Profile...");
+      const oldUsername = currentUser.username;
+      const newUsername = updatedUser.username;
+      
+      // 1. Update Current State
+      setCurrentUser(updatedUser);
+      localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
+      
+      // 2. Handle Username Change (Migration)
+      if (oldUsername !== newUsername) {
+        // Move Tracker Data
+        const trackerData = localStorage.getItem(`ibadah_tracker_${oldUsername}`);
+        if (trackerData) {
+          localStorage.setItem(`ibadah_tracker_${newUsername}`, trackerData);
+          // We don't delete old data immediately to be safe, or we can:
+          localStorage.removeItem(`ibadah_tracker_${oldUsername}`);
+        }
+      }
+
+      // 3. Update Local User List
+      const usersStr = localStorage.getItem('nur_quest_users');
+      let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
+      
+      // Remove old entry if username changed (to avoid dupes if ID logic isn't perfect) 
+      // or just update if username is same
+      allUsers = allUsers.filter(u => u.username !== oldUsername && u.username !== newUsername);
+      allUsers.push(updatedUser);
+      
+      localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
+
+      // 4. Push to Cloud
+      // Note: If username changed, this creates a NEW record in DB. Old record becomes zombie.
+      await api.updateDatabase({
+        users: allUsers,
+        trackers: { [newUsername]: data }, // Push current data to new username
+        groups: groups
+      });
+
+      addLog("Profile Updated Successfully.");
+      performSync(); // Trigger sync to finalize
+
+    } catch (e: any) {
+      console.error("Update Profile Failed:", e);
+      addLog(`Update Profile Failed: ${e.message}`);
+    }
+  };
+
   useEffect(() => {
     if (isResetting) return;
     const savedUser = localStorage.getItem('nur_quest_session');
@@ -265,6 +317,7 @@ const App: React.FC = () => {
           data={data}
           setData={setData}
           totalPoints={totalPoints}
+          handleUpdateProfile={handleUpdateProfile}
           {...commonProps}
         />
       )}

@@ -32,7 +32,8 @@ class ApiService {
         password: u.password, // In real app, never send password back! But we keep logic for now.
         group: u.group_name,
         role: u.role as any,
-        status: u.status as any
+        status: u.status as any,
+        avatarSeed: u.avatar_seed || u.username // Fallback to username if seed is missing
       }));
 
       const trackersMap: Record<string, WeeklyData> = {};
@@ -58,16 +59,23 @@ class ApiService {
       // We focus on syncing USERS here (for Registration / Approval)
       // Upsert Users
       for (const user of payload.users) {
+        // Prepare payload, carefully handling optional avatarSeed
+        const userDbPayload: any = {
+          username: user.username,
+          password: user.password,
+          full_name: user.fullName,
+          group_name: user.group,
+          role: user.role,
+          status: user.status
+        };
+
+        if (user.avatarSeed) {
+          userDbPayload.avatar_seed = user.avatarSeed;
+        }
+
         const { error } = await supabase
           .from('app_users')
-          .upsert({
-            username: user.username,
-            password: user.password,
-            full_name: user.fullName,
-            group_name: user.group,
-            role: user.role,
-            status: user.status
-          }, { onConflict: 'username' });
+          .upsert(userDbPayload, { onConflict: 'username' });
         
         if (error) console.error("Error upserting user:", user.username, error);
       }
@@ -103,7 +111,6 @@ class ApiService {
         
         if (error) {
           // CHECK FOR FOREIGN KEY VIOLATION (code 23503)
-          // This happens if the user exists in LocalStorage/Login but NOT in 'app_users' table (e.g. Admin or Fresh DB)
           if (error.code === '23503') {
             console.warn("[SUPABASE] User missing in DB (FK Violation). Auto-healing user record...");
             
@@ -112,11 +119,12 @@ class ApiService {
               .from('app_users')
               .upsert({
                 username: currentUser.username,
-                password: currentUser.password || 'default123', // Fallback
+                password: currentUser.password || 'default123',
                 full_name: currentUser.fullName,
                 group_name: currentUser.group,
                 role: currentUser.role,
-                status: currentUser.status || 'active'
+                status: currentUser.status || 'active',
+                avatar_seed: currentUser.avatarSeed || currentUser.username
               }, { onConflict: 'username' });
 
             if (userError) throw userError;
@@ -162,7 +170,6 @@ class ApiService {
 
     } catch (error: any) {
       console.error("[SUPABASE] Sync Failed details:", error);
-      // PENTING: Ambil pesan error sejelas mungkin
       const msg = error.message || (error.code ? `Code: ${error.code}` : (typeof error === 'object' ? JSON.stringify(error) : String(error)));
       
       return { 

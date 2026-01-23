@@ -18,6 +18,7 @@ interface TrackerPageProps {
   currentTheme: any;
   toggleTheme: () => void;
   totalPoints: number;
+  handleUpdateProfile?: (user: User) => void;
 }
 
 interface MiniLeaderboardData {
@@ -31,7 +32,7 @@ interface MiniLeaderboardData {
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
   currentUser, setView, handleLogout, data, setData, 
-  themeStyles, currentTheme, toggleTheme, totalPoints 
+  themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile
 }) => {
   const [leaderboard, setLeaderboard] = useState<MiniLeaderboardData[]>([]);
 
@@ -45,17 +46,28 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     return prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
   };
 
-  // Fetch Leaderboard Data specifically for Mentee View
+  // Date Statistics Calculation
+  const dateStats = useMemo(() => {
+    const now = new Date();
+    const currentDay = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const monthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
+    
+    return {
+      label: `${monthName} PROGRESS`,
+      value: `${currentDay}/${daysInMonth}`
+    };
+  }, []);
+
+  // Fetch Leaderboard Data
   useEffect(() => {
     const loadLeaderboard = () => {
       const usersStr = localStorage.getItem('nur_quest_users');
       const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
       
-      // MODIFIED: Include mentors in the mini leaderboard
       const processed = allUsers
         .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
         .map(u => {
-          // If current user, use live state 'data', otherwise fetch from localstorage
           let trackerData: WeeklyData | null = null;
           
           if (u.username === currentUser.username) {
@@ -82,7 +94,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             fullName: u.fullName,
             group: u.group,
             points: pts,
-            monthlyPoints: pts * 4, // Simulation for season
+            monthlyPoints: pts * 4,
             role: u.role
           };
         });
@@ -91,7 +103,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     };
 
     loadLeaderboard();
-  }, [data, currentUser.username]); // Update leaderboard when user updates their own data
+  }, [data, currentUser.username]);
 
   const sortedWeekly = useMemo(() => [...leaderboard].sort((a, b) => b.points - a.points).slice(0, 10), [leaderboard]);
   const sortedMonthly = useMemo(() => [...leaderboard].sort((a, b) => b.monthlyPoints - a.monthlyPoints).slice(0, 10), [leaderboard]);
@@ -138,13 +150,25 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative overflow-x-hidden transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <Header currentUser={currentUser} setView={setView} totalPoints={totalPoints} handleLogout={handleLogout} activeView="tracker" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} />
+      <Header 
+        currentUser={currentUser} 
+        setView={setView} 
+        totalPoints={totalPoints} 
+        handleLogout={handleLogout} 
+        activeView="tracker" 
+        themeStyles={themeStyles} 
+        currentTheme={currentTheme} 
+        toggleTheme={toggleTheme} 
+        handleUpdateProfile={handleUpdateProfile}
+      />
 
       <main className="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full space-y-6 pb-24">
         
         {/* Stat Cards (Top) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
-           <StatCard label="Current Streak" value="24/31" icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
+           {/* UPDATED: Month Progress Card */}
+           <StatCard label={dateStats.label} value={dateStats.value} icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
+           
            <StatCard label="Prayer Points" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
         </section>
@@ -152,7 +176,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         {/* 3 Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* LEFT: Weekly Leaderboard (Hidden on small screens, shown on Large) */}
+          {/* LEFT: Weekly Leaderboard */}
           <div className="hidden lg:block lg:col-span-3 sticky top-24">
              <MiniLeaderboardTable 
                 title="Weekly Top" 
@@ -187,7 +211,6 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                   <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : 'divide-slate-800'}`}>
                     {data.days.map((day, idx) => {
                       const dayPoints = calculateDayPoints(day);
-                      // Removed isToday/isLocked logic. All days are editable.
                       const isToday = new Date().getDay() === (day.id + 1) % 7; 
                       
                       return (
@@ -202,11 +225,10 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                             <td key={prayerKey} className="px-1 py-4 text-center">
                                <PrayerCell 
                                   state={day.prayers[prayerKey]} 
-                                  isLocked={false} // ALWAYS UNLOCKED
+                                  isLocked={false} 
                                   themeStyles={themeStyles}
                                   currentTheme={currentTheme}
                                   onClick={() => {
-                                    // Always allow update
                                     setData(prev => {
                                       const newDays = [...prev.days];
                                       const d = { ...newDays[day.id] };
@@ -266,7 +288,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             </section>
           </div>
 
-          {/* RIGHT: Monthly Leaderboard (Hidden on small screens, shown on Large) */}
+          {/* RIGHT: Monthly Leaderboard */}
           <div className="hidden lg:block lg:col-span-3 sticky top-24">
              <MiniLeaderboardTable 
                 title="Season Rank" 
@@ -276,7 +298,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
              />
           </div>
           
-          {/* MOBILE ONLY: Leaderboards Stacked at bottom */}
+          {/* MOBILE ONLY: Leaderboards Stacked */}
           <div className="col-span-1 lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
              <MiniLeaderboardTable 
                 title="Weekly Top" 

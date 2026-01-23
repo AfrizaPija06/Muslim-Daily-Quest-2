@@ -11,6 +11,7 @@ export interface User {
   group: string;
   role: Role;
   status?: UserStatus; // Optional for backward compatibility
+  avatarSeed?: string; // New field for custom avatar
 }
 
 export interface DayData {
