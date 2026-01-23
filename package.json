@@ -15,7 +15,9 @@
     "xlsx": "latest",
     "@supabase/supabase-js": "2.39.0",
     "vite": "^7.3.1",
-    "@vitejs/plugin-react": "^5.1.2"
+    "@vitejs/plugin-react": "^5.1.2",
+    "path": "^0.12.7",
+    "fs": "^0.0.1-security"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
