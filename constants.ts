@@ -52,43 +52,48 @@ export const MENTORING_GROUPS = [
 // --- AVATAR SYSTEM CONFIGURATION ---
 
 /* 
-  INSTRUKSI GANTI GAMBAR SENDIRI (LOCAL ASSETS):
-  1. Buat folder bernama "avatars" di dalam folder "public" project Anda.
-  2. Masukkan file gambar (png/jpg) ke sana. Contoh: "warrior.png".
-  3. Ubah 'url' di bawah ini menjadi: '/avatars/warrior.png'.
+  INSTRUKSI PENTING:
+  Pastikan Anda telah membuat folder "avatars" di dalam folder "public".
+  Struktur folder harus seperti ini:
+  
+  /public
+    /avatars
+       Black Boys.png
+       Blue Cool.png
+       ...dst
 */
 
 export const AVAILABLE_AVATARS = [
   { 
     id: 'char_1', 
     name: 'Adventurer', 
-    url: 'https://avatars/Black Boys.png' 
-    // Ganti jadi: '/avatars/adventurer.png' jika sudah ada file
+    // PERBAIKAN: Gunakan path relatif root '/' bukan 'https://'
+    url: '/avatars/Black Boys.png' 
   },
   { 
     id: 'char_2', 
     name: 'Warrior', 
-    url: 'https://avatars/Blue Cool.png' 
+    url: '/avatars/Blue Cool.png' 
   },
   { 
     id: 'char_3', 
     name: 'Mage', 
-    url: 'https://avatars/Greenew.png' 
+    url: '/avatars/Greenew.png' 
   },
   { 
     id: 'char_4', 
     name: 'Rogue', 
-    url: 'https://avatars/Red Fire.png' 
+    url: '/avatars/Red Fire.png' 
   },
   { 
     id: 'char_5', 
     name: 'Paladin', 
-    url: 'https://avatars/The Orange.png' 
+    url: '/avatars/The Orange.png' 
   },
   { 
     id: 'char_6', 
     name: 'Cleric', 
-    url: 'https://avatars/White Bros.png' 
+    url: '/avatars/White Bros.png' 
   },
   
 ];
