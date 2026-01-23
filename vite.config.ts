@@ -4,19 +4,35 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 
-// Plugin khusus untuk membuat file _redirects otomatis setelah build selesai
-// Ini mengatasi masalah kegagalan pembuatan file manual
-const generateRedirects = () => {
+// Plugin untuk membuat fallback SPA (Single Page Application)
+// Kita menggunakan strategi "404.html" alih-alih "_redirects"
+// karena Cloudflare mendeteksi "/* /index.html 200" sebagai infinite loop pada setup tertentu.
+// Dengan menyalin index.html ke 404.html, Cloudflare akan menyajikan aplikasi React
+// saat route tidak ditemukan, memungkinkan routing sisi klien bekerja normal.
+const generateSpaFallback = () => {
   return {
-    name: 'generate-redirects',
+    name: 'generate-spa-fallback',
     closeBundle() {
-      const redirectContent = '/* /index.html 200';
-      const outputPath = path.resolve(__dirname, 'dist', '_redirects');
+      const indexHtmlPath = path.resolve(__dirname, 'dist', 'index.html');
+      const fourOhFourPath = path.resolve(__dirname, 'dist', '404.html');
+      const redirectsPath = path.resolve(__dirname, 'dist', '_redirects');
+
       try {
-        fs.writeFileSync(outputPath, redirectContent);
-        console.log(`✓ Successfully generated _redirects for Cloudflare at ${outputPath}`);
+        // 1. Copy index.html -> 404.html
+        if (fs.existsSync(indexHtmlPath)) {
+          fs.copyFileSync(indexHtmlPath, fourOhFourPath);
+          console.log(`✓ Successfully generated 404.html for Cloudflare SPA fallback`);
+        } else {
+          console.error('index.html not found, cannot generate 404.html');
+        }
+
+        // 2. Hapus _redirects jika ada (untuk mencegah error validasi Cloudflare)
+        if (fs.existsSync(redirectsPath)) {
+          fs.unlinkSync(redirectsPath);
+          console.log('✓ Removed problematic _redirects file to prevent validation errors');
+        }
       } catch (error) {
-        console.error('Failed to generate _redirects:', error);
+        console.error('Failed to generate SPA fallback:', error);
       }
     }
   };
@@ -24,7 +40,7 @@ const generateRedirects = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), generateRedirects()],
+  plugins: [react(), generateSpaFallback()],
   base: '/', 
   build: {
     outDir: 'dist',
