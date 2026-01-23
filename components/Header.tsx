@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle, Trophy } from 'lucide-react';
+import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle, Trophy, Check } from 'lucide-react';
 import { User, AppTheme, getRankInfo } from '../types';
+import { AVAILABLE_AVATARS, getAvatarSrc } from '../constants';
 import ThemeToggle from './ThemeToggle';
 
 interface HeaderProps {
@@ -56,11 +57,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     }
   };
 
-  const randomizeAvatar = () => {
-    const randomSeed = Math.random().toString(36).substring(7);
-    setEditForm(prev => ({ ...prev, avatarSeed: randomSeed }));
-  };
-
   return (
     <>
       <header className={`sticky top-0 z-50 px-4 py-4 md:px-8 backdrop-blur-md border-b transition-colors duration-500 ${isLegends ? 'bg-[#1a0505]/90 border-[#d4af37]/30' : 'bg-slate-950/80 border-emerald-500/20'}`}>
@@ -71,8 +67,8 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               className="relative group focus:outline-none"
               title="Edit Profile"
             >
-              <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105`}>
-                 <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${currentUser?.avatarSeed || currentUser?.username}`} className="w-full h-full object-cover" alt="Avatar" />
+              <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105 bg-black/50`}>
+                 <img src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username)} className="w-full h-full object-cover" alt="Avatar" />
               </div>
               {/* Dynamic Rank Badge */}
               <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
@@ -117,38 +113,55 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
 
       {/* EDIT PROFILE MODAL */}
       {isEditingProfile && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative animate-in zoom-in-95`}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative animate-in zoom-in-95 my-auto`}>
             <button onClick={() => setIsEditingProfile(false)} className="absolute top-4 right-4 text-white/50 hover:text-white">
               <X className="w-6 h-6" />
             </button>
             
-            <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase mb-6 flex items-center gap-2 ${themeStyles.textPrimary}`}>
+            <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase mb-4 flex items-center gap-2 ${themeStyles.textPrimary}`}>
               <UserCircle className={themeStyles.textAccent} /> Edit Profile
             </h3>
 
             <div className="space-y-4">
-              {/* Avatar Preview & Randomizer */}
-              <div className="flex flex-col items-center gap-3 pb-4 border-b border-white/10">
-                 <div className={`w-24 h-24 rounded-full overflow-hidden border-4 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
-                    <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${editForm.avatarSeed}`} alt="Preview" className="w-full h-full object-cover" />
+              {/* CURRENT AVATAR & RANK */}
+              <div className="flex items-center gap-4 pb-4 border-b border-white/10">
+                 <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
+                    <img src={getAvatarSrc(editForm.avatarSeed)} alt="Preview" className="w-full h-full object-cover" />
                  </div>
-                 
-                 {/* Current Rank Display in Modal */}
-                 <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${currentRank.bg}`}>
-                    <Trophy className={`w-4 h-4 ${currentRank.color}`} />
-                    <span className={`text-xs font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
-                      {currentRank.name}
-                    </span>
+                 <div>
+                    <div className={`inline-flex items-center gap-2 px-3 py-1 mb-1 rounded-full border ${currentRank.bg}`}>
+                      <Trophy className={`w-3 h-3 ${currentRank.color}`} />
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
+                        {currentRank.name}
+                      </span>
+                   </div>
+                   <p className="text-[10px] opacity-50">Season EXP: {seasonPoints}</p>
                  </div>
-                 <p className="text-[10px] opacity-50">Season EXP: {seasonPoints}</p>
+              </div>
 
-                 <button 
-                   onClick={randomizeAvatar}
-                   className={`mt-2 text-xs flex items-center gap-2 px-4 py-2 rounded-full ${themeStyles.inputBg} hover:bg-white/10 transition-colors border ${themeStyles.border} ${themeStyles.textSecondary}`}
-                 >
-                   <RefreshCcw className="w-3 h-3" /> Randomize Look
-                 </button>
+              {/* CHARACTER SELECTION GRID */}
+              <div className="space-y-2">
+                 <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar</label>
+                 <div className="grid grid-cols-4 gap-2">
+                    {AVAILABLE_AVATARS.map((avatar) => {
+                       const isSelected = editForm.avatarSeed === avatar.id;
+                       return (
+                         <button 
+                           key={avatar.id}
+                           onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }))}
+                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${isSelected ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') : 'border-transparent hover:border-white/30 opacity-70 hover:opacity-100'}`}
+                         >
+                           <img src={avatar.url} alt={avatar.name} className="w-full h-full object-cover bg-black/40" />
+                           {isSelected && (
+                             <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                               <Check className="w-6 h-6 text-white drop-shadow-md" />
+                             </div>
+                           )}
+                         </button>
+                       );
+                    })}
+                 </div>
               </div>
 
               <div className="space-y-2">

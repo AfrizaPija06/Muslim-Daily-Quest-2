@@ -28,7 +28,6 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // PUBLIC CLOUD SYNC CONFIG
-// Menggunakan endpoint v7 untuk koneksi BENAR-BENAR BERSIH (Factory Reset Phase 2)
 export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v7";
 
 export const INITIAL_DATA: WeeklyData = {
@@ -49,3 +48,61 @@ export const MENTORING_GROUPS = [
   'Thariq bin Ziyad', 
   'Umar bin Khattab'
 ];
+
+// --- AVATAR SYSTEM CONFIGURATION ---
+
+/* 
+  INSTRUKSI GANTI GAMBAR SENDIRI (LOCAL ASSETS):
+  1. Buat folder bernama "avatars" di dalam folder "public" project Anda.
+  2. Masukkan file gambar (png/jpg) ke sana. Contoh: "warrior.png".
+  3. Ubah 'url' di bawah ini menjadi: '/avatars/warrior.png'.
+*/
+
+export const AVAILABLE_AVATARS = [
+  { 
+    id: 'char_1', 
+    name: 'Adventurer', 
+    url: 'https://avatars/Black Boys.png' 
+    // Ganti jadi: '/avatars/adventurer.png' jika sudah ada file
+  },
+  { 
+    id: 'char_2', 
+    name: 'Warrior', 
+    url: 'https://avatars/Blue Cool.png' 
+  },
+  { 
+    id: 'char_3', 
+    name: 'Mage', 
+    url: 'https://avatars/Greenew.png' 
+  },
+  { 
+    id: 'char_4', 
+    name: 'Rogue', 
+    url: 'https://avatars/Red Fire.png' 
+  },
+  { 
+    id: 'char_5', 
+    name: 'Paladin', 
+    url: 'https://avatars/The Orange.png' 
+  },
+  { 
+    id: 'char_6', 
+    name: 'Cleric', 
+    url: 'https://avatars/White Bros.png' 
+  },
+  
+];
+
+export const getAvatarSrc = (seedOrId?: string) => {
+  if (!seedOrId) return AVAILABLE_AVATARS[0].url;
+  
+  // Cek apakah seed adalah ID dari preset kita
+  const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
+  if (found) return found.url;
+
+  // Fallback untuk user lama (backward compatibility) atau jika seed acak
+  // Jika seed diawali '/', asumsikan itu path lokal custom yang mungkin disimpan manual
+  if (seedOrId.startsWith('/')) return seedOrId;
+
+  return `https://api.dicebear.com/7.x/adventurer/svg?seed=${seedOrId}`;
+};

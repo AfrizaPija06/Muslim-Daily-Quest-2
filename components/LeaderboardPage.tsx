@@ -7,6 +7,7 @@ import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
 import { User, AppTheme, POINTS, WeeklyData, getRankInfo } from '../types';
+import { getAvatarSrc } from '../constants';
 import { api } from '../services/ApiService';
 
 interface LeaderboardPageProps {
@@ -26,6 +27,7 @@ interface LeaderboardPageProps {
 interface LeaderboardData {
   fullName: string;
   username: string;
+  avatarSeed?: string;
   group: string;
   points: number;
   monthlyPoints: number; 
@@ -85,6 +87,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         return {
           fullName: displayUser.fullName,
           username: displayUser.username,
+          avatarSeed: displayUser.avatarSeed,
           group: displayUser.group,
           points,
           monthlyPoints,
@@ -256,8 +259,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                       <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
                         <td className="px-6 py-4 font-black opacity-30">#{i+1}</td>
                         <td className="px-6 py-4 font-bold flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
-                             <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${m.username}`} alt="av" className="w-full h-full object-cover" />
+                          <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50">
+                             <img src={getAvatarSrc(m.avatarSeed || m.username)} alt="av" className="w-full h-full object-cover" />
                           </div>
                           {m.fullName}
                           {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">Mentor</span>}
