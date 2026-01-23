@@ -1,106 +1,89 @@
-
-import { CLOUD_SYNC_URL } from '../constants';
 import { WeeklyData, User, MENTORING_GROUPS } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 /**
- * ApiService - Simulating a real Backend API Client
- * Optimized for Public KV Workers using Simple Requests to avoid CORS issues.
+ * ApiService - Real Backend Implementation using Supabase
+ * Replaces the old KV-Worker logic with direct Database calls.
  */
 class ApiService {
-  private url: string;
-
-  constructor(endpoint: string) {
-    this.url = endpoint;
-  }
-
-  // Helper to safely parse JSON
-  private safeParse(text: string) {
-    try {
-      return text && text.trim() ? JSON.parse(text) : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // GET: Fetch all data from the "Server"
-  // Uses retry logic for stability
+  
+  // Fetch all data (Users & Trackers)
   async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
-    const fallbackData = { 
-      users: JSON.parse(localStorage.getItem('nur_quest_users') || '[]'), 
-      trackers: {}, 
-      groups: JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS)) 
-    };
-
-    // Retry up to 3 times
-    for (let i = 0; i < 3; i++) {
-      try {
-        // Standard GET request. We expect the public worker to handle CORS for GET correctly.
-        const response = await fetch(this.url, { method: 'GET' });
-        
-        if (response.status === 404) {
-          return { users: [], trackers: {}, groups: [] };
-        }
-        
-        if (response.ok) {
-          const text = await response.text();
-          const data = this.safeParse(text);
-          if (data) return data;
-        }
-      } catch (error) {
-        console.warn(`[API] Fetch Attempt ${i+1} failed:`, error);
-        await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Exponential backoff
-      }
-    }
-
-    console.warn("[API] All fetch attempts failed. Using local fallback.");
-    return fallbackData;
-  }
-
-  // POST: Update the "Server" state
-  // Implements a Fallback Strategy for CORS/Network issues
-  async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
-    const body = JSON.stringify(payload);
-    
     try {
-      // Attempt 1: Standard Simple Request
-      // We rely on the browser to send text/plain which avoids preflight
-      const response = await fetch(this.url, {
-        method: 'POST',
-        body: body,
-        keepalive: true // Helps with unstable connections
+      // 1. Get All Users
+      const { data: usersData, error: userError } = await supabase
+        .from('app_users')
+        .select('*');
+
+      if (userError) throw userError;
+
+      // 2. Get All Trackers
+      const { data: trackersData, error: trackerError } = await supabase
+        .from('app_trackers')
+        .select('*');
+
+      if (trackerError) throw trackerError;
+
+      // 3. Format Data to match app structure
+      const formattedUsers: User[] = usersData.map((u: any) => ({
+        fullName: u.full_name,
+        username: u.username,
+        password: u.password, // In real app, never send password back! But we keep logic for now.
+        group: u.group_name,
+        role: u.role as any,
+        status: u.status as any
+      }));
+
+      const trackersMap: Record<string, WeeklyData> = {};
+      trackersData.forEach((t: any) => {
+        trackersMap[t.username] = t.weekly_data;
       });
-      return response.ok;
+
+      // We still use local storage for groups config for simplicity, 
+      // or we could add a table 'app_config' later.
+      const groups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
+
+      return { users: formattedUsers, trackers: trackersMap, groups };
+
     } catch (error) {
-      console.warn("[API] Standard Push failed, trying no-cors fallback...", error);
-      
-      try {
-        // Attempt 2: Fire-and-forget (no-cors)
-        // If the server processes the request but fails to return proper CORS headers, 
-        // the browser throws a 'Failed to fetch' error in standard mode.
-        // 'no-cors' allows sending the data even if we can't read the response.
-        await fetch(this.url, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: body,
-          keepalive: true
-        });
-        
-        // We assume success if no network error occurred
-        return true; 
-      } catch (finalError) {
-        console.error("[API] All Push attempts failed:", finalError);
-        return false;
-      }
+      console.error("[SUPABASE] Fetch Error:", error);
+      // Fallback to empty if DB connection fails (e.g. invalid keys)
+      return { users: [], trackers: {}, groups: MENTORING_GROUPS };
     }
   }
 
-  /**
-   * Smart Sync Logic:
-   * 1. Fetches latest Cloud Data.
-   * 2. Merges Local Data into Cloud Data.
-   * 3. Pushes merged result back to Cloud.
-   * This reduces Race Conditions (overwriting other people's data).
-   */
+  // Update Database (Called during Register or Admin updates)
+  async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
+    try {
+      // NOTE: In a real backend, we wouldn't send the WHOLE array.
+      // We would only insert the specific user. 
+      // But to keep 'App.tsx' compatible, we handle the payload logic here.
+
+      // We focus on syncing USERS here (for Registration / Approval)
+      // Upsert Users
+      for (const user of payload.users) {
+        const { error } = await supabase
+          .from('app_users')
+          .upsert({
+            username: user.username,
+            password: user.password,
+            full_name: user.fullName,
+            group_name: user.group,
+            role: user.role,
+            status: user.status
+          }, { onConflict: 'username' });
+        
+        if (error) console.error("Error upserting user:", user.username, error);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("[SUPABASE] Update DB Error:", error);
+      return false;
+    }
+  }
+
+  // Sync Logic (Called periodically by App.tsx)
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
     trackers: Record<string, WeeklyData>,
@@ -109,73 +92,50 @@ class ApiService {
     success: boolean
   }> {
     try {
-      // 1. READ (Latest state from server)
+      // 1. PUSH: If we are logged in, save our latest tracker data to Supabase
+      if (currentUser) {
+        const { error } = await supabase
+          .from('app_trackers')
+          .upsert({
+            username: currentUser.username,
+            weekly_data: localData,
+            last_updated: new Date().toISOString()
+          });
+        
+        if (error) throw error;
+      }
+
+      // 2. PULL: Get latest world state
       const db = await this.fetchDatabase();
       
-      // Initialize if empty
-      const cloudTrackers = db.trackers || {};
-      const cloudUsers = db.users || [];
-      const cloudGroups = (db.groups && db.groups.length > 0) ? db.groups : localGroups;
-
-      let hasChanges = false;
-
-      // 2. MERGE: Local Users -> Cloud Users
-      // If we registered offline, our user might be missing from cloud. Add it.
-      const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-      localUsers.forEach((lUser: User) => {
-        if (!cloudUsers.some(cUser => cUser.username === lUser.username)) {
-          cloudUsers.push(lUser);
-          hasChanges = true;
-        }
-      });
-
-      // 3. MERGE: Local Tracker -> Cloud Tracker
+      // 3. CHECK: Do we have newer data from server for current user?
       let updatedLocalData: WeeklyData | undefined = undefined;
-      
-      if (currentUser) {
-        const cloudTracker = cloudTrackers[currentUser.username];
-        
-        // Strategy: Last Write Wins based on 'lastUpdated' timestamp
-        const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
-        const localTime = localData?.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
+      if (currentUser && db.trackers[currentUser.username]) {
+        const cloudTracker = db.trackers[currentUser.username];
+        const cloudTime = cloudTracker.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
+        const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
 
+        // If Cloud is significantly newer (avoid loop), use cloud
         if (cloudTime > localTime) {
-          // Cloud is newer, pull it down
           updatedLocalData = cloudTracker;
-        } else if (localTime > cloudTime || !cloudTracker) {
-          // Local is newer (or cloud is empty), push it up
-          cloudTrackers[currentUser.username] = localData;
-          hasChanges = true;
         }
-      } else {
-        // If not logged in but just syncing (e.g. initial load), check if we need to init structure
-        if (!db.users) hasChanges = true; 
       }
 
-      // 4. WRITE (If changes detected)
-      if (hasChanges) {
-         const pushSuccess = await this.updateDatabase({ 
-           users: cloudUsers, 
-           trackers: cloudTrackers, 
-           groups: cloudGroups 
-         });
-         
-         if (!pushSuccess) {
-           return { users: cloudUsers, trackers: cloudTrackers, groups: cloudGroups, updatedLocalData, success: false };
-         }
-      }
-
-      return { users: cloudUsers, trackers: cloudTrackers, groups: cloudGroups, updatedLocalData, success: true };
-    } catch (e) {
-      console.error("Sync Critical Fail", e);
       return { 
-        users: JSON.parse(localStorage.getItem('nur_quest_users') || '[]'), 
-        trackers: {}, 
-        groups: localGroups, 
-        success: false 
+        users: db.users, 
+        trackers: db.trackers, 
+        groups: db.groups, 
+        updatedLocalData, 
+        success: true 
+      };
+
+    } catch (error) {
+      console.error("[SUPABASE] Sync Failed:", error);
+      return { 
+        users: [], trackers: {}, groups: localGroups, success: false 
       };
     }
   }
 }
 
-export const api = new ApiService(CLOUD_SYNC_URL);
+export const api = new ApiService();
