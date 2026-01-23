@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -38,6 +39,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'network' | 'groups'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [copied, setCopied] = useState(false);
   
   // Group Management State
   const [newGroupName, setNewGroupName] = useState('');
@@ -124,6 +126,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     }
   };
 
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.origin);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
 
   return (
@@ -137,15 +145,20 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
               <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Backend Admin
             </h2>
-            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Production Environment • ID: NUR_QUEST_PROD_01</p>
+            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Production Environment • ID: NUR_QUEST_PROD_V4</p>
           </div>
-          <button onClick={() => {
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(menteesData), "Mentees");
-            XLSX.writeFile(wb, "Global_Export.xlsx");
-          }} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary}`}>
-            <Download className="w-4 h-4" /> Export DB
-          </button>
+          <div className="flex gap-2">
+            <button onClick={copyLink} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all border ${themeStyles.border} ${themeStyles.inputBg} hover:bg-white/10`}>
+              {copied ? <ShieldCheck className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />} {copied ? 'Link Copied!' : 'Share App'}
+            </button>
+            <button onClick={() => {
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(menteesData), "Mentees");
+              XLSX.writeFile(wb, "Global_Export.xlsx");
+            }} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary}`}>
+              <Download className="w-4 h-4" /> Export DB
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
@@ -194,6 +207,9 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                       <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
                     </tr>
                   ))}
+                  {sortedWeekly.length === 0 && (
+                    <tr><td colSpan={4} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Mentees Found. Waiting for sync...</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

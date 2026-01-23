@@ -28,8 +28,8 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // PUBLIC CLOUD SYNC CONFIG
-// Menggunakan endpoint v3 untuk sesi baru yang bersih
-export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v3";
+// Menggunakan endpoint v5 untuk koneksi fresh
+export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v5";
 
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({

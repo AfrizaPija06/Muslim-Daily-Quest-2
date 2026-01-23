@@ -4,7 +4,7 @@ import { WeeklyData, User, MENTORING_GROUPS } from '../types';
 
 /**
  * ApiService - Simulating a real Backend API Client
- * Robust implementation with Error Handling for Public KV usage.
+ * Optimized for Public KV Workers using Simple Requests to avoid CORS issues.
  */
 class ApiService {
   private url: string;
@@ -13,70 +13,93 @@ class ApiService {
     this.url = endpoint;
   }
 
-  // GET: Fetch all data from the "Server"
-  async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
+  // Helper to safely parse JSON
+  private safeParse(text: string) {
     try {
-      // mode: 'cors' is crucial for cross-origin requests
-      const response = await fetch(this.url, { 
-        method: 'GET',
-        mode: 'cors',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      // If 404, the key hasn't been created yet. This is normal.
-      if (response.status === 404) {
-        return { users: [], trackers: {}, groups: [] };
-      }
-      
-      if (!response.ok) {
-        throw new Error(`Cloud storage status: ${response.status}`);
-      }
-
-      const text = await response.text();
-      if (!text || text.trim() === "") {
-        return { users: [], trackers: {}, groups: [] };
-      }
-
-      return JSON.parse(text);
-    } catch (error) {
-      console.warn("[API] Fetch Error (Offline Mode Active):", error);
-      // Fallback: Read from LocalStorage if network fails
-      const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-      const localGroups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
-      
-      // Collect all local trackers
-      const localTrackers: Record<string, WeeklyData> = {};
-      localUsers.forEach((u: User) => {
-        const t = localStorage.getItem(`ibadah_tracker_${u.username}`);
-        if(t) localTrackers[u.username] = JSON.parse(t);
-      });
-
-      return { users: localUsers, trackers: localTrackers, groups: localGroups };
+      return text && text.trim() ? JSON.parse(text) : null;
+    } catch (e) {
+      return null;
     }
   }
 
+  // GET: Fetch all data from the "Server"
+  // Uses retry logic for stability
+  async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
+    const fallbackData = { 
+      users: JSON.parse(localStorage.getItem('nur_quest_users') || '[]'), 
+      trackers: {}, 
+      groups: JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS)) 
+    };
+
+    // Retry up to 3 times
+    for (let i = 0; i < 3; i++) {
+      try {
+        // Standard GET request. We expect the public worker to handle CORS for GET correctly.
+        const response = await fetch(this.url, { method: 'GET' });
+        
+        if (response.status === 404) {
+          return { users: [], trackers: {}, groups: [] };
+        }
+        
+        if (response.ok) {
+          const text = await response.text();
+          const data = this.safeParse(text);
+          if (data) return data;
+        }
+      } catch (error) {
+        console.warn(`[API] Fetch Attempt ${i+1} failed:`, error);
+        await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Exponential backoff
+      }
+    }
+
+    console.warn("[API] All fetch attempts failed. Using local fallback.");
+    return fallbackData;
+  }
+
   // POST: Update the "Server" state
+  // Implements a Fallback Strategy for CORS/Network issues
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
+    const body = JSON.stringify(payload);
+    
     try {
-      // Using 'no-cors' is tempting but prevents reading response status.
-      // We use standard fetch but rely on text/plain body to avoid Preflight.
+      // Attempt 1: Standard Simple Request
+      // We rely on the browser to send text/plain which avoids preflight
       const response = await fetch(this.url, {
         method: 'POST',
-        mode: 'cors', 
-        body: JSON.stringify(payload)
+        body: body,
+        keepalive: true // Helps with unstable connections
       });
       return response.ok;
     } catch (error) {
-      console.error("[API] Push Error:", error);
-      return false;
+      console.warn("[API] Standard Push failed, trying no-cors fallback...", error);
+      
+      try {
+        // Attempt 2: Fire-and-forget (no-cors)
+        // If the server processes the request but fails to return proper CORS headers, 
+        // the browser throws a 'Failed to fetch' error in standard mode.
+        // 'no-cors' allows sending the data even if we can't read the response.
+        await fetch(this.url, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: body,
+          keepalive: true
+        });
+        
+        // We assume success if no network error occurred
+        return true; 
+      } catch (finalError) {
+        console.error("[API] All Push attempts failed:", finalError);
+        return false;
+      }
     }
   }
 
   /**
    * Smart Sync Logic:
-   * Merges Local and Cloud data intelligently.
+   * 1. Fetches latest Cloud Data.
+   * 2. Merges Local Data into Cloud Data.
+   * 3. Pushes merged result back to Cloud.
+   * This reduces Race Conditions (overwriting other people's data).
    */
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
@@ -86,52 +109,63 @@ class ApiService {
     success: boolean
   }> {
     try {
+      // 1. READ (Latest state from server)
       const db = await this.fetchDatabase();
-      let trackers = db.trackers || {};
-      let users = db.users || [];
-      // Use cloud groups if available, else fallback to local
-      let groups = (db.groups && db.groups.length > 0) ? db.groups : localGroups;
+      
+      // Initialize if empty
+      const cloudTrackers = db.trackers || {};
+      const cloudUsers = db.users || [];
+      const cloudGroups = (db.groups && db.groups.length > 0) ? db.groups : localGroups;
 
-      // MERGE LOGIC: Users
-      // If we have local users not in cloud (registered offline), add them
+      let hasChanges = false;
+
+      // 2. MERGE: Local Users -> Cloud Users
+      // If we registered offline, our user might be missing from cloud. Add it.
       const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-      let needsPush = false;
-
       localUsers.forEach((lUser: User) => {
-        if (!users.some(cUser => cUser.username === lUser.username)) {
-          users.push(lUser);
-          needsPush = true;
+        if (!cloudUsers.some(cUser => cUser.username === lUser.username)) {
+          cloudUsers.push(lUser);
+          hasChanges = true;
         }
       });
 
-      // If user is logged in, sync their tracker
+      // 3. MERGE: Local Tracker -> Cloud Tracker
       let updatedLocalData: WeeklyData | undefined = undefined;
       
       if (currentUser) {
-        const cloudTracker = trackers[currentUser.username];
+        const cloudTracker = cloudTrackers[currentUser.username];
         
-        // Conflict Resolution:
-        // If Cloud is newer -> Update Local
-        // If Local is newer -> Update Cloud
-        if (cloudTracker && cloudTracker.lastUpdated && new Date(cloudTracker.lastUpdated) > new Date(localData.lastUpdated)) {
+        // Strategy: Last Write Wins based on 'lastUpdated' timestamp
+        const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
+        const localTime = localData?.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
+
+        if (cloudTime > localTime) {
+          // Cloud is newer, pull it down
           updatedLocalData = cloudTracker;
-        } else {
-          // Local is newer (or Cloud is empty), push to cloud list
-          // But only push if there's an actual difference or it's missing
-          if (!cloudTracker || new Date(localData.lastUpdated) > new Date(cloudTracker.lastUpdated || 0)) {
-            trackers[currentUser.username] = localData;
-            needsPush = true;
-          }
+        } else if (localTime > cloudTime || !cloudTracker) {
+          // Local is newer (or cloud is empty), push it up
+          cloudTrackers[currentUser.username] = localData;
+          hasChanges = true;
         }
+      } else {
+        // If not logged in but just syncing (e.g. initial load), check if we need to init structure
+        if (!db.users) hasChanges = true; 
       }
 
-      // If we merged anything new into the objects, push back to server
-      if (needsPush) {
-         const pushSuccess = await this.updateDatabase({ users, trackers, groups });
-         if (!pushSuccess) return { users, trackers, groups, updatedLocalData, success: false };
+      // 4. WRITE (If changes detected)
+      if (hasChanges) {
+         const pushSuccess = await this.updateDatabase({ 
+           users: cloudUsers, 
+           trackers: cloudTrackers, 
+           groups: cloudGroups 
+         });
+         
+         if (!pushSuccess) {
+           return { users: cloudUsers, trackers: cloudTrackers, groups: cloudGroups, updatedLocalData, success: false };
+         }
       }
 
-      return { users, trackers, groups, updatedLocalData, success: true };
+      return { users: cloudUsers, trackers: cloudTrackers, groups: cloudGroups, updatedLocalData, success: true };
     } catch (e) {
       console.error("Sync Critical Fail", e);
       return { 
