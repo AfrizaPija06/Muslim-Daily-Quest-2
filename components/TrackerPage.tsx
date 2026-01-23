@@ -38,6 +38,12 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 }) => {
   const [leaderboard, setLeaderboard] = useState<MiniLeaderboardData[]>([]);
 
+  // Constants based on user request:
+  // 5 Prayers * 27 Points (Mosque) * 7 Days = 945
+  // 15 Lines Tilawah * 1 Point * 7 Days = 105
+  // Total Weekly Target = 1050
+  const WEEKLY_TARGET = 1050;
+
   // Calculate day points
   const calculateDayPoints = (day: DayData) => {
     const prayerPoints = Object.values(day.prayers).reduce((acc, val) => {
@@ -48,16 +54,24 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     return prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
   };
 
-  // Date Statistics Calculation
-  const dateStats = useMemo(() => {
+  // Date Statistics Calculation & Dynamic Week
+  const { dateDisplay, seasonTitle } = useMemo(() => {
     const now = new Date();
     const currentDay = now.getDate();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const monthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
+    const monthName = now.toLocaleString('id-ID', { month: 'long' }).toUpperCase(); // Indo
+    const enMonthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase(); // Eng for label
     
+    // Calculate Week Number (1-4/5)
+    const currentWeek = Math.ceil(currentDay / 7);
+
     return {
-      label: `${monthName} PROGRESS`,
-      value: `${currentDay}/${daysInMonth}`
+      dateDisplay: {
+        label: `${enMonthName} PROGRESS`,
+        value: `${currentDay}/${daysInMonth}`
+      },
+      // Format: PEKAN 3/4: ISTIQAMAH
+      seasonTitle: `PEKAN ${currentWeek}/4: ISTIQAMAH` 
     };
   }, []);
 
@@ -184,7 +198,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         {/* Stat Cards (Top) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
            {/* UPDATED: Month Progress Card */}
-           <StatCard label={dateStats.label} value={dateStats.value} icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
+           <StatCard label={dateDisplay.label} value={dateDisplay.value} icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
            
            <StatCard label="Prayer EXP" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
@@ -235,7 +249,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                           <td className={`px-6 py-4 font-bold text-sm ${themeStyles.textSecondary}`}>
                             <div className="flex items-center gap-2">
                               <span className={isToday ? themeStyles.textAccent : ''}>{day.dayName}</span>
-                              {isToday && <div className={`w-1.5 h-1.5 rounded-full ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`} />}
+                              {isToday && <div className={`w-1.5 h-1.5 rounded-full ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-50'}`} />}
                             </div>
                           </td>
                           {PRAYER_KEYS.map(prayerKey => (
@@ -291,16 +305,16 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                     <ChevronRight className={`w-4 h-4 ${themeStyles.textAccent}`} /> Weekly Progress
                   </h3>
                   <p className={`text-2xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-wider`}>
-                    SEASON 1: ISTIQAMAH
+                    {seasonTitle}
                   </p>
                 </div>
                 <div className="text-right">
                   <span className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textGold}`}>{totalPoints}</span>
-                  <span className={`text-sm font-bold ml-1 ${themeStyles.textSecondary}`}>/ 735 EXP</span>
+                  <span className={`text-sm font-bold ml-1 ${themeStyles.textSecondary}`}>/ {WEEKLY_TARGET} EXP</span>
                 </div>
               </div>
               <div className={`relative h-6 w-full rounded-full border ${themeStyles.border} overflow-hidden ${themeStyles.inputBg} ${themeStyles.glow}`}>
-                <div className={`absolute top-0 left-0 h-full bg-gradient-to-r ${themeStyles.progressBar}`} style={{ width: `${Math.min(100, (totalPoints / 735) * 100)}%` }} />
+                <div className={`absolute top-0 left-0 h-full bg-gradient-to-r ${themeStyles.progressBar}`} style={{ width: `${Math.min(100, (totalPoints / WEEKLY_TARGET) * 100)}%` }} />
               </div>
             </section>
           </div>
