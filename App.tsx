@@ -13,6 +13,34 @@ import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
 
 const App: React.FC = () => {
+  // --- VERSION RESET LOGIC ---
+  // Runs before anything else to ensure clean state for V6
+  useEffect(() => {
+    const APP_VERSION = 'v6_factory_reset';
+    const storedVersion = localStorage.getItem('nur_quest_version');
+    
+    if (storedVersion !== APP_VERSION) {
+      console.warn("New System Version Detected. Performing Factory Reset on Local Data...");
+      
+      // Keep Admin Session if active? No, let's clear everything for safety.
+      // Filter and remove only app-related keys
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('nur_quest_') || key.startsWith('ibadah_tracker_'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      
+      // Set new version
+      localStorage.setItem('nur_quest_version', APP_VERSION);
+      
+      // Force reload to re-initialize state with empty storage
+      window.location.reload();
+    }
+  }, []);
+
   const [view, setView] = useState<'login' | 'register' | 'tracker' | 'leaderboard'>('login');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [data, setData] = useState<WeeklyData>(INITIAL_DATA);
