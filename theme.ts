@@ -30,7 +30,7 @@ export const THEMES = {
   },
   legends: {
     id: 'legends',
-    name: 'Mentoring Legends',
+    name: 'Mentoring Leveling',
     bg: 'bg-[#0f0404] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#3a080e] via-[#1a0305] to-[#000000]',
     bgPatternColor: 'text-[#4a101d]',
     fontMain: 'font-sans',
