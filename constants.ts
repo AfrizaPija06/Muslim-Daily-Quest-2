@@ -23,7 +23,7 @@ export const ADMIN_CREDENTIALS = {
   username: getEnv('VITE_ADMIN_USERNAME', 'mentor_admin'),
   password: getEnv('VITE_ADMIN_PASSWORD', 'istiqamah2026'),
   fullName: 'Kak Afriza',
-  group: 'Mentoring Legends',
+  group: 'Mentoring Legends #kelas7ikhwan',
   role: 'mentor' as Role
 };
 
@@ -40,3 +40,12 @@ export const INITIAL_DATA: WeeklyData = {
   })),
   lastUpdated: new Date().toISOString()
 };
+
+export const MENTORING_GROUPS = [
+  'Mentoring Legends #kelas7ikhwan',
+  'Al-Fatih', 
+  'Salahuddin', 
+  'Khalid bin Walid', 
+  'Thariq bin Ziyad', 
+  'Umar bin Khattab'
+];

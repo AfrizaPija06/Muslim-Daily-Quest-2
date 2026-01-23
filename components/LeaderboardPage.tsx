@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy } from 'lucide-react';
+import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -20,7 +20,7 @@ interface LeaderboardPageProps {
   networkLogs: string[];
   groups: string[];
   updateGroups: (newGroups: string[]) => Promise<void>;
-  handleUpdateProfile?: (user: User) => void; // <-- FIX: Added Prop Type
+  handleUpdateProfile?: (user: User) => void; 
 }
 
 interface LeaderboardData {
@@ -42,6 +42,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [copied, setCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Group Management State
   const [newGroupName, setNewGroupName] = useState('');
@@ -89,14 +90,16 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     setPendingUsers(allUsers.filter(u => u.role === 'mentee' && u.status === 'pending'));
   };
 
+  // CRITICAL FIX: Reload data when currentUser changes (e.g. after Edit Profile)
   useEffect(() => {
     loadData();
     // OPTIMIZED: Increased interval to 60000ms (60s) to strictly conserve bandwidth
     const interval = setInterval(loadData, 60000); 
     return () => clearInterval(interval);
-  }, []);
+  }, [currentUser]); 
 
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
+    setIsProcessing(true);
     const usersStr = localStorage.getItem('nur_quest_users');
     let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
     
@@ -111,7 +114,38 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     const currentDb = await api.fetchDatabase();
     await api.updateDatabase({ ...currentDb, users: allUsers });
     
-    loadData(); 
+    loadData();
+    setIsProcessing(false);
+  };
+
+  // NEW: Feature to Remove/Kick User
+  const handleKickUser = async (targetUsername: string, targetName: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus ${targetName} dari grup? Data mereka akan disembunyikan.`)) return;
+    
+    setIsProcessing(true);
+    try {
+      const usersStr = localStorage.getItem('nur_quest_users');
+      let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
+      
+      // Set status to rejected effectively removes them from active lists
+      allUsers = allUsers.map(u => {
+        if (u.username === targetUsername) return { ...u, status: 'rejected' as const };
+        return u;
+      });
+
+      localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
+      
+      // Sync to cloud
+      const currentDb = await api.fetchDatabase();
+      await api.updateDatabase({ ...currentDb, users: allUsers });
+      
+      loadData();
+      alert(`${targetName} berhasil dihapus.`);
+    } catch (e) {
+      alert("Gagal menghapus user. Cek koneksi internet.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleAddGroup = async (e: React.FormEvent) => {
@@ -142,7 +176,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      {/* FIX: Passing handleUpdateProfile to Header */}
       <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
@@ -151,7 +184,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
               <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Backend Admin
             </h2>
-            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Production Environment • ID: NUR_QUEST_PROD_V4</p>
+            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Production Environment • {currentUser?.group || 'Global'}</p>
           </div>
           <div className="flex gap-2">
             <button onClick={copyLink} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all border ${themeStyles.border} ${themeStyles.inputBg} hover:bg-white/10`}>
@@ -169,7 +202,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
           {[
-            { id: 'leaderboard', label: 'Global Ranking', icon: <Trophy className="w-4 h-4" /> },
+            { id: 'leaderboard', label: 'Members & Ranking', icon: <Trophy className="w-4 h-4" /> },
             { id: 'requests', label: 'Auth Requests', icon: <UserPlus className="w-4 h-4" />, count: pendingUsers.length },
             { id: 'groups', label: 'Factions', icon: <Flag className="w-4 h-4" /> },
             { id: 'network', label: 'Server Logs', icon: <Terminal className="w-4 h-4" /> }
@@ -184,7 +217,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           <>
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <SummaryCard label="Node Status" value="Healthy" icon={<Activity className="w-6 h-6 text-emerald-400" />} themeStyles={themeStyles} />
-              <SummaryCard label="Active Users" value={menteesData.length} icon={<Users className="w-6 h-6 text-blue-400" />} themeStyles={themeStyles} />
+              <SummaryCard label="Active Members" value={menteesData.length} icon={<Users className="w-6 h-6 text-blue-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Total Requests" value="1.2k" icon={<Database className="w-6 h-6 text-purple-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Avg. Score" value={menteesData.length ? Math.round(menteesData.reduce((a,b)=>a+b.points,0)/menteesData.length) : 0} icon={<Target className={`w-6 h-6 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
             </section>
@@ -192,35 +225,53 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <div className={`${themeStyles.card} rounded-3xl overflow-hidden`}>
               <div className="p-6 border-b border-white/5 bg-white/5">
                 <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
-                  <Database className="w-4 h-4 text-emerald-500" /> Database: Global Rankings
+                  <Database className="w-4 h-4 text-emerald-500" /> Database: Active Members
                 </h3>
               </div>
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5">
-                    <th className="px-6 py-4">Rank</th>
-                    <th className="px-6 py-4">User Name</th>
-                    <th className="px-6 py-4">Group</th>
-                    <th className="px-6 py-4 text-right">Points</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {sortedWeekly.map((m, i) => (
-                    <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 font-black opacity-30">#{i+1}</td>
-                      <td className="px-6 py-4 font-bold flex items-center gap-2">
-                        {m.fullName}
-                        {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">Mentor</span>}
-                      </td>
-                      <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
-                      <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5">
+                      <th className="px-6 py-4">Rank</th>
+                      <th className="px-6 py-4">User Name</th>
+                      <th className="px-6 py-4">Group</th>
+                      <th className="px-6 py-4 text-right">Points</th>
+                      <th className="px-6 py-4 text-center">Action</th>
                     </tr>
-                  ))}
-                  {sortedWeekly.length === 0 && (
-                    <tr><td colSpan={4} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Users Found. Waiting for sync...</td></tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {sortedWeekly.map((m, i) => (
+                      <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4 font-black opacity-30">#{i+1}</td>
+                        <td className="px-6 py-4 font-bold flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
+                             <img src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${m.username}`} alt="av" className="w-full h-full object-cover" />
+                          </div>
+                          {m.fullName}
+                          {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">Mentor</span>}
+                        </td>
+                        <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
+                        <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
+                        <td className="px-6 py-4 text-center">
+                          {m.role !== 'mentor' && (
+                            <button 
+                              onClick={() => handleKickUser(m.username, m.fullName)}
+                              className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+                              title="Remove User"
+                              disabled={isProcessing}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {sortedWeekly.length === 0 && (
+                      <tr><td colSpan={5} className="p-8 text-center opacity-30 text-xs uppercase tracking-widest">No Active Users Found. Waiting for sync...</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         ) : activeTab === 'requests' ? (
@@ -235,8 +286,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                    <div className="bg-yellow-500/10 text-yellow-500 text-[8px] font-black px-2 py-1 rounded uppercase">Pending</div>
                 </div>
                 <div className="flex gap-2 mt-8">
-                  <button onClick={() => handleApproval(u.username, 'approve')} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Grant Access</button>
-                  <button onClick={() => handleApproval(u.username, 'reject')} className="flex-1 bg-red-950/20 text-red-500/50 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-950/40 transition-all">Revoke</button>
+                  <button onClick={() => handleApproval(u.username, 'approve')} disabled={isProcessing} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Grant Access</button>
+                  <button onClick={() => handleApproval(u.username, 'reject')} disabled={isProcessing} className="flex-1 bg-red-950/20 text-red-500/50 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 hover:bg-red-950/40 transition-all">Revoke</button>
                 </div>
               </div>
             ))}
@@ -307,13 +358,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                    <span>Listening for incoming packets...</span>
                  </div>
                </div>
-            </div>
-            <div className="p-6 rounded-2xl bg-blue-950/10 border border-blue-500/20 flex gap-4 items-center">
-              <Server className="w-8 h-8 text-blue-400" />
-              <div>
-                <h4 className="font-bold text-blue-400 text-sm uppercase">Engine Concept</h4>
-                <p className="text-xs opacity-60">Professional apps use JSON-based REST APIs. The logs above show exactly how the Client (HP) and Server (Cloud DB) communicate through HTTP requests.</p>
-              </div>
             </div>
           </section>
         )}
