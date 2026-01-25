@@ -50,15 +50,14 @@ export const MENTORING_GROUPS = [
 ];
 
 // --- AVATAR SYSTEM CONFIGURATION ---
-// Konfigurasi untuk 6 Avatar Style Solo Leveling
-
+// ?v=2 ditambahkan untuk memaksa browser memuat ulang gambar baru (bypass cache 404 lama)
 export const AVAILABLE_AVATARS = [
-  { id: '1', name: 'The Strategist', url: '/avatars/1.png' }, // Kacamata (Hitam/Biru)
-  { id: '2', name: 'The Prodigy', url: '/avatars/2.png' },    // Jaket Biru
-  { id: '3', name: 'The Guardian', url: '/avatars/3.png' },   // Hoodie Hijau
-  { id: '4', name: 'The Striker', url: '/avatars/4.png' },    // Aura Merah Api
-  { id: '5', name: 'The Spirit', url: '/avatars/5.png' },     // Aura Emas/Oren
-  { id: '6', name: 'The Saint', url: '/avatars/6.png' },      // Baju Putih/Tasbih
+  { id: '1', name: 'The Strategist', url: '/avatars/1.png?v=2' }, 
+  { id: '2', name: 'The Prodigy', url: '/avatars/2.png?v=2' },    
+  { id: '3', name: 'The Guardian', url: '/avatars/3.png?v=2' },   
+  { id: '4', name: 'The Striker', url: '/avatars/4.png?v=2' },    
+  { id: '5', name: 'The Spirit', url: '/avatars/5.png?v=2' },     
+  { id: '6', name: 'The Saint', url: '/avatars/6.png?v=2' },      
 ];
 
 export const getAvatarSrc = (seedOrId?: string) => {
@@ -68,7 +67,8 @@ export const getAvatarSrc = (seedOrId?: string) => {
   // 2. PRIORITY: Check LocalStorage for manually uploaded avatar fixes
   if (typeof window !== 'undefined') {
     const cached = localStorage.getItem(`avatar_cache_${seedOrId}`);
-    if (cached) return cached;
+    // Pastikan data valid (base64 gambar biasanya panjang)
+    if (cached && cached.length > 50) return cached;
   }
   
   // 3. Check if seed is a valid ID (1-6) from constants
@@ -77,7 +77,7 @@ export const getAvatarSrc = (seedOrId?: string) => {
 
   // 4. Support manual number input
   if (!isNaN(Number(seedOrId))) {
-    return `/avatars/${seedOrId}.png`;
+    return `/avatars/${seedOrId}.png?v=2`;
   }
 
   // 5. If full URL
@@ -95,8 +95,8 @@ export const getAvatarSrc = (seedOrId?: string) => {
   // Check cache for the hashed index too
   if (typeof window !== 'undefined') {
     const cachedHash = localStorage.getItem(`avatar_cache_${index}`);
-    if (cachedHash) return cachedHash;
+    if (cachedHash && cachedHash.length > 50) return cachedHash;
   }
 
-  return `/avatars/${index}.png`;
+  return `/avatars/${index}.png?v=2`;
 };
