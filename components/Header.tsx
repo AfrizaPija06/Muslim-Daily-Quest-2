@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle, Trophy, Check } from 'lucide-react';
+import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle, Trophy, Check, ImageOff } from 'lucide-react';
 import { User, AppTheme, getRankInfo } from '../types';
 import { AVAILABLE_AVATARS, getAvatarSrc } from '../constants';
 import ThemeToggle from './ThemeToggle';
@@ -28,6 +28,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     username: '',
     avatarSeed: ''
   });
+
+  // Image Error State for Grid
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   // Calculate Season Points (Estimated as Weekly * 4 for this context)
   const seasonPoints = totalPoints * 4;
@@ -57,8 +60,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     }
   };
 
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = '/avatars/1.png';
+  const handleMainAvatarError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = '/avatars/1.png'; // Fallback to 1st avatar
+  };
+
+  const handleGridImgError = (id: string) => {
+    setImgErrors(prev => ({ ...prev, [id]: true }));
   };
 
   return (
@@ -74,7 +81,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105 bg-black/50`}>
                  <img 
                    src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username)} 
-                   onError={handleImageError}
+                   onError={handleMainAvatarError}
                    className="w-full h-full object-cover" 
                    alt="Avatar" 
                  />
@@ -124,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
       {isEditingProfile && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
           <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative animate-in zoom-in-95 my-auto`}>
-            <button onClick={() => setIsEditingProfile(false)} className="absolute top-4 right-4 text-white/50 hover:text-white">
+            <button onClick={() => setIsEditingProfile(false)} className="absolute top-4 right-4 text-white/50 hover:text-white z-50">
               <X className="w-6 h-6" />
             </button>
             
@@ -138,7 +145,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                  <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
                       src={getAvatarSrc(editForm.avatarSeed)} 
-                      onError={handleImageError}
+                      onError={handleMainAvatarError}
                       alt="Preview" 
                       className="w-full h-full object-cover" 
                     />
@@ -157,30 +164,52 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               {/* CHARACTER SELECTION GRID */}
               <div className="space-y-2">
                  <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
-                 {/* Updated to grid-cols-3 to better showcase the high-quality art */}
+                 
+                 {/* Updated Grid for better visibility */}
                  <div className="grid grid-cols-3 gap-3">
                     {AVAILABLE_AVATARS.map((avatar) => {
                        const isSelected = editForm.avatarSeed === avatar.id;
+                       const hasError = imgErrors[avatar.id];
+                       
                        return (
                          <button 
                            key={avatar.id}
                            onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }))}
-                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group ${isSelected ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') : 'border-transparent hover:border-white/30 opacity-70 hover:opacity-100'}`}
+                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group 
+                             ${isSelected 
+                               ? (isLegends 
+                                  ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105 shadow-lg shadow-[#d4af37]/20' 
+                                  : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105 shadow-lg shadow-emerald-500/20') 
+                               : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-100'
+                             }`}
                            title={avatar.name}
                          >
-                           <img 
-                             src={avatar.url} 
-                             alt={avatar.name} 
-                             onError={handleImageError}
-                             className="w-full h-full object-cover bg-black/40 transition-transform group-hover:scale-110" 
-                           />
+                           {/* Gradient Background to prevent Black Hole effect */}
+                           <div className={`absolute inset-0 ${isLegends ? 'bg-gradient-to-br from-[#3a080e] to-[#0f0404]' : 'bg-gradient-to-br from-slate-800 to-slate-950'}`} />
+                           
+                           {!hasError ? (
+                               <img 
+                                 src={avatar.url} 
+                                 alt={avatar.name} 
+                                 onError={() => handleGridImgError(avatar.id)}
+                                 className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-110" 
+                               />
+                           ) : (
+                               <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 gap-2 p-2">
+                                  <ImageOff className="w-6 h-6" />
+                                  <span className="text-[8px] uppercase font-bold text-center leading-tight">Image Missing</span>
+                               </div>
+                           )}
+
+                           {/* Selection Overlay */}
                            {isSelected && (
-                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
+                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-10">
                                <Check className="w-8 h-8 text-white drop-shadow-md" />
                              </div>
                            )}
-                           {/* Avatar Name Tag on Hover/Selection */}
-                           <div className="absolute bottom-0 inset-x-0 bg-black/60 p-1 text-[8px] font-bold uppercase text-center truncate text-white/90">
+                           
+                           {/* Name Tag */}
+                           <div className="absolute bottom-0 inset-x-0 bg-black/80 p-1.5 text-[9px] font-bold uppercase text-center truncate text-white/90 z-20 border-t border-white/10">
                              {avatar.name}
                            </div>
                          </button>
