@@ -4,7 +4,7 @@ import { CLOUD_SYNC_URL } from '../constants';
 
 /**
  * ApiService - Cloudflare KV Implementation (REST API)
- * with Robust Offline-First Fallback & Compatibility Fixes.
+ * Refactored to fix "Offline Mode" false positive by removing HEAD check.
  */
 class ApiService {
   
@@ -28,13 +28,26 @@ class ApiService {
     return { users, trackers, groups };
   }
 
-  // Fetch data with safe timeout (5s) and Silent Failure
+  // Helper: Save Local Storage safely
+  private saveLocalData(users: User[], trackers: Record<string, WeeklyData>, groups: string[]) {
+    localStorage.setItem('nur_quest_users', JSON.stringify(users));
+    localStorage.setItem('nur_quest_groups', JSON.stringify(groups));
+    Object.entries(trackers).forEach(([username, data]) => {
+      localStorage.setItem(`ibadah_tracker_${username}`, JSON.stringify(data));
+    });
+  }
+
+  // Public Fetch: Tries Cloud -> Falls back to Local (Never throws, safe for UI)
   async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
       
-      const response = await fetch(CLOUD_SYNC_URL, { signal: controller.signal });
+      const response = await fetch(CLOUD_SYNC_URL, { 
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-store' // Ensure fresh data
+      });
       clearTimeout(timeoutId);
       
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -48,17 +61,16 @@ class ApiService {
       };
 
     } catch (error) {
-      // Quietly fallback to offline mode without console noise
-      // This fixes the "Failed to fetch" red error feeling critical
+      // Silent fallback
       return this.getLocalData();
     }
   }
 
-  // Update with fallback (Write Cloud -> Fail -> Write Local)
+  // Update: Tries Cloud -> Falls back to Local (Returns true to indicate "Saved" either way)
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(CLOUD_SYNC_URL, {
         method: 'POST',
@@ -71,15 +83,9 @@ class ApiService {
       if (!response.ok) throw new Error("Cloudflare rejected update");
       return true;
     } catch (error) {
-      // Offline fallback: Write to LocalStorage
-      localStorage.setItem('nur_quest_users', JSON.stringify(payload.users));
-      localStorage.setItem('nur_quest_groups', JSON.stringify(payload.groups));
-      
-      Object.entries(payload.trackers).forEach(([username, data]) => {
-        localStorage.setItem(`ibadah_tracker_${username}`, JSON.stringify(data as any));
-      });
-
-      return true; // Return true so UI implies "Saved (Locally)"
+      console.warn("Update failed, saving locally:", error);
+      this.saveLocalData(payload.users, payload.trackers, payload.groups);
+      return true; // Still return true so UI doesn't panic
     }
   }
 
@@ -115,6 +121,7 @@ class ApiService {
     }
   }
 
+  // --- CORE SYNC LOGIC ---
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
     trackers: Record<string, WeeklyData>,
@@ -123,77 +130,118 @@ class ApiService {
     success: boolean,
     errorMessage?: string
   }> {
+    let db;
+    let isOnline = false;
+
+    // 1. Explicitly try fetching Cloud Data to determine connectivity
+    // We do NOT rely on fetchDatabase() here because we need to know if it FAILED.
     try {
-      // 1. Get Data (Cloud or Local)
-      const db = await this.fetchDatabase();
-      let hasChanges = false;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(CLOUD_SYNC_URL, { 
+        method: 'GET',
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      clearTimeout(timeoutId);
 
-      // 2. Merge Logic
-      if (currentUser) {
-        const userIndex = db.users.findIndex(u => u.username === currentUser.username);
-        if (userIndex !== -1) {
-          if (JSON.stringify(db.users[userIndex]) !== JSON.stringify(currentUser)) {
-             db.users[userIndex] = currentUser;
-             hasChanges = true;
-          }
-        } else {
-          db.users.push(currentUser);
-          hasChanges = true;
+      if (response.ok) {
+        db = await response.json();
+        // Sanitize cloud data structure
+        if (!db.users) db.users = [];
+        if (!db.trackers) db.trackers = {};
+        if (!db.groups) db.groups = [];
+        
+        isOnline = true; // SUCCESS: We are connected!
+      } else {
+        throw new Error(`Server returned ${response.status}`);
+      }
+    } catch (e: any) {
+      // FAIL: Fallback to local
+      console.warn(`Sync: Network unavailable (${e.message}), using local data.`);
+      db = this.getLocalData();
+      isOnline = false;
+    }
+
+    // 2. Merge Logic
+    let hasChanges = false;
+
+    if (currentUser) {
+      // Update User
+      const userIndex = db.users.findIndex((u: any) => u.username === currentUser.username);
+      if (userIndex !== -1) {
+        if (JSON.stringify(db.users[userIndex]) !== JSON.stringify(currentUser)) {
+           db.users[userIndex] = currentUser;
+           hasChanges = true;
         }
-
-        const cloudTracker = db.trackers[currentUser.username];
-        const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
-        const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
-
-        if (localTime > cloudTime) {
-          db.trackers[currentUser.username] = localData;
-          hasChanges = true;
-        }
+      } else {
+        db.users.push(currentUser);
+        hasChanges = true;
       }
 
-      // 3. Commit changes (to Cloud or Local via updateDatabase)
-      if (hasChanges) {
-        await this.updateDatabase(db);
-      }
+      // Update Tracker (Last Write Wins)
+      const cloudTracker = db.trackers[currentUser.username];
+      const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
+      const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
 
-      // 4. Connectivity Check (HEAD Request)
-      // Done separately so data logic still works even if this fails
-      let isOnline = false;
+      if (localTime > cloudTime) {
+        db.trackers[currentUser.username] = localData;
+        hasChanges = true;
+      }
+    }
+
+    // 3. Push to Cloud (Only if Online & Changed)
+    if (isOnline && hasChanges) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(CLOUD_SYNC_URL, { method: 'HEAD', signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const pushResp = await fetch(CLOUD_SYNC_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(db),
+          signal: controller.signal
+        });
         clearTimeout(timeoutId);
-        isOnline = res.ok;
-      } catch {}
-
-      // 5. Check for newer cloud data for current user
-      let updatedLocalData: WeeklyData | undefined = undefined;
-      if (currentUser && db.trackers[currentUser.username]) {
-        const cloudTracker = db.trackers[currentUser.username];
-        const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
-        const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
-
-        if (cloudTime > localTime) {
-          updatedLocalData = cloudTracker;
+        
+        if (!pushResp.ok) {
+           console.warn("Sync: Read success but Write failed.");
+           // We don't set isOnline=false here because we successfully read data, 
+           // just the update failed. But we should probably save locally to be safe.
+           this.saveLocalData(db.users, db.trackers, db.groups);
         }
+      } catch (e) {
+        console.warn("Sync: Write connection lost.");
+        // If write fails, we are effectively offline for the purpose of saving data
+        this.saveLocalData(db.users, db.trackers, db.groups);
       }
-
-      return { 
-        users: db.users, 
-        trackers: db.trackers, 
-        groups: db.groups.length > localGroups.length ? db.groups : localGroups, 
-        updatedLocalData, 
-        success: isOnline,
-        errorMessage: isOnline ? undefined : "Offline Mode"
-      };
-
-    } catch (error: any) {
-      // If catastrophic failure, return empty safely
-      return { 
-        users: [], trackers: {}, groups: localGroups, success: false, errorMessage: error.message 
-      };
+    } 
+    else if (!isOnline && hasChanges) {
+      // If offline but changed, ensure local storage is updated with the merged result
+      this.saveLocalData(db.users, db.trackers, db.groups);
     }
+
+    // 4. Return Data
+    let updatedLocalData: WeeklyData | undefined = undefined;
+    if (currentUser && db.trackers[currentUser.username]) {
+      const cloudTracker = db.trackers[currentUser.username];
+      const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
+      const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
+
+      // Only take from cloud if we are online and cloud is newer
+      if (isOnline && cloudTime > localTime) {
+        updatedLocalData = cloudTracker;
+      }
+    }
+
+    return { 
+      users: db.users, 
+      trackers: db.trackers, 
+      groups: db.groups.length > localGroups.length ? db.groups : localGroups, 
+      updatedLocalData, 
+      success: isOnline, // Determined solely by the GET request success
+      errorMessage: isOnline ? undefined : "Offline Mode"
+    };
   }
 }
 
