@@ -28,7 +28,8 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // PUBLIC CLOUD SYNC CONFIG
-export const CLOUD_SYNC_URL = "https://keyvalue.immanent.workers.dev/nur_quest_prod_v7";
+// Database migrated to Supabase (lib/supabaseClient.ts).
+// Old Cloudflare KV Demo URL removed.
 
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({

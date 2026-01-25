@@ -1,14 +1,14 @@
 
 import { WeeklyData, User, MENTORING_GROUPS } from '../types';
-import { CLOUD_SYNC_URL } from '../constants';
+import { supabase } from '../lib/supabaseClient';
 
-/**
- * ApiService - Cloudflare KV Implementation (REST API)
- * Refactored to fix "Offline Mode" false positive by removing HEAD check.
- */
+// ID unik untuk menyimpan semua data JSON dalam satu baris database
+const DB_ROW_ID = 'global_store_v7';
+
 class ApiService {
   
-  // Helper: Read Local Storage safely (Offline Data Source)
+  // --- LOCAL STORAGE HELPERS (Offline Support) ---
+  
   private getLocalData() {
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const groups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
@@ -28,7 +28,6 @@ class ApiService {
     return { users, trackers, groups };
   }
 
-  // Helper: Save Local Storage safely
   private saveLocalData(users: User[], trackers: Record<string, WeeklyData>, groups: string[]) {
     localStorage.setItem('nur_quest_users', JSON.stringify(users));
     localStorage.setItem('nur_quest_groups', JSON.stringify(groups));
@@ -37,55 +36,69 @@ class ApiService {
     });
   }
 
-  // Public Fetch: Tries Cloud -> Falls back to Local (Never throws, safe for UI)
+  // --- SUPABASE METHODS ---
+
+  // Fetch data: Try Supabase -> Fail? -> Read LocalStorage
   async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+      // Mengambil data dari tabel 'app_sync'
+      const { data, error } = await supabase
+        .from('app_sync')
+        .select('json_data')
+        .eq('id', DB_ROW_ID)
+        .single();
+
+      if (error) throw error;
       
-      const response = await fetch(CLOUD_SYNC_URL, { 
-        method: 'GET',
-        signal: controller.signal,
-        cache: 'no-store' // Ensure fresh data
-      });
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
-      const data = await response.json();
-      
+      // Jika data kosong (pertama kali), kembalikan default
+      if (!data) {
+        return {
+          users: [],
+          trackers: {},
+          groups: JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS))
+        };
+      }
+
       return {
-        users: data.users || [],
-        trackers: data.trackers || {},
-        groups: data.groups || JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS))
+        users: data.json_data.users || [],
+        trackers: data.json_data.trackers || {},
+        groups: data.json_data.groups || JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS))
       };
 
-    } catch (error) {
-      // Silent fallback
+    } catch (error: any) {
+      console.warn("[SUPABASE] Fetch failed, using local:", error.message);
+      // Jika error karena tabel belum dibuat, lempar error agar UI memberi tahu user
+      if (error.message && error.message.includes('relation')) {
+        throw error; 
+      }
       return this.getLocalData();
     }
   }
 
-  // Update: Tries Cloud -> Falls back to Local (Returns true to indicate "Saved" either way)
+  // Update: Try Supabase -> Fail? -> Write LocalStorage
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const { error } = await supabase
+        .from('app_sync')
+        .upsert({ 
+          id: DB_ROW_ID, 
+          json_data: payload,
+          updated_at: new Date().toISOString()
+        });
 
-      const response = await fetch(CLOUD_SYNC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) throw new Error("Cloudflare rejected update");
+      if (error) throw error;
       return true;
-    } catch (error) {
-      console.warn("Update failed, saving locally:", error);
+
+    } catch (error: any) {
+      console.warn("[SUPABASE] Update failed, saving locally:", error.message);
       this.saveLocalData(payload.users, payload.trackers, payload.groups);
-      return true; // Still return true so UI doesn't panic
+      
+      // Jika error tabel hilang, return false agar UI tahu ada masalah serius
+      if (error.message && error.message.includes('relation')) {
+        return false;
+      }
+      
+      return true; // Return true jika hanya masalah koneksi (karena sudah save local)
     }
   }
 
@@ -100,7 +113,9 @@ class ApiService {
         db.users.push(user);
       }
 
-      await this.updateDatabase(db);
+      const success = await this.updateDatabase(db);
+      if (!success) throw new Error("Database Write Failed");
+      
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message || "Unknown Error" };
@@ -121,7 +136,7 @@ class ApiService {
     }
   }
 
-  // --- CORE SYNC LOGIC ---
+  // --- SYNC LOGIC ---
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
     trackers: Record<string, WeeklyData>,
@@ -132,36 +147,39 @@ class ApiService {
   }> {
     let db;
     let isOnline = false;
+    let syncError = "";
 
-    // 1. Explicitly try fetching Cloud Data to determine connectivity
-    // We do NOT rely on fetchDatabase() here because we need to know if it FAILED.
+    // 1. Fetch Cloud Data
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      
-      const response = await fetch(CLOUD_SYNC_URL, { 
-        method: 'GET',
-        signal: controller.signal,
-        cache: 'no-store'
-      });
-      clearTimeout(timeoutId);
+      const { data, error } = await supabase
+        .from('app_sync')
+        .select('json_data')
+        .eq('id', DB_ROW_ID)
+        .single();
 
-      if (response.ok) {
-        db = await response.json();
-        // Sanitize cloud data structure
-        if (!db.users) db.users = [];
-        if (!db.trackers) db.trackers = {};
-        if (!db.groups) db.groups = [];
-        
-        isOnline = true; // SUCCESS: We are connected!
+      if (error) {
+        // Abaikan error "Row not found" (PGRST116), itu artinya DB bersih tapi koneksi OK
+        if (error.code === 'PGRST116') {
+           db = { users: [], trackers: {}, groups: [] };
+           isOnline = true;
+        } else {
+           throw error;
+        }
       } else {
-        throw new Error(`Server returned ${response.status}`);
+        db = data?.json_data || { users: [], trackers: {}, groups: [] };
+        isOnline = true;
       }
+
+      // Sanitize
+      if (!db.users) db.users = [];
+      if (!db.trackers) db.trackers = {};
+      if (!db.groups) db.groups = [];
+
     } catch (e: any) {
-      // FAIL: Fallback to local
-      console.warn(`Sync: Network unavailable (${e.message}), using local data.`);
+      // Fallback to local
       db = this.getLocalData();
       isOnline = false;
+      syncError = e.message || "Connection Error";
     }
 
     // 2. Merge Logic
@@ -193,31 +211,9 @@ class ApiService {
 
     // 3. Push to Cloud (Only if Online & Changed)
     if (isOnline && hasChanges) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        const pushResp = await fetch(CLOUD_SYNC_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(db),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (!pushResp.ok) {
-           console.warn("Sync: Read success but Write failed.");
-           // We don't set isOnline=false here because we successfully read data, 
-           // just the update failed. But we should probably save locally to be safe.
-           this.saveLocalData(db.users, db.trackers, db.groups);
-        }
-      } catch (e) {
-        console.warn("Sync: Write connection lost.");
-        // If write fails, we are effectively offline for the purpose of saving data
-        this.saveLocalData(db.users, db.trackers, db.groups);
-      }
+      await this.updateDatabase(db);
     } 
     else if (!isOnline && hasChanges) {
-      // If offline but changed, ensure local storage is updated with the merged result
       this.saveLocalData(db.users, db.trackers, db.groups);
     }
 
@@ -228,7 +224,6 @@ class ApiService {
       const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
       const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
 
-      // Only take from cloud if we are online and cloud is newer
       if (isOnline && cloudTime > localTime) {
         updatedLocalData = cloudTracker;
       }
@@ -239,8 +234,8 @@ class ApiService {
       trackers: db.trackers, 
       groups: db.groups.length > localGroups.length ? db.groups : localGroups, 
       updatedLocalData, 
-      success: isOnline, // Determined solely by the GET request success
-      errorMessage: isOnline ? undefined : "Offline Mode"
+      success: isOnline,
+      errorMessage: isOnline ? undefined : (syncError.includes('relation') ? syncError : "Offline Mode")
     };
   }
 }
