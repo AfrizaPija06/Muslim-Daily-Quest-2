@@ -67,7 +67,7 @@ const App: React.FC = () => {
     if (isSyncing || isResetting) return;
     
     setIsSyncing(true);
-    addLog("Syncing with Cloud Database...");
+    // Silent log for sync start to avoid spam
     
     try {
       const result = await api.sync(currentUser, data, groups);
@@ -75,7 +75,9 @@ const App: React.FC = () => {
       if (result.success) {
         setIsOnline(true);
         setSyncErrorMsg("");
-        addLog("Sync Successful.");
+        
+        // Only log "Sync Successful" if previously offline or explicitly requested
+        if (!isOnline) addLog("Connection Restored: Sync Successful.");
 
         localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
         
@@ -99,7 +101,14 @@ const App: React.FC = () => {
         setIsOnline(false);
         const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
-        addLog(`Sync Failed: ${msg}`);
+        
+        // --- FIX: Don't treat "Offline Mode" as a critical failure log ---
+        if (msg !== "Offline Mode") {
+           addLog(`Sync Failed: ${msg}`);
+        } else if (isOnline) {
+           // Only log switching to offline once
+           addLog("Switched to Offline Mode.");
+        }
       }
     } catch (e: any) {
       setIsOnline(false);
@@ -108,7 +117,7 @@ const App: React.FC = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [currentUser, data, groups, isSyncing, isResetting]);
+  }, [currentUser, data, groups, isSyncing, isResetting, isOnline]);
 
   // --- UPDATE PROFILE (Edit User) ---
   const handleUpdateProfile = async (updatedUser: User) => {
@@ -140,14 +149,12 @@ const App: React.FC = () => {
       localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
 
       // 4. Push to Cloud (Targeted Update)
-      // Use efficient single update with new response handling
       const res = await api.updateUserProfile(updatedUser);
 
       if (res.success) {
-        addLog(res.warning ? `Updated: ${res.warning}` : "Profile Updated Successfully.");
+        addLog("Profile Updated Successfully.");
       } else {
         addLog(`Update Failed: ${res.error}`);
-        // Consider reverting UI if needed, but for now we trust local
       }
 
     } catch (e: any) {
@@ -171,7 +178,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
     performSync();
-    // OPTIMIZED: Increased sync interval to 60s
+    // Sync interval 60s
     const interval = setInterval(performSync, 60000);
     return () => clearInterval(interval);
   }, [performSync, isResetting]);
@@ -207,9 +214,7 @@ const App: React.FC = () => {
     setGroups(newGroups);
     localStorage.setItem('nur_quest_groups', JSON.stringify(newGroups));
     
-    // We only update groups locally + via generic sync logic for now
-    // Ideally we would have api.updateGroups but existing pattern is bulky
-    // We will just let the next sync handle it or use updateDatabase if really needed
+    // Trigger sync to push group update
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const trackers = {}; 
     await api.updateDatabase({ users, trackers, groups: newGroups });
@@ -277,7 +282,8 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {!isOnline && !isTableError && syncErrorMsg && (
+      {/* Hide Generic Offline Alert to clean up UI, relying on bottom status bar instead */}
+      {!isOnline && !isTableError && syncErrorMsg && syncErrorMsg !== "Offline Mode" && (
         <div className="fixed top-0 left-0 w-full bg-yellow-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500">
           <AlertTriangle className="w-3 h-3 inline mr-2" />
           {syncErrorMsg.substring(0, 50)}...

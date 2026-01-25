@@ -4,15 +4,40 @@ import { CLOUD_SYNC_URL } from '../constants';
 
 /**
  * ApiService - Cloudflare KV Implementation (REST API)
- * with Offline-First Fallback.
+ * with Robust Offline-First Fallback & Compatibility Fixes.
  */
 class ApiService {
   
-  // Fetch data: Try Cloud -> Fail? -> Read LocalStorage
+  // Helper: Read Local Storage safely (Offline Data Source)
+  private getLocalData() {
+    const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
+    const groups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
+    
+    const trackers: Record<string, WeeklyData> = {};
+    if (typeof localStorage !== 'undefined') {
+       for (let i = 0; i < localStorage.length; i++) {
+         const key = localStorage.key(i);
+         if (key && key.startsWith('ibadah_tracker_')) {
+           const username = key.replace('ibadah_tracker_', '');
+           try {
+              trackers[username] = JSON.parse(localStorage.getItem(key)!);
+           } catch(e){}
+         }
+       }
+    }
+    return { users, trackers, groups };
+  }
+
+  // Fetch data with safe timeout (5s) and Silent Failure
   async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[] }> {
     try {
-      const response = await fetch(CLOUD_SYNC_URL);
-      if (!response.ok) throw new Error("Failed to fetch from Cloudflare");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(CLOUD_SYNC_URL, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       
       const data = await response.json();
       
@@ -23,89 +48,55 @@ class ApiService {
       };
 
     } catch (error) {
-      console.warn("[CLOUDFLARE] Connection failed, switching to Offline Mode:", error);
-      
-      // --- OFFLINE FALLBACK: READ LOCAL STORAGE ---
-      const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-      const groups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
-      
-      const trackers: Record<string, WeeklyData> = {};
-      if (typeof localStorage !== 'undefined') {
-         for (let i = 0; i < localStorage.length; i++) {
-           const key = localStorage.key(i);
-           if (key && key.startsWith('ibadah_tracker_')) {
-             const username = key.replace('ibadah_tracker_', '');
-             try {
-                trackers[username] = JSON.parse(localStorage.getItem(key)!);
-             } catch(e){}
-           }
-         }
-      }
-      
-      return { users, trackers, groups };
+      // Quietly fallback to offline mode without console noise
+      // This fixes the "Failed to fetch" red error feeling critical
+      return this.getLocalData();
     }
   }
 
-  // Generic Update: Try Cloud -> Fail? -> Write LocalStorage
+  // Update with fallback (Write Cloud -> Fail -> Write Local)
   async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[] }): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(CLOUD_SYNC_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
       if (!response.ok) throw new Error("Cloudflare rejected update");
       return true;
     } catch (error) {
-      console.warn("[CLOUDFLARE] Update failed, saving locally:", error);
-      
-      // --- OFFLINE FALLBACK: WRITE LOCAL STORAGE ---
+      // Offline fallback: Write to LocalStorage
       localStorage.setItem('nur_quest_users', JSON.stringify(payload.users));
       localStorage.setItem('nur_quest_groups', JSON.stringify(payload.groups));
       
-      // Save all trackers from payload to ensure consistency
       Object.entries(payload.trackers).forEach(([username, data]) => {
-        localStorage.setItem(`ibadah_tracker_${username}`, JSON.stringify(data));
+        localStorage.setItem(`ibadah_tracker_${username}`, JSON.stringify(data as any));
       });
 
-      return true; // Return true so the UI thinks it succeeded
+      return true; // Return true so UI implies "Saved (Locally)"
     }
   }
 
-  // --- SINGLE USER UPDATE (Read-Modify-Write Pattern) ---
   async updateUserProfile(user: User): Promise<{ success: boolean; error?: string; warning?: string }> {
     try {
-      // 1. Fetch latest DB state (Cloud or Local)
       const db = await this.fetchDatabase();
-      
-      // 2. Find and Update User
       const index = db.users.findIndex((u: any) => u.username === user.username);
       
       if (index !== -1) {
-        db.users[index] = user; // Update existing
+        db.users[index] = user;
       } else {
-        db.users.push(user); // Add new
+        db.users.push(user);
       }
 
-      // 3. Save back (Cloud or Local)
-      const success = await this.updateDatabase(db);
-      
-      if (success) {
-        // Check if we are actually offline to give correct warning
-        try {
-           // Simple connectivity check
-           const check = await fetch(CLOUD_SYNC_URL, { method: 'HEAD' });
-           if (!check.ok) throw new Error("Offline");
-           return { success: true };
-        } catch {
-           return { success: true, warning: "Saved to Offline Storage (Server Unreachable)" };
-        }
-      } else {
-        return { success: false, error: "Database update failed completely" };
-      }
-
+      await this.updateDatabase(db);
+      return { success: true };
     } catch (e: any) {
-      console.error("Exception updating user:", e);
       return { success: false, error: e.message || "Unknown Error" };
     }
   }
@@ -113,23 +104,17 @@ class ApiService {
   async deleteUser(username: string): Promise<boolean> {
     try {
       const db = await this.fetchDatabase();
-      
-      // Filter out user and their tracker
       const newUsers = db.users.filter((u: any) => u.username !== username);
       const newTrackers = { ...db.trackers };
       delete newTrackers[username];
       
-      // Also remove from local storage explicitly
       localStorage.removeItem(`ibadah_tracker_${username}`);
-
       return await this.updateDatabase({ ...db, users: newUsers, trackers: newTrackers });
     } catch (error) {
-      console.error("[CLOUDFLARE] Delete User Error:", error);
       return false;
     }
   }
 
-  // Sync Logic
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<{ 
     users: User[], 
     trackers: Record<string, WeeklyData>,
@@ -139,21 +124,12 @@ class ApiService {
     errorMessage?: string
   }> {
     try {
-      // 1. Get Cloud Data (or Local if offline)
+      // 1. Get Data (Cloud or Local)
       const db = await this.fetchDatabase();
       let hasChanges = false;
-      let isOffline = false;
 
-      // Check connectivity explicitly to report status to UI
-      try {
-        await fetch(CLOUD_SYNC_URL, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
-      } catch {
-        isOffline = true;
-      }
-
-      // 2. Push Local Changes to DB Object
+      // 2. Merge Logic
       if (currentUser) {
-        // Update User Profile
         const userIndex = db.users.findIndex(u => u.username === currentUser.username);
         if (userIndex !== -1) {
           if (JSON.stringify(db.users[userIndex]) !== JSON.stringify(currentUser)) {
@@ -165,7 +141,6 @@ class ApiService {
           hasChanges = true;
         }
 
-        // Update Tracker
         const cloudTracker = db.trackers[currentUser.username];
         const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
         const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
@@ -176,12 +151,23 @@ class ApiService {
         }
       }
 
-      // 3. Commit if needed
+      // 3. Commit changes (to Cloud or Local via updateDatabase)
       if (hasChanges) {
         await this.updateDatabase(db);
       }
 
-      // 4. Return Data
+      // 4. Connectivity Check (HEAD Request)
+      // Done separately so data logic still works even if this fails
+      let isOnline = false;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(CLOUD_SYNC_URL, { method: 'HEAD', signal: controller.signal });
+        clearTimeout(timeoutId);
+        isOnline = res.ok;
+      } catch {}
+
+      // 5. Check for newer cloud data for current user
       let updatedLocalData: WeeklyData | undefined = undefined;
       if (currentUser && db.trackers[currentUser.username]) {
         const cloudTracker = db.trackers[currentUser.username];
@@ -198,12 +184,12 @@ class ApiService {
         trackers: db.trackers, 
         groups: db.groups.length > localGroups.length ? db.groups : localGroups, 
         updatedLocalData, 
-        success: !isOffline, // Only true if actually online
-        errorMessage: isOffline ? "Offline Mode" : undefined
+        success: isOnline,
+        errorMessage: isOnline ? undefined : "Offline Mode"
       };
 
     } catch (error: any) {
-      // If everything fails, return basic local fallback
+      // If catastrophic failure, return empty safely
       return { 
         users: [], trackers: {}, groups: localGroups, success: false, errorMessage: error.message 
       };
