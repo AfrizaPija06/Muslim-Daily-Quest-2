@@ -50,28 +50,28 @@ export const MENTORING_GROUPS = [
 ];
 
 // --- AVATAR SYSTEM CONFIGURATION ---
-// Menggunakan Avatar Lokal (Custom User Collection)
-// File harus ada di folder: /public/avatars/
-// Penamaan file: 1.png, 2.png, 3.png, ... s/d 24.png
+// Konfigurasi untuk 6 Avatar Style Solo Leveling
+// Pastikan file gambar disimpan di folder: /public/avatars/
+// Nama file: 1.png, 2.png, 3.png, 4.png, 5.png, 6.png
 
-export const AVAILABLE_AVATARS = Array.from({ length: 6 }, (_, i) => {
-  const id = String(i + 1);
-  return {
-    id,
-    name: `Avatar ${id}`,
-    url: `/avatars/${id}.png` // Path ke file lokal
-  };
-});
+export const AVAILABLE_AVATARS = [
+  { id: '1', name: 'The Strategist', url: '/avatars/1.png' }, // Kacamata (Hitam/Biru)
+  { id: '2', name: 'The Prodigy', url: '/avatars/2.png' },    // Jaket Biru
+  { id: '3', name: 'The Guardian', url: '/avatars/3.png' },   // Hoodie Hijau
+  { id: '4', name: 'The Striker', url: '/avatars/4.png' },    // Aura Merah Api
+  { id: '5', name: 'The Spirit', url: '/avatars/5.png' },     // Aura Emas/Oren
+  { id: '6', name: 'The Saint', url: '/avatars/6.png' },      // Baju Putih/Tasbih
+];
 
 export const getAvatarSrc = (seedOrId?: string) => {
-  // 1. Default fallback ke Avatar 1
+  // 1. Default fallback ke Avatar 1 (The Strategist)
   if (!seedOrId) return AVAILABLE_AVATARS[0].url;
   
-  // 2. Cek jika seed adalah ID dari list preset (misal "1", "5")
+  // 2. Cek jika seed adalah ID yang valid (1-6)
   const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
   if (found) return found.url;
 
-  // 3. Support input manual angka (misal user punya 50 avatar, tapi list cuma tampil 24)
+  // 3. Support input manual angka jika di masa depan menambah avatar (misal 7.png)
   if (!isNaN(Number(seedOrId))) {
     return `/avatars/${seedOrId}.png`;
   }
@@ -81,12 +81,11 @@ export const getAvatarSrc = (seedOrId?: string) => {
     return seedOrId;
   }
 
-  // 5. Fallback Local: Mapping string sembarang (misal username lama) ke salah satu avatar 1-24
-  // Ini menggantikan DiceBear agar semua tampilan menggunakan aset lokal
+  // 5. Fallback Local: Hashing string (username lama) ke salah satu avatar 1-6
   let hash = 0;
   for (let i = 0; i < seedOrId.length; i++) {
     hash = seedOrId.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = (Math.abs(hash) % 6) + 1;
+  const index = (Math.abs(hash) % AVAILABLE_AVATARS.length) + 1;
   return `/avatars/${index}.png`;
 };

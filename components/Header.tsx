@@ -156,27 +156,33 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
 
               {/* CHARACTER SELECTION GRID */}
               <div className="space-y-2">
-                 <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar</label>
-                 <div className="grid grid-cols-4 gap-2">
+                 <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
+                 {/* Updated to grid-cols-3 to better showcase the high-quality art */}
+                 <div className="grid grid-cols-3 gap-3">
                     {AVAILABLE_AVATARS.map((avatar) => {
                        const isSelected = editForm.avatarSeed === avatar.id;
                        return (
                          <button 
                            key={avatar.id}
                            onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }))}
-                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${isSelected ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') : 'border-transparent hover:border-white/30 opacity-70 hover:opacity-100'}`}
+                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group ${isSelected ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') : 'border-transparent hover:border-white/30 opacity-70 hover:opacity-100'}`}
+                           title={avatar.name}
                          >
                            <img 
                              src={avatar.url} 
                              alt={avatar.name} 
                              onError={handleImageError}
-                             className="w-full h-full object-cover bg-black/40" 
+                             className="w-full h-full object-cover bg-black/40 transition-transform group-hover:scale-110" 
                            />
                            {isSelected && (
-                             <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                               <Check className="w-6 h-6 text-white drop-shadow-md" />
+                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
+                               <Check className="w-8 h-8 text-white drop-shadow-md" />
                              </div>
                            )}
+                           {/* Avatar Name Tag on Hover/Selection */}
+                           <div className="absolute bottom-0 inset-x-0 bg-black/60 p-1 text-[8px] font-bold uppercase text-center truncate text-white/90">
+                             {avatar.name}
+                           </div>
                          </button>
                        );
                     })}
