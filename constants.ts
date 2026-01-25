@@ -51,8 +51,6 @@ export const MENTORING_GROUPS = [
 
 // --- AVATAR SYSTEM CONFIGURATION ---
 // Konfigurasi untuk 6 Avatar Style Solo Leveling
-// Pastikan file gambar disimpan di folder: /public/avatars/
-// Nama file: 1.png, 2.png, 3.png, 4.png, 5.png, 6.png
 
 export const AVAILABLE_AVATARS = [
   { id: '1', name: 'The Strategist', url: '/avatars/1.png' }, // Kacamata (Hitam/Biru)
@@ -64,28 +62,41 @@ export const AVAILABLE_AVATARS = [
 ];
 
 export const getAvatarSrc = (seedOrId?: string) => {
-  // 1. Default fallback ke Avatar 1 (The Strategist)
+  // 1. Default fallback
   if (!seedOrId) return AVAILABLE_AVATARS[0].url;
+
+  // 2. PRIORITY: Check LocalStorage for manually uploaded avatar fixes
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(`avatar_cache_${seedOrId}`);
+    if (cached) return cached;
+  }
   
-  // 2. Cek jika seed adalah ID yang valid (1-6)
+  // 3. Check if seed is a valid ID (1-6) from constants
   const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
   if (found) return found.url;
 
-  // 3. Support input manual angka jika di masa depan menambah avatar (misal 7.png)
+  // 4. Support manual number input
   if (!isNaN(Number(seedOrId))) {
     return `/avatars/${seedOrId}.png`;
   }
 
-  // 4. Jika URL lengkap (http/https) atau path lokal (/)
-  if (seedOrId.startsWith('http') || seedOrId.startsWith('/')) {
+  // 5. If full URL
+  if (seedOrId.startsWith('http') || seedOrId.startsWith('data:image') || seedOrId.startsWith('/')) {
     return seedOrId;
   }
 
-  // 5. Fallback Local: Hashing string (username lama) ke salah satu avatar 1-6
+  // 6. Hash Fallback
   let hash = 0;
   for (let i = 0; i < seedOrId.length; i++) {
     hash = seedOrId.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = (Math.abs(hash) % AVAILABLE_AVATARS.length) + 1;
+  
+  // Check cache for the hashed index too
+  if (typeof window !== 'undefined') {
+    const cachedHash = localStorage.getItem(`avatar_cache_${index}`);
+    if (cachedHash) return cachedHash;
+  }
+
   return `/avatars/${index}.png`;
 };

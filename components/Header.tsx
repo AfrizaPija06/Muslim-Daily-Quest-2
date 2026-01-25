@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { LogOut, RefreshCw, X, Save, RefreshCcw, UserCircle, Trophy, Check, ImageOff } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, ImageOff, UploadCloud, AlertCircle } from 'lucide-react';
 import { User, AppTheme, getRankInfo } from '../types';
 import { AVAILABLE_AVATARS, getAvatarSrc } from '../constants';
 import ThemeToggle from './ThemeToggle';
@@ -31,8 +31,12 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
 
   // Image Error State for Grid
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
+  
+  // Upload Logic
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
-  // Calculate Season Points (Estimated as Weekly * 4 for this context)
+  // Calculate Season Points
   const seasonPoints = totalPoints * 4;
   const currentRank = getRankInfo(seasonPoints);
 
@@ -44,6 +48,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
         avatarSeed: currentUser.avatarSeed || currentUser.username
       });
       setIsEditingProfile(true);
+      setImgErrors({}); // Reset errors on open
     }
   };
 
@@ -61,11 +66,50 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
   };
 
   const handleMainAvatarError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = '/avatars/1.png'; // Fallback to 1st avatar
+    // If main avatar fails, try to see if we have a cache fallback, otherwise generic
+    const src = getAvatarSrc('1'); 
+    if (e.currentTarget.src !== src && src) {
+      e.currentTarget.src = src;
+    }
   };
 
   const handleGridImgError = (id: string) => {
     setImgErrors(prev => ({ ...prev, [id]: true }));
+  };
+
+  // --- MANUAL IMAGE UPLOAD HANDLER ---
+  const triggerUpload = (id: string) => {
+    setUploadTargetId(id);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && uploadTargetId) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Save to LocalStorage
+        localStorage.setItem(`avatar_cache_${uploadTargetId}`, base64String);
+        
+        // Clear error for this ID so it retries loading
+        setImgErrors(prev => {
+           const newState = { ...prev };
+           delete newState[uploadTargetId];
+           return newState;
+        });
+
+        // Force re-render of selection if it was selected
+        if (editForm.avatarSeed === uploadTargetId) {
+           setEditForm(prev => ({ ...prev })); 
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -163,7 +207,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
 
               {/* CHARACTER SELECTION GRID */}
               <div className="space-y-2">
-                 <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
+                 <div className="flex justify-between items-center">
+                   <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
+                   <span className="text-[9px] text-white/40 italic">*Click "Upload" if image is missing</span>
+                 </div>
                  
                  {/* Updated Grid for better visibility */}
                  <div className="grid grid-cols-3 gap-3">
@@ -172,37 +219,46 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                        const hasError = imgErrors[avatar.id];
                        
                        return (
-                         <button 
+                         <div 
                            key={avatar.id}
-                           onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }))}
-                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group 
-                             ${isSelected 
+                           onClick={(e) => {
+                             // If it's an error state, handle click as upload trigger
+                             if (hasError) {
+                               e.stopPropagation();
+                               triggerUpload(avatar.id);
+                             } else {
+                               setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }));
+                             }
+                           }}
+                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group cursor-pointer
+                             ${isSelected && !hasError
                                ? (isLegends 
                                   ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105 shadow-lg shadow-[#d4af37]/20' 
                                   : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105 shadow-lg shadow-emerald-500/20') 
                                : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-100'
                              }`}
-                           title={avatar.name}
+                           title={hasError ? "Click to Upload Image" : avatar.name}
                          >
-                           {/* Gradient Background to prevent Black Hole effect */}
+                           {/* Gradient Background */}
                            <div className={`absolute inset-0 ${isLegends ? 'bg-gradient-to-br from-[#3a080e] to-[#0f0404]' : 'bg-gradient-to-br from-slate-800 to-slate-950'}`} />
                            
                            {!hasError ? (
                                <img 
-                                 src={avatar.url} 
+                                 src={getAvatarSrc(avatar.id)} 
                                  alt={avatar.name} 
                                  onError={() => handleGridImgError(avatar.id)}
                                  className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-110" 
                                />
                            ) : (
-                               <div className="absolute inset-0 flex flex-col items-center justify-center text-white/30 gap-2 p-2">
-                                  <ImageOff className="w-6 h-6" />
-                                  <span className="text-[8px] uppercase font-bold text-center leading-tight">Image Missing</span>
+                               // UPLOAD STATE UI
+                               <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 gap-1 p-2 hover:bg-white/5 transition-colors">
+                                  <UploadCloud className="w-6 h-6 animate-pulse text-yellow-500" />
+                                  <span className="text-[7px] uppercase font-bold text-center leading-tight text-yellow-500">Tap to Upload</span>
                                </div>
                            )}
 
-                           {/* Selection Overlay */}
-                           {isSelected && (
+                           {/* Selection Overlay (Only if not error) */}
+                           {isSelected && !hasError && (
                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-10">
                                <Check className="w-8 h-8 text-white drop-shadow-md" />
                              </div>
@@ -212,7 +268,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                            <div className="absolute bottom-0 inset-x-0 bg-black/80 p-1.5 text-[9px] font-bold uppercase text-center truncate text-white/90 z-20 border-t border-white/10">
                              {avatar.name}
                            </div>
-                         </button>
+                         </div>
                        );
                     })}
                  </div>
@@ -252,6 +308,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                 </button>
               </div>
             </div>
+            
+            {/* Hidden File Input for Avatar Upload */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+
           </div>
         </div>
       )}
