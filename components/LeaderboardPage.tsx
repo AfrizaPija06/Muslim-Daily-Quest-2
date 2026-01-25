@@ -106,7 +106,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     return () => clearInterval(interval);
   }, [currentUser]); 
 
-  // --- FIXED: HANDLE APPROVAL LOGIC ---
+  // --- FIXED: HANDLE APPROVAL LOGIC WITH ROBUST ERROR HANDLING ---
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
     setIsProcessing(true);
     try {
@@ -124,20 +124,24 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         status: action === 'approve' ? 'active' : 'rejected' 
       };
 
-      // 4. Update Database Directly (More Reliable)
-      const success = await api.updateUserProfile(updatedUser);
+      // 4. Update Database Directly
+      const response = await api.updateUserProfile(updatedUser);
       
-      if (success) {
+      if (response.success) {
         // 5. Update Local State
         const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
         localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
         loadData(); // Refresh UI
+        
+        if (response.warning) {
+          console.warn(response.warning);
+        }
       } else {
-        alert("Failed to connect to server. Check connection.");
+        alert(`Failed: ${response.error || "Server Connection Error"}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Error processing request.");
+      alert(`Error: ${e.message}`);
     } finally {
       setIsProcessing(false);
     }

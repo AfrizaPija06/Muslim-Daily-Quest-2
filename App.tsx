@@ -140,12 +140,15 @@ const App: React.FC = () => {
       localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
 
       // 4. Push to Cloud (Targeted Update)
-      // We use `updateUserProfile` now for reliability
-      await api.updateUserProfile(updatedUser);
+      // Use efficient single update with new response handling
+      const res = await api.updateUserProfile(updatedUser);
 
-      addLog("Profile Updated Successfully.");
-      // Do NOT trigger full sync immediately to avoid race condition where cloud might send back old data
-      // Just wait for next interval
+      if (res.success) {
+        addLog(res.warning ? `Updated: ${res.warning}` : "Profile Updated Successfully.");
+      } else {
+        addLog(`Update Failed: ${res.error}`);
+        // Consider reverting UI if needed, but for now we trust local
+      }
 
     } catch (e: any) {
       console.error("Update Profile Failed:", e);
