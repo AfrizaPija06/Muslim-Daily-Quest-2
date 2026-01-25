@@ -47,19 +47,15 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Group Management State
   const [newGroupName, setNewGroupName] = useState('');
 
   const loadData = () => {
     const usersStr = localStorage.getItem('nur_quest_users');
     const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
     
-    // MODIFIED: Filter now includes BOTH mentors and mentees
     const activeUsers = allUsers
       .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
       .map(u => {
-        // FIX: Prioritize prop 'currentUser' if matching ID to show instant updates
         const isMe = currentUser && u.username === currentUser.username;
         const displayUser = isMe ? currentUser : u;
 
@@ -104,68 +100,72 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     setPendingUsers(allUsers.filter(u => u.role === 'mentee' && u.status === 'pending'));
   };
 
-  // CRITICAL FIX: Reload data when currentUser changes (e.g. after Edit Profile)
   useEffect(() => {
     loadData();
-    // OPTIMIZED: Increased interval to 60000ms (60s) to strictly conserve bandwidth
     const interval = setInterval(loadData, 60000); 
     return () => clearInterval(interval);
   }, [currentUser]); 
 
+  // --- FIXED: HANDLE APPROVAL LOGIC ---
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
     setIsProcessing(true);
-    const usersStr = localStorage.getItem('nur_quest_users');
-    let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-    
-    // Strict update local state
-    allUsers = allUsers.map(u => {
-      if (u.username === username) return { ...u, status: action === 'approve' ? 'active' : 'rejected' };
-      return u;
-    });
+    try {
+      // 1. Get current list from local
+      const usersStr = localStorage.getItem('nur_quest_users');
+      let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
+      
+      // 2. Find target user
+      const targetUser = allUsers.find(u => u.username === username);
+      if (!targetUser) throw new Error("User not found locally");
 
-    localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
-    
-    // Sync to cloud
-    const currentDb = await api.fetchDatabase();
-    await api.updateDatabase({ ...currentDb, users: allUsers });
-    
-    loadData();
-    setIsProcessing(false);
+      // 3. Create updated user object
+      const updatedUser: User = { 
+        ...targetUser, 
+        status: action === 'approve' ? 'active' : 'rejected' 
+      };
+
+      // 4. Update Database Directly (More Reliable)
+      const success = await api.updateUserProfile(updatedUser);
+      
+      if (success) {
+        // 5. Update Local State
+        const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
+        localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
+        loadData(); // Refresh UI
+      } else {
+        alert("Failed to connect to server. Check connection.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error processing request.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  // NEW: Feature to Remove/Kick User (PERMANENT DELETE)
   const handleKickUser = async (targetUsername: string, targetName: string) => {
     if (!confirm(`PERINGATAN: Apakah Anda yakin ingin MENGHAPUS PERMANEN user ${targetName}? \n\nData tidak dapat dikembalikan dan akan hilang dari database.`)) return;
     
     setIsProcessing(true);
     try {
-      // 1. Delete from Server First (Most Important)
       const success = await api.deleteUser(targetUsername);
 
       if (success) {
-        // 2. Remove from Local UI State
         setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
         setPendingUsers(prev => prev.filter(m => m.username !== targetUsername));
 
-        // 3. Remove from LocalStorage (Strict Filter)
         const usersStr = localStorage.getItem('nur_quest_users');
         if (usersStr) {
           const allUsers = JSON.parse(usersStr) as User[];
           const filteredUsers = allUsers.filter(u => u.username !== targetUsername);
           localStorage.setItem('nur_quest_users', JSON.stringify(filteredUsers));
         }
-
-        // 4. Remove User Specific Tracker Data
         localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
-
         alert(`User ${targetName} berhasil dihapus permanen.`);
       } else {
         throw new Error("Gagal menghapus dari server.");
       }
-      
-      // 5. Final Reload
       loadData();
-      
     } catch (e: any) {
       alert(`Gagal menghapus user: ${e.message}`);
       loadData(); 
@@ -185,7 +185,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const handleDeleteGroup = async (groupName: string) => {
-    if (confirm(`Are you sure you want to disband '${groupName}'? Users in this group will not be deleted but will belong to a non-existent group.`)) {
+    if (confirm(`Are you sure you want to disband '${groupName}'?`)) {
       const updatedGroups = groups.filter(g => g !== groupName);
       await updateGroups(updatedGroups);
     }
@@ -205,6 +205,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
@@ -226,6 +227,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </div>
         </div>
 
+        {/* Tab Navigation */}
         <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
           {[
             { id: 'leaderboard', label: 'Members & Ranking', icon: <Trophy className="w-4 h-4" /> },
@@ -244,7 +246,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <SummaryCard label="Node Status" value="Healthy" icon={<Activity className="w-6 h-6 text-emerald-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Active Members" value={menteesData.length} icon={<Users className="w-6 h-6 text-blue-400" />} themeStyles={themeStyles} />
-              <SummaryCard label="Total Requests" value="1.2k" icon={<Database className="w-6 h-6 text-purple-400" />} themeStyles={themeStyles} />
+              <SummaryCard label="Total Requests" value={pendingUsers.length > 0 ? `${pendingUsers.length} Pending` : "All Clear"} icon={<Database className="w-6 h-6 text-purple-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Avg. Score" value={menteesData.length ? Math.round(menteesData.reduce((a,b)=>a+b.points,0)/menteesData.length) : 0} icon={<Target className={`w-6 h-6 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
             </section>
             
@@ -325,7 +327,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             ))}
           </section>
         ) : activeTab === 'groups' ? (
-          /* GROUP MANAGEMENT */
           <section className="space-y-6">
              <div className={`${themeStyles.card} rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-center`}>
                 <div className="flex-1 w-full">
@@ -344,7 +345,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                   </button>
                 </form>
              </div>
-
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {groups.map(group => (
                   <div key={group} className={`${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`}>
@@ -354,11 +354,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                       </div>
                       <span className="font-bold text-sm uppercase tracking-wider">{group}</span>
                     </div>
-                    <button 
-                      onClick={() => handleDeleteGroup(group)}
-                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                      title="Disband Faction"
-                    >
+                    <button onClick={() => handleDeleteGroup(group)} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -366,7 +362,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
              </div>
           </section>
         ) : (
-          /* NETWORK LOGS (Ala Backend) */
           <section className="space-y-4">
             <div className={`${themeStyles.card} bg-black/90 rounded-2xl border border-white/10 overflow-hidden font-mono text-[11px]`}>
                <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
@@ -385,10 +380,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                      <span className={log.includes('Failed') ? 'text-red-400' : ''}>{log}</span>
                    </div>
                  ))}
-                 <div className="flex gap-3 text-white/20 animate-pulse">
-                   <span>{`>`}</span>
-                   <span>Listening for incoming packets...</span>
-                 </div>
                </div>
             </div>
           </section>

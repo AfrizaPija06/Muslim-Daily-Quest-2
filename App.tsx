@@ -119,17 +119,15 @@ const App: React.FC = () => {
       const oldUsername = currentUser.username;
       const newUsername = updatedUser.username;
       
-      // 1. Update Current State
+      // 1. Update Current State & Persist Session Immediately
       setCurrentUser(updatedUser);
       localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
       
       // 2. Handle Username Change (Migration)
       if (oldUsername !== newUsername) {
-        // Move Tracker Data
         const trackerData = localStorage.getItem(`ibadah_tracker_${oldUsername}`);
         if (trackerData) {
           localStorage.setItem(`ibadah_tracker_${newUsername}`, trackerData);
-          // We don't delete old data immediately to be safe, or we can:
           localStorage.removeItem(`ibadah_tracker_${oldUsername}`);
         }
       }
@@ -137,24 +135,17 @@ const App: React.FC = () => {
       // 3. Update Local User List
       const usersStr = localStorage.getItem('nur_quest_users');
       let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-      
-      // Remove old entry if username changed (to avoid dupes if ID logic isn't perfect) 
-      // or just update if username is same
       allUsers = allUsers.filter(u => u.username !== oldUsername && u.username !== newUsername);
       allUsers.push(updatedUser);
-      
       localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
 
-      // 4. Push to Cloud
-      // Note: If username changed, this creates a NEW record in DB. Old record becomes zombie.
-      await api.updateDatabase({
-        users: allUsers,
-        trackers: { [newUsername]: data }, // Push current data to new username
-        groups: groups
-      });
+      // 4. Push to Cloud (Targeted Update)
+      // We use `updateUserProfile` now for reliability
+      await api.updateUserProfile(updatedUser);
 
       addLog("Profile Updated Successfully.");
-      performSync(); // Trigger sync to finalize
+      // Do NOT trigger full sync immediately to avoid race condition where cloud might send back old data
+      // Just wait for next interval
 
     } catch (e: any) {
       console.error("Update Profile Failed:", e);
@@ -177,7 +168,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
     performSync();
-    // OPTIMIZED: Increased sync interval to 60s (was 20s) to prevent Netlify/Server throttling
+    // OPTIMIZED: Increased sync interval to 60s
     const interval = setInterval(performSync, 60000);
     return () => clearInterval(interval);
   }, [performSync, isResetting]);
@@ -213,16 +204,12 @@ const App: React.FC = () => {
     setGroups(newGroups);
     localStorage.setItem('nur_quest_groups', JSON.stringify(newGroups));
     
+    // We only update groups locally + via generic sync logic for now
+    // Ideally we would have api.updateGroups but existing pattern is bulky
+    // We will just let the next sync handle it or use updateDatabase if really needed
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-    const trackersStr = localStorage.getItem(`ibadah_tracker_${currentUser?.username}`);
-    const trackers = trackersStr ? { [currentUser?.username!]: JSON.parse(trackersStr) } : {};
-    
-    await api.updateDatabase({ 
-      users: users, 
-      trackers: trackers, 
-      groups: newGroups 
-    });
-    performSync();
+    const trackers = {}; 
+    await api.updateDatabase({ users, trackers, groups: newGroups });
   };
 
   const totalPoints = useMemo(() => {
@@ -254,17 +241,9 @@ const App: React.FC = () => {
     );
   }
 
-  // --- ERROR DETECTION LOGIC ---
   const errorLower = syncErrorMsg.toLowerCase();
-  
-  // 1. Database Table Missing (SQL not run)
   const isTableError = errorLower.includes("relation") || errorLower.includes("does not exist") || errorLower.includes("42p01");
-  
-  // 2. Auth/Key Error
   const isAuthError = errorLower.includes("api key") || errorLower.includes("jwt") || errorLower.includes("401");
-  
-  // 3. Generic Network/Paused Error
-  const isNetworkError = errorLower.includes("fetch") || errorLower.includes("network");
 
   return (
     <>

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, ImageOff, UploadCloud, AlertCircle } from 'lucide-react';
+import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, UploadCloud } from 'lucide-react';
 import { User, AppTheme, getRankInfo } from '../types';
 import { AVAILABLE_AVATARS, getAvatarSrc } from '../constants';
 import ThemeToggle from './ThemeToggle';
@@ -20,6 +20,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme, performSync, handleUpdateProfile, totalPoints }) => {
   const isLegends = currentTheme === 'legends';
+  const isMentor = currentUser?.role === 'mentor';
   
   // Edit Profile State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -66,7 +67,6 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
   };
 
   const handleMainAvatarError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    // If main avatar fails, try to see if we have a cache fallback, otherwise generic
     const src = getAvatarSrc('1'); 
     if (e.currentTarget.src !== src && src) {
       e.currentTarget.src = src;
@@ -77,8 +77,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     setImgErrors(prev => ({ ...prev, [id]: true }));
   };
 
-  // --- MANUAL IMAGE UPLOAD HANDLER ---
+  // --- MANUAL IMAGE UPLOAD HANDLER (MENTOR ONLY) ---
   const triggerUpload = (id: string) => {
+    if (!isMentor) return; // Restrict to Mentor
     setUploadTargetId(id);
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -209,10 +210,9 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               <div className="space-y-2">
                  <div className="flex justify-between items-center">
                    <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
-                   <span className="text-[9px] text-white/40 italic">*Click "Upload" if image is missing</span>
+                   {isMentor && <span className="text-[9px] text-white/40 italic">*Click image to upload (Mentor Only)</span>}
                  </div>
                  
-                 {/* Updated Grid for better visibility */}
                  <div className="grid grid-cols-3 gap-3">
                     {AVAILABLE_AVATARS.map((avatar) => {
                        const isSelected = editForm.avatarSeed === avatar.id;
@@ -222,10 +222,10 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                          <div 
                            key={avatar.id}
                            onClick={(e) => {
-                             // If it's an error state, handle click as upload trigger
+                             // If it's an error state, only Mentor can trigger upload
                              if (hasError) {
                                e.stopPropagation();
-                               triggerUpload(avatar.id);
+                               if (isMentor) triggerUpload(avatar.id);
                              } else {
                                setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }));
                              }
@@ -237,7 +237,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                                   : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105 shadow-lg shadow-emerald-500/20') 
                                : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-100'
                              }`}
-                           title={hasError ? "Click to Upload Image" : avatar.name}
+                           title={hasError && isMentor ? "Click to Upload Image" : avatar.name}
                          >
                            {/* Gradient Background */}
                            <div className={`absolute inset-0 ${isLegends ? 'bg-gradient-to-br from-[#3a080e] to-[#0f0404]' : 'bg-gradient-to-br from-slate-800 to-slate-950'}`} />
@@ -250,10 +250,16 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                                  className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-110" 
                                />
                            ) : (
-                               // UPLOAD STATE UI
+                               // UPLOAD STATE UI (Visible to all, but only Mentor has Icon)
                                <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 gap-1 p-2 hover:bg-white/5 transition-colors">
-                                  <UploadCloud className="w-6 h-6 animate-pulse text-yellow-500" />
-                                  <span className="text-[7px] uppercase font-bold text-center leading-tight text-yellow-500">Tap to Upload</span>
+                                  {isMentor ? (
+                                    <>
+                                      <UploadCloud className="w-6 h-6 animate-pulse text-yellow-500" />
+                                      <span className="text-[7px] uppercase font-bold text-center leading-tight text-yellow-500">Tap to Upload</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-[7px] uppercase font-bold text-center leading-tight">Image Missing</span>
+                                  )}
                                </div>
                            )}
 
@@ -310,13 +316,15 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
             </div>
             
             {/* Hidden File Input for Avatar Upload */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*"
-              onChange={handleFileChange}
-            />
+            {isMentor && (
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+            )}
 
           </div>
         </div>
