@@ -137,6 +137,25 @@ class ApiService {
     }
   }
 
+  // NEW: Delete Asset from Server
+  async deleteGlobalAsset(id: string): Promise<boolean> {
+    try {
+      const db = await this.fetchDatabase();
+      if (!db.assets) return true;
+
+      delete db.assets[id];
+
+      const success = await this.updateDatabase(db);
+      if (!success) throw new Error("Database Write Failed");
+
+      localStorage.setItem('nur_quest_assets', JSON.stringify(db.assets));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  }
+
   async deleteUser(username: string): Promise<boolean> {
     try {
       const db = await this.fetchDatabase();

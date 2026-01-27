@@ -1,8 +1,8 @@
 
 import React, { useState, useRef } from 'react';
-import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, UploadCloud, Loader2 } from 'lucide-react';
+import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, UploadCloud, Loader2, Camera, Image as ImageIcon } from 'lucide-react';
 import { User, AppTheme, getRankInfo, GlobalAssets } from '../types';
-import { AVAILABLE_AVATARS, getAvatarSrc, getOnlineFallback } from '../constants';
+import { getAvatarSrc } from '../constants';
 import ThemeToggle from './ThemeToggle';
 import { api } from '../services/ApiService';
 
@@ -17,8 +17,8 @@ interface HeaderProps {
   toggleTheme: () => void;
   performSync?: () => Promise<void>;
   handleUpdateProfile?: (user: User) => void;
-  globalAssets?: GlobalAssets; // Received from App
-  refreshAssets?: (assets: GlobalAssets) => void; // To update app state
+  globalAssets?: GlobalAssets;
+  refreshAssets?: (assets: GlobalAssets) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -35,12 +35,8 @@ const Header: React.FC<HeaderProps> = ({
     avatarSeed: ''
   });
 
-  // Image Error State for Grid
-  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
-  
   // Upload Logic
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // Calculate Season Points
@@ -55,7 +51,6 @@ const Header: React.FC<HeaderProps> = ({
         avatarSeed: currentUser.avatarSeed || currentUser.username
       });
       setIsEditingProfile(true);
-      setImgErrors({}); // Reset errors on open
     }
   };
 
@@ -72,103 +67,56 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // --- ROBUST ERROR HANDLER (SYNC FIX) ---
-  const handleMainAvatarError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    // Jika gambar lokal (1.png) gagal load di HP lain, ganti ke Online Fallback yang "Keren"
-    const seed = currentUser?.avatarSeed || currentUser?.username || 'User';
-    const fallbackUrl = getOnlineFallback(seed);
-    
-    if (e.currentTarget.src !== fallbackUrl) {
-      e.currentTarget.src = fallbackUrl;
-    }
-  };
-
-  const handleGridImgError = (id: string, e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const fallbackUrl = getOnlineFallback(id);
-    if (e.currentTarget.src !== fallbackUrl) {
-       e.currentTarget.src = fallbackUrl;
-    } else {
-       setImgErrors(prev => ({ ...prev, [id]: true }));
-    }
-  };
-
-  // --- MANUAL IMAGE UPLOAD HANDLER (MENTOR ONLY) ---
-  const triggerUpload = (id: string) => {
-    if (!isMentor) return; // Restrict to Mentor
-    setUploadTargetId(id);
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- MENTOR: UPLOAD OWN PROFILE PICTURE ---
+  const handleMentorProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && uploadTargetId) {
+    if (file && currentUser) {
       setIsUploading(true);
-      
       const reader = new FileReader();
       reader.onloadend = async () => {
-        let base64String = reader.result as string;
-
-        // --- COMPRESS IMAGE (Max 100KB) ---
-        // Create an image object to resize
+        const base64String = reader.result as string;
+        
+        // Resize logic to save DB space
         const img = new Image();
         img.src = base64String;
         img.onload = async () => {
           const canvas = document.createElement('canvas');
-          // Resize to max 500px width/height to keep DB small
-          const MAX_SIZE = 500; 
+          const MAX_SIZE = 400; // Small profile pic
           let width = img.width;
           let height = img.height;
           
           if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            }
+             if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
           } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
+             if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
           }
-          
-          canvas.width = width;
-          canvas.height = height;
+          canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Export as moderate quality JPEG
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
           
-          // UPLOAD TO SERVER API
-          const success = await api.uploadGlobalAsset(uploadTargetId, compressedBase64);
+          // UPLOAD AS "user_username"
+          const assetKey = `user_${currentUser.username}`;
+          const success = await api.uploadGlobalAsset(assetKey, compressedBase64);
           
           if (success) {
-            // Update local state immediately
-            if (refreshAssets && globalAssets) {
-               refreshAssets({ ...globalAssets, [uploadTargetId]: compressedBase64 });
-            }
-            alert(`Avatar ${uploadTargetId} successfully uploaded to Server! Everyone will see this now.`);
+            setEditForm(prev => ({ ...prev, avatarSeed: assetKey }));
+            if (refreshAssets && globalAssets) refreshAssets({ ...globalAssets, [assetKey]: compressedBase64 });
           } else {
             alert("Upload failed. Check connection.");
           }
-          
           setIsUploading(false);
-          
-          // Clear error
-          setImgErrors(prev => {
-             const newState = { ...prev };
-             delete newState[uploadTargetId];
-             return newState;
-          });
         };
       };
       reader.readAsDataURL(file);
     }
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // --- GET AVAILABLE PRESETS FOR MENTEE ---
+  const availablePresets = globalAssets 
+    ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) 
+    : [];
 
   return (
     <>
@@ -183,19 +131,16 @@ const Header: React.FC<HeaderProps> = ({
               <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105 bg-black/50`}>
                  <img 
                    src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username, globalAssets)} 
-                   onError={handleMainAvatarError}
                    className="w-full h-full object-cover" 
                    alt="Avatar" 
                  />
               </div>
-              {/* Dynamic Rank Badge */}
               <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
                 <Trophy className={`w-3 h-3 ${currentRank.color}`} />
                 <span className={`text-[8px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
                 </span>
               </div>
-              
               <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                  <UserCircle className="w-6 h-6 text-white" />
               </div>
@@ -209,13 +154,7 @@ const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-center gap-3">
             {performSync && (
-              <button 
-                onClick={performSync} 
-                className={`p-3 border rounded-xl hover:text-emerald-500 transition-all ${themeStyles.inputBg} ${themeStyles.border} ${themeStyles.textSecondary}`}
-                title="Force Sync Data"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
+              <button onClick={performSync} className={`p-3 border rounded-xl hover:text-emerald-500 transition-all ${themeStyles.inputBg} ${themeStyles.border} ${themeStyles.textSecondary}`} title="Force Sync Data"><RefreshCw className="w-5 h-5" /></button>
             )}
             <ThemeToggle currentTheme={currentTheme} toggleTheme={toggleTheme} themeStyles={themeStyles} />
             <nav className={`flex items-center gap-1 p-1 rounded-xl border ${themeStyles.border} ${themeStyles.inputBg}`}>
@@ -244,13 +183,21 @@ const Header: React.FC<HeaderProps> = ({
             <div className="space-y-4">
               {/* CURRENT AVATAR & RANK */}
               <div className="flex items-center gap-4 pb-4 border-b border-white/10">
-                 <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
+                 <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 relative group ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
                       src={getAvatarSrc(editForm.avatarSeed, globalAssets)} 
-                      onError={handleMainAvatarError}
                       alt="Preview" 
                       className="w-full h-full object-cover" 
                     />
+                    {isMentor && (
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                      >
+                         <Camera className="w-6 h-6 text-white mb-1" />
+                         <span className="text-[8px] text-white uppercase font-bold">Change</span>
+                      </div>
+                    )}
                  </div>
                  <div>
                     <div className={`inline-flex items-center gap-2 px-3 py-1 mb-1 rounded-full border ${currentRank.bg}`}>
@@ -263,85 +210,49 @@ const Header: React.FC<HeaderProps> = ({
                  </div>
               </div>
 
-              {/* CHARACTER SELECTION GRID */}
-              <div className="space-y-2">
-                 <div className="flex justify-between items-center">
-                   <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
-                   {isMentor && <span className="text-[9px] text-white/40 italic">*Click image to upload (Mentor Only)</span>}
-                 </div>
-                 
-                 <div className="grid grid-cols-3 gap-3">
-                    {AVAILABLE_AVATARS.map((avatar) => {
-                       const isSelected = editForm.avatarSeed === avatar.id;
-                       const hasError = imgErrors[avatar.id];
-                       
-                       return (
-                         <div 
-                           key={avatar.id}
-                           onClick={(e) => {
-                             // SPECIAL FEATURE: MENTOR UPLOAD TO SERVER
-                             if (isMentor) {
-                               e.stopPropagation();
-                               // Confirm upload only if not error to avoid accidental clicks
-                               if (!hasError) {
-                                  if(confirm(`Upload new image for "${avatar.name}" to SERVER?`)) {
-                                    triggerUpload(avatar.id);
-                                  } else {
-                                    setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }));
-                                  }
-                               } else {
-                                  triggerUpload(avatar.id);
-                               }
-                             } else {
-                               setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }));
-                             }
-                           }}
-                           className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group cursor-pointer
-                             ${isSelected 
-                               ? (isLegends 
-                                  ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105 shadow-lg shadow-[#d4af37]/20' 
-                                  : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105 shadow-lg shadow-emerald-500/20') 
-                               : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-100'
-                             }`}
-                           title={isMentor ? "Click to Upload to Server" : avatar.name}
-                         >
-                           {/* Gradient Background */}
-                           <div className={`absolute inset-0 ${isLegends ? 'bg-gradient-to-br from-[#3a080e] to-[#0f0404]' : 'bg-gradient-to-br from-slate-800 to-slate-950'}`} />
+              {/* MENTEE: PRESET SELECTION GRID */}
+              {!isMentor && (
+                <div className="space-y-2">
+                   <div className="flex justify-between items-center">
+                     <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar</label>
+                   </div>
+                   
+                   {availablePresets.length > 0 ? (
+                     <div className="grid grid-cols-3 gap-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                        {availablePresets.map((presetKey) => {
+                           const isSelected = editForm.avatarSeed === presetKey;
+                           const imgSrc = globalAssets ? globalAssets[presetKey] : '';
                            
-                           {/* Avatar Image with Online Fallback Logic */}
-                           <img 
-                             src={getAvatarSrc(avatar.id, globalAssets)} 
-                             alt={avatar.name} 
-                             onError={(e) => handleGridImgError(avatar.id, e)}
-                             className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-110 ${hasError && isMentor ? 'opacity-50' : ''}`} 
-                           />
-
-                           {/* Error/Upload Overlay */}
-                           {(hasError || isMentor) && (
-                               <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 transition-colors z-10 ${hasError ? 'bg-black/50' : 'opacity-0 hover:bg-black/60 hover:opacity-100'}`}>
-                                  <UploadCloud className="w-6 h-6 text-yellow-500" />
-                                  <span className="text-[7px] uppercase font-bold text-center leading-tight text-yellow-500">Upload to Server</span>
-                               </div>
-                           )}
-
-                           {/* Selection Overlay */}
-                           {isSelected && !isMentor && (
-                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-20">
-                               <Check className="w-8 h-8 text-white drop-shadow-md" />
+                           return (
+                             <div 
+                               key={presetKey}
+                               onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: presetKey }))}
+                               className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group cursor-pointer
+                                 ${isSelected 
+                                   ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') 
+                                   : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-80 hover:opacity-100'
+                                 }`}
+                             >
+                               <img src={imgSrc} alt="Preset" className="w-full h-full object-cover" />
+                               {isSelected && (
+                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-20">
+                                   <Check className="w-8 h-8 text-white drop-shadow-md" />
+                                 </div>
+                               )}
                              </div>
-                           )}
-                           
-                           {/* Name Tag */}
-                           <div className="absolute bottom-0 inset-x-0 bg-black/80 p-1.5 text-[9px] font-bold uppercase text-center truncate text-white/90 z-20 border-t border-white/10">
-                             {avatar.name}
-                           </div>
-                         </div>
-                       );
-                    })}
-                 </div>
-              </div>
+                           );
+                        })}
+                     </div>
+                   ) : (
+                     <div className="p-4 border border-dashed border-white/20 rounded-xl text-center">
+                        <ImageIcon className="w-6 h-6 mx-auto mb-2 text-white/30" />
+                        <p className="text-[10px] text-white/50">No avatars available yet.<br/>Ask your Mentor to upload presets.</p>
+                     </div>
+                   )}
+                </div>
+              )}
 
-              {/* Uploading Indicator */}
+              {/* MENTOR UPLOAD INDICATOR */}
               {isUploading && (
                 <div className="text-center py-2 text-yellow-500 text-xs font-bold animate-pulse flex justify-center gap-2">
                    <Loader2 className="w-4 h-4 animate-spin" /> Uploading to Server...
@@ -358,13 +269,13 @@ const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Username (ID)</label>
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Username</label>
                 <input 
                   value={editForm.username}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
-                  className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`}
+                  disabled={true} 
+                  className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border bg-black/20 border-white/5 text-white/50 cursor-not-allowed`}
                 />
-                <p className="text-[10px] text-red-400 opacity-70 italic">* Changing username will migrate your data to a new ID.</p>
+                 <p className="text-[10px] text-white/30 italic">* Username cannot be changed.</p>
               </div>
 
               <div className="pt-4 flex gap-3">
@@ -383,17 +294,14 @@ const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
             
-            {/* Hidden File Input for Avatar Upload */}
-            {isMentor && (
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*"
-                onChange={handleFileChange}
-              />
-            )}
-
+            {/* Hidden File Input for Mentor Personal Upload */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleMentorProfileUpload}
+            />
           </div>
         </div>
       )}

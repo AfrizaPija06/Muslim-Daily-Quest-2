@@ -27,7 +27,6 @@ export const ADMIN_CREDENTIALS = {
   role: 'mentor' as Role
 };
 
-// PUBLIC CLOUD SYNC CONFIG
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({
     id: idx,
@@ -49,56 +48,27 @@ export const MENTORING_GROUPS = [
 
 // --- AVATAR SYSTEM CONFIGURATION ---
 
-export const AVAILABLE_AVATARS = [
-  { id: '1', name: 'The Strategist', url: '/avatars/1.png' }, 
-  { id: '2', name: 'The Prodigy', url: '/avatars/2.png' },    
-  { id: '3', name: 'The Guardian', url: '/avatars/3.png' },   
-  { id: '4', name: 'The Striker', url: '/avatars/4.png' },    
-  { id: '5', name: 'The Spirit', url: '/avatars/5.png' },     
-  { id: '6', name: 'The Saint', url: '/avatars/6.png' },      
-];
+// Fallback image (Silhouette) if nothing found on server
+const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=User&size=128";
 
-const FALLBACK_BASE_URL = "https://api.dicebear.com/9.x/notionists/svg?backgroundColor=b6e3f4,c0aede,d1d4f9&seed=";
-
-// Updated Signature: Accepts optional globalAssets from server
 export const getAvatarSrc = (seedOrId?: string, globalAssets: GlobalAssets = {}) => {
-  // 1. Default fallback
-  if (!seedOrId) return AVAILABLE_AVATARS[0].url;
+  if (!seedOrId) return DEFAULT_AVATAR;
 
-  // 2. [PRIORITY NEW] Cek Global Assets dari Server
-  // Jika Mentor sudah upload, pakai ini agar muncul di semua device
+  // 1. Cek Global Assets (Prioritas Utama - Server Data)
   if (globalAssets && globalAssets[seedOrId]) {
     return globalAssets[seedOrId];
   }
 
-  // 3. Cek Cache Lokal (Legacy/Fallback)
-  if (typeof window !== 'undefined') {
-    const cached = localStorage.getItem(`avatar_cache_${seedOrId}`);
-    if (cached && cached.length > 50) return cached;
-  }
-  
-  // 4. Cek apakah ID sesuai dengan preset 1-6 (Local Path)
-  const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
-  if (found) return found.url;
-
-  // 5. Jika input berupa URL lengkap/Data URI
+  // 2. Jika seedOrId itu sendiri adalah Base64 atau URL (Legacy support)
   if (seedOrId.startsWith('http') || seedOrId.startsWith('data:image')) {
     return seedOrId;
   }
 
-  // 6. Fallback path
-  return `/avatars/${seedOrId}.png`;
+  // 3. Fallback terakhir
+  return `https://ui-avatars.com/api/?background=10b981&color=fff&name=${seedOrId}&size=128`;
 };
 
+// No longer needed, strictly server assets or placeholder
 export const getOnlineFallback = (seed: string) => {
-  const seedMap: Record<string, string> = {
-    '1': 'Felix',
-    '2': 'Ryan', 
-    '3': 'Mason',
-    '4': 'Leo',
-    '5': 'Caleb',
-    '6': 'Omar',
-  };
-  const finalSeed = seedMap[seed] || seed;
-  return `${FALLBACK_BASE_URL}${finalSeed}`;
+   return `https://ui-avatars.com/api/?background=334155&color=fff&name=${seed}&size=128`;
 };
