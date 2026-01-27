@@ -201,8 +201,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
     performSync();
-    // Sync interval 60s
-    const interval = setInterval(performSync, 60000);
+    // Sync interval accelerated to 5 seconds
+    const interval = setInterval(performSync, 5000);
     return () => clearInterval(interval);
   }, [performSync, isResetting]);
 
