@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from '.
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database, AlertTriangle, Terminal, ExternalLink, Play, X, Copy } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database, AlertTriangle, Terminal, ExternalLink, Play, X, Copy, WifiOff, Link as LinkIcon } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
@@ -12,8 +12,11 @@ import RegisterPage from './components/RegisterPage';
 import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
 
-// SQL Script Constant
-const SQL_REPAIR_SCRIPT = `-- Copy dan Paste kode ini di SQL Editor Supabase
+// SQL Script Constant - Updated with clearer instructions
+const SQL_REPAIR_SCRIPT = `-- LANGKAH 1: HAPUS semua kode yang mungkin sudah ada di layar ini.
+-- LANGKAH 2: PASTE (Tempel) semua kode di bawah ini.
+-- LANGKAH 3: Klik tombol "RUN" (biasanya warna hijau di kanan bawah/atas).
+
 create table if not exists app_sync (
   id text primary key,
   json_data jsonb,
@@ -28,30 +31,21 @@ create policy "Public Access" on app_sync for all using (true);
 -- Inisialisasi data kosong agar tidak error not found
 insert into app_sync (id, json_data) values ('global_store_v7', '{}') on conflict do nothing;`;
 
+// PROJECT ID SPECIFIC
+const SUPABASE_PROJECT_ID = "fymoxcdhskimzxpljjgi";
+const SUPABASE_SQL_URL = `https://supabase.com/dashboard/project/${SUPABASE_PROJECT_ID}/sql/new`;
+
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
   // --- VERSION RESET LOGIC ---
   useEffect(() => {
-    const APP_VERSION = 'v7_factory_reset';
+    const APP_VERSION = 'v7.3_instruction_update'; // Updated version trigger
     const storedVersion = localStorage.getItem('nur_quest_version');
     
     if (storedVersion !== APP_VERSION) {
-      console.warn("System Update V7: Purging old data...");
-      setIsResetting(true);
-      
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('nur_quest_') || key.startsWith('ibadah_tracker_'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(k => localStorage.removeItem(k));
+      console.warn("System Update V7.3: Updating instructions...");
       localStorage.setItem('nur_quest_version', APP_VERSION);
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
     }
   }, []);
 
@@ -91,7 +85,6 @@ const App: React.FC = () => {
       if (result.success) {
         setIsOnline(true);
         setSyncErrorMsg("");
-        setShowRepairModal(false); // Auto close modal if connection restores
         
         if (!isOnline) addLog("Connection Restored: Sync Successful.");
 
@@ -117,6 +110,11 @@ const App: React.FC = () => {
         setIsOnline(false);
         const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
+        
+        // Auto-show repair modal if database table is missing
+        if (msg.toLowerCase().includes("relation")) {
+           setShowRepairModal(true);
+        }
         
         if (msg !== "Offline Mode") {
            addLog(`Sync Failed: ${msg}`);
@@ -257,8 +255,8 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
         <Loader2 className="w-10 h-10 animate-spin mb-4" />
-        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Update V7</h2>
-        <p className="text-xs text-white/50 mt-2">Purging cached data for clean install...</p>
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Update V7.3</h2>
+        <p className="text-xs text-white/50 mt-2">Updating guides...</p>
       </div>
     );
   }
@@ -272,20 +270,25 @@ const App: React.FC = () => {
       {/* STATUS BAR WITH CLICK HANDLER */}
       <div 
         onClick={() => {
-           if (!isOnline) setShowRepairModal(true);
-           else performSync();
+           console.log("Status Bar Clicked. Online:", isOnline, "Error:", syncErrorMsg);
+           if (!isOnline) {
+             setShowRepairModal(true);
+           } else {
+             performSync();
+           }
         }}
-        className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group max-w-[80vw]"
+        className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/20 p-2 pr-5 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group max-w-[85vw] hover:bg-white/10"
+        title={!isOnline ? "Click to troubleshoot connection" : "Click to sync now"}
       >
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
-           {isOnline ? <Activity className="w-4 h-4 text-emerald-500 animate-pulse" /> : <CloudOff className="w-4 h-4 text-red-500" />}
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'} transition-colors`}>
+           {isOnline ? <Activity className="w-4 h-4 text-emerald-500 animate-pulse" /> : <WifiOff className="w-4 h-4 text-red-500 animate-pulse" />}
         </div>
         <div className="flex flex-col overflow-hidden">
-          <span className={`text-[9px] font-black uppercase tracking-tighter truncate ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
-            {isOnline ? 'System Online' : (isTableError ? 'Database Missing' : isAuthError ? 'Auth Error' : 'Offline Mode')}
+          <span className={`text-[10px] font-black uppercase tracking-tighter truncate ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
+            {isOnline ? 'SYSTEM ONLINE' : (isTableError ? 'DATABASE MISSING' : 'OFFLINE MODE')}
           </span>
-          <span className="text-[8px] text-white/40 uppercase font-bold flex items-center gap-1 truncate w-full">
-             {isSyncing ? 'Syncing...' : (isOnline ? 'Connected' : (isTableError ? 'Click to Fix' : (syncErrorMsg || 'Check Connection')))}
+          <span className="text-[8px] text-white/50 uppercase font-bold flex items-center gap-1 truncate w-full">
+             {isSyncing ? 'SYNCING...' : (isOnline ? 'LIVE CONNECTION' : (isTableError ? 'CLICK TO FIX' : 'CLICK TO RETRY'))}
              {isSyncing && <RefreshCw className="w-2 h-2 animate-spin" />}
           </span>
         </div>
@@ -293,60 +296,81 @@ const App: React.FC = () => {
       
       {/* SELF REPAIR MODAL */}
       {showRepairModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-           <div className={`w-full max-w-lg ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative`}>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
+           <div className={`w-full max-w-lg ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative border-2 border-red-500/30`}>
               <button onClick={() => setShowRepairModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X className="w-6 h-6" /></button>
               
-              <div className="flex items-center gap-3 mb-4">
-                 <div className="p-3 bg-red-500/20 rounded-xl">
-                   <Terminal className="w-6 h-6 text-red-500" />
+              <div className="flex items-center gap-4 mb-6">
+                 <div className="p-4 bg-red-500/20 rounded-2xl border border-red-500/30">
+                   <Database className="w-8 h-8 text-red-500" />
                  </div>
                  <div>
-                   <h3 className={`text-lg ${themeStyles.fontDisplay} font-bold uppercase`}>System Diagnosis</h3>
-                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Database Connection Issue</p>
+                   <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase text-red-500`}>Database Issue</h3>
+                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Initial Setup Required</p>
                  </div>
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs text-slate-300 leading-relaxed">
-                   Aplikasi tidak dapat menemukan tabel database di Supabase Anda. Ini normal untuk instalasi baru. 
-                   Silakan jalankan script berikut di <strong>SQL Editor</strong> Supabase Anda.
-                </p>
+                <div className="bg-red-950/30 p-4 rounded-xl border border-red-500/20">
+                  <p className="text-xs text-red-200 leading-relaxed font-bold">
+                     Database belum siap. Ikuti langkah ini:
+                  </p>
+                  <ol className="text-[10px] text-red-300/70 mt-2 list-decimal ml-4 space-y-1">
+                     <li>Klik tombol biru <strong>"Open SQL Editor"</strong> di bawah.</li>
+                     <li>Jika ada tulisan/kode lama di sana, <strong>HAPUS SEMUANYA</strong> sampai kosong.</li>
+                     <li><strong>PASTE</strong> kode dari kotak hitam di bawah ini.</li>
+                     <li>Klik tombol hijau <strong>RUN</strong> di Supabase.</li>
+                  </ol>
+                </div>
 
                 <div className="relative group">
-                   <div className="absolute top-2 right-2 flex gap-1">
+                   <div className="absolute top-2 right-2 flex gap-1 z-10">
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(SQL_REPAIR_SCRIPT);
-                          alert("Code Copied!");
+                          alert("SQL Script Copied! Sekarang Paste di SQL Editor.");
                         }}
-                        className="bg-white/10 hover:bg-white/20 p-1.5 rounded text-xs flex items-center gap-1 text-white font-mono"
+                        className="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-lg text-xs flex items-center gap-1 text-white font-bold shadow-lg"
                       >
-                        <Copy className="w-3 h-3" /> Copy
+                        <Copy className="w-3 h-3" /> Copy Code
                       </button>
                    </div>
-                   <pre className="bg-black/50 border border-white/10 p-4 rounded-xl text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-[200px]">
+                   <pre className="bg-black border border-white/20 p-4 pt-10 rounded-xl text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-[200px] shadow-inner">
                       {SQL_REPAIR_SCRIPT}
                    </pre>
                 </div>
 
-                <div className="flex gap-2 pt-2">
-                   <a 
-                     href="https://supabase.com/dashboard/project/fymoxcdhskimzxpljjgi/sql/new" 
-                     target="_blank" 
-                     rel="noreferrer"
-                     className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
-                   >
-                     <ExternalLink className="w-4 h-4" /> Open SQL Editor
-                   </a>
+                <div className="flex flex-col gap-2 pt-2">
+                   <div className="flex gap-2">
+                     <a 
+                       href={SUPABASE_SQL_URL}
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all text-center"
+                     >
+                       <ExternalLink className="w-4 h-4" /> 1. Open SQL Editor
+                     </a>
+                     <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(SUPABASE_SQL_URL);
+                          alert("Link Copied! Please open it in your browser:\n" + SUPABASE_SQL_URL);
+                        }}
+                        className="w-14 bg-white/10 hover:bg-white/20 text-white rounded-xl flex items-center justify-center"
+                        title="Copy Link if button doesn't work"
+                     >
+                       <LinkIcon className="w-5 h-5" />
+                     </button>
+                   </div>
+                   
                    <button 
                      onClick={() => {
+                        setShowRepairModal(false);
                         setIsSyncing(false);
                         performSync();
                      }}
-                     className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
                    >
-                     <Play className="w-4 h-4" /> Retry Connection
+                     <Play className="w-4 h-4" /> 2. Saya Sudah Run Script (Retry)
                    </button>
                 </div>
               </div>
@@ -358,10 +382,10 @@ const App: React.FC = () => {
       {!isOnline && isTableError && !showRepairModal && (
         <div 
           onClick={() => setShowRepairModal(true)}
-          className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-red-500"
+          className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-3 z-[99999] animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-red-500 flex items-center justify-center gap-2 shadow-xl"
         >
-          <Database className="w-3 h-3 inline mr-2" />
-          Critical: Database Missing. Click Here to Fix.
+          <AlertTriangle className="w-4 h-4 animate-bounce" />
+          <span>Database Missing: Click here to fix setup</span>
         </div>
       )}
 
