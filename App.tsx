@@ -4,13 +4,29 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from '.
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database, AlertTriangle } from 'lucide-react';
+import { CloudOff, RefreshCw, Activity, CheckCircle, Loader2, Database, AlertTriangle, Terminal, ExternalLink, Play, X, Copy } from 'lucide-react';
 
 // Import Pages
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
+
+// SQL Script Constant
+const SQL_REPAIR_SCRIPT = `-- Copy dan Paste kode ini di SQL Editor Supabase
+create table if not exists app_sync (
+  id text primary key,
+  json_data jsonb,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+alter table app_sync enable row level security;
+
+-- Memberikan akses baca/tulis ke publik (tanpa login) agar aplikasi web bisa akses
+create policy "Public Access" on app_sync for all using (true);
+
+-- Inisialisasi data kosong agar tidak error not found
+insert into app_sync (id, json_data) values ('global_store_v7', '{}') on conflict do nothing;`;
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -52,6 +68,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncErrorMsg, setSyncErrorMsg] = useState<string>("");
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
+  const [showRepairModal, setShowRepairModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => {
     return (localStorage.getItem('nur_quest_theme') as AppTheme) || 'default';
   });
@@ -67,7 +84,6 @@ const App: React.FC = () => {
     if (isSyncing || isResetting) return;
     
     setIsSyncing(true);
-    // Silent log for sync start to avoid spam
     
     try {
       const result = await api.sync(currentUser, data, groups);
@@ -75,8 +91,8 @@ const App: React.FC = () => {
       if (result.success) {
         setIsOnline(true);
         setSyncErrorMsg("");
+        setShowRepairModal(false); // Auto close modal if connection restores
         
-        // Only log "Sync Successful" if previously offline or explicitly requested
         if (!isOnline) addLog("Connection Restored: Sync Successful.");
 
         localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
@@ -102,11 +118,9 @@ const App: React.FC = () => {
         const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
         
-        // --- FIX: Don't treat "Offline Mode" as a critical failure log ---
         if (msg !== "Offline Mode") {
            addLog(`Sync Failed: ${msg}`);
         } else if (isOnline) {
-           // Only log switching to offline once
            addLog("Switched to Offline Mode.");
         }
       }
@@ -255,9 +269,12 @@ const App: React.FC = () => {
 
   return (
     <>
-      {/* STATUS BAR WITH DEBUG INFO */}
+      {/* STATUS BAR WITH CLICK HANDLER */}
       <div 
-        onClick={performSync}
+        onClick={() => {
+           if (!isOnline) setShowRepairModal(true);
+           else performSync();
+        }}
         className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group max-w-[80vw]"
       >
         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
@@ -268,25 +285,83 @@ const App: React.FC = () => {
             {isOnline ? 'System Online' : (isTableError ? 'Database Missing' : isAuthError ? 'Auth Error' : 'Offline Mode')}
           </span>
           <span className="text-[8px] text-white/40 uppercase font-bold flex items-center gap-1 truncate w-full">
-             {isSyncing ? 'Syncing...' : (isOnline ? 'Connected' : (syncErrorMsg || 'Check Connection'))}
+             {isSyncing ? 'Syncing...' : (isOnline ? 'Connected' : (isTableError ? 'Click to Fix' : (syncErrorMsg || 'Check Connection')))}
              {isSyncing && <RefreshCw className="w-2 h-2 animate-spin" />}
           </span>
         </div>
       </div>
       
-      {/* TOP ALERTS FOR CRITICAL ERRORS */}
-      {!isOnline && isTableError && (
-        <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500">
-          <Database className="w-3 h-3 inline mr-2" />
-          Critical: Tables Missing. Run SQL Setup Script in Supabase.
+      {/* SELF REPAIR MODAL */}
+      {showRepairModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+           <div className={`w-full max-w-lg ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative`}>
+              <button onClick={() => setShowRepairModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X className="w-6 h-6" /></button>
+              
+              <div className="flex items-center gap-3 mb-4">
+                 <div className="p-3 bg-red-500/20 rounded-xl">
+                   <Terminal className="w-6 h-6 text-red-500" />
+                 </div>
+                 <div>
+                   <h3 className={`text-lg ${themeStyles.fontDisplay} font-bold uppercase`}>System Diagnosis</h3>
+                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Database Connection Issue</p>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs text-slate-300 leading-relaxed">
+                   Aplikasi tidak dapat menemukan tabel database di Supabase Anda. Ini normal untuk instalasi baru. 
+                   Silakan jalankan script berikut di <strong>SQL Editor</strong> Supabase Anda.
+                </p>
+
+                <div className="relative group">
+                   <div className="absolute top-2 right-2 flex gap-1">
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(SQL_REPAIR_SCRIPT);
+                          alert("Code Copied!");
+                        }}
+                        className="bg-white/10 hover:bg-white/20 p-1.5 rounded text-xs flex items-center gap-1 text-white font-mono"
+                      >
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                   </div>
+                   <pre className="bg-black/50 border border-white/10 p-4 rounded-xl text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-[200px]">
+                      {SQL_REPAIR_SCRIPT}
+                   </pre>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                   <a 
+                     href="https://supabase.com/dashboard/project/fymoxcdhskimzxpljjgi/sql/new" 
+                     target="_blank" 
+                     rel="noreferrer"
+                     className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                   >
+                     <ExternalLink className="w-4 h-4" /> Open SQL Editor
+                   </a>
+                   <button 
+                     onClick={() => {
+                        setIsSyncing(false);
+                        performSync();
+                     }}
+                     className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                   >
+                     <Play className="w-4 h-4" /> Retry Connection
+                   </button>
+                </div>
+              </div>
+           </div>
         </div>
       )}
-
-      {/* Hide Generic Offline Alert to clean up UI, relying on bottom status bar instead */}
-      {!isOnline && !isTableError && syncErrorMsg && syncErrorMsg !== "Offline Mode" && (
-        <div className="fixed top-0 left-0 w-full bg-yellow-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500">
-          <AlertTriangle className="w-3 h-3 inline mr-2" />
-          {syncErrorMsg.substring(0, 50)}...
+      
+      {/* TOP ALERTS FOR CRITICAL ERRORS */}
+      {!isOnline && isTableError && !showRepairModal && (
+        <div 
+          onClick={() => setShowRepairModal(true)}
+          className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-2 z-[99999] animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-red-500"
+        >
+          <Database className="w-3 h-3 inline mr-2" />
+          Critical: Database Missing. Click Here to Fix.
         </div>
       )}
 
