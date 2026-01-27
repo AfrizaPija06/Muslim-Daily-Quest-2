@@ -6,7 +6,7 @@ import Header from './Header';
 import Footer from './Footer';
 import StatCard from './StatCard';
 import PrayerCell from './PrayerCell';
-import { PRAYER_KEYS, PrayerState, WeeklyData, DayData, POINTS, User, getRankInfo } from '../types';
+import { PRAYER_KEYS, PrayerState, WeeklyData, DayData, POINTS, User, getRankInfo, GlobalAssets } from '../types';
 
 interface TrackerPageProps {
   currentUser: any;
@@ -19,6 +19,7 @@ interface TrackerPageProps {
   toggleTheme: () => void;
   totalPoints: number;
   handleUpdateProfile?: (user: User) => void;
+  globalAssets?: GlobalAssets; // NEW
 }
 
 interface MiniLeaderboardData {
@@ -34,7 +35,7 @@ interface MiniLeaderboardData {
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
   currentUser, setView, handleLogout, data, setData, 
-  themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile
+  themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile, globalAssets
 }) => {
   const [leaderboard, setLeaderboard] = useState<MiniLeaderboardData[]>([]);
 
@@ -128,8 +129,6 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     };
 
     loadLeaderboard();
-    // FIX: Dependency changed from [..., currentUser.username] to [..., currentUser]
-    // This ensures re-render when FullName or Avatar changes, not just ID.
   }, [data, currentUser]);
 
   const sortedWeekly = useMemo(() => [...leaderboard].sort((a, b) => b.points - a.points).slice(0, 10), [leaderboard]);
@@ -191,6 +190,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         currentTheme={currentTheme} 
         toggleTheme={toggleTheme} 
         handleUpdateProfile={handleUpdateProfile}
+        globalAssets={globalAssets}
       />
 
       <main className="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full space-y-6 pb-24">

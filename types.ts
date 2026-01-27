@@ -32,6 +32,10 @@ export interface WeeklyData {
   lastUpdated: string;
 }
 
+// Key-Value pair untuk menyimpan gambar Base64 di server
+// Key: avatar ID (misal '1', '2'), Value: Base64 string image
+export type GlobalAssets = Record<string, string>;
+
 export const DAYS_OF_WEEK = [
   'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
 ];

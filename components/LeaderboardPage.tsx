@@ -6,8 +6,8 @@ import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
-import { User, AppTheme, POINTS, WeeklyData, getRankInfo } from '../types';
-import { getAvatarSrc } from '../constants';
+import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets } from '../types';
+import { getAvatarSrc, getOnlineFallback } from '../constants';
 import { api } from '../services/ApiService';
 
 interface LeaderboardPageProps {
@@ -21,7 +21,8 @@ interface LeaderboardPageProps {
   networkLogs: string[];
   groups: string[];
   updateGroups: (newGroups: string[]) => Promise<void>;
-  handleUpdateProfile?: (user: User) => void; 
+  handleUpdateProfile?: (user: User) => void;
+  globalAssets?: GlobalAssets; // NEW
 }
 
 interface LeaderboardData {
@@ -40,7 +41,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'network' | 'groups'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -205,10 +206,18 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
 
+  // Robust Error Handler for Leaderboard Images
+  const handleImgError = (seed: string, e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const fallbackUrl = getOnlineFallback(seed);
+    if (e.currentTarget.src !== fallbackUrl) {
+      e.currentTarget.src = fallbackUrl;
+    }
+  };
+
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} />
+      <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} globalAssets={globalAssets} />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
         {/* Header Section */}
@@ -280,7 +289,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                         <td className="px-6 py-4 font-black opacity-30">#{i+1}</td>
                         <td className="px-6 py-4 font-bold flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50">
-                             <img src={getAvatarSrc(m.avatarSeed || m.username)} alt="av" className="w-full h-full object-cover" />
+                             <img 
+                               src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} 
+                               onError={(e) => handleImgError(m.avatarSeed || m.username, e)}
+                               alt="av" 
+                               className="w-full h-full object-cover" 
+                             />
                           </div>
                           {m.fullName}
                           {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">Mentor</span>}

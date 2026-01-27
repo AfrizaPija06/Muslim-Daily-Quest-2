@@ -1,5 +1,5 @@
 
-import { Role, WeeklyData, DAYS_OF_WEEK } from './types';
+import { Role, WeeklyData, DAYS_OF_WEEK, GlobalAssets } from './types';
 
 const getEnv = (key: string, fallback: string) => {
   try {
@@ -47,43 +47,58 @@ export const MENTORING_GROUPS = [
   'Umar bin Khattab'
 ];
 
-// --- AVATAR SYSTEM CONFIGURATION (ONLINE FIX) ---
-// Menggunakan Dicebear API (Adventurer Style) agar gambar selalu muncul di device manapun
-// tanpa perlu file lokal.
-const AVATAR_BASE_URL = "https://api.dicebear.com/9.x/adventurer/svg?seed=";
+// --- AVATAR SYSTEM CONFIGURATION ---
 
 export const AVAILABLE_AVATARS = [
-  { id: '1', name: 'The Strategist', url: `${AVATAR_BASE_URL}Alexander` }, 
-  { id: '2', name: 'The Prodigy', url: `${AVATAR_BASE_URL}Sarah` },    
-  { id: '3', name: 'The Guardian', url: `${AVATAR_BASE_URL}Darius` },   
-  { id: '4', name: 'The Striker', url: `${AVATAR_BASE_URL}Leo` },    
-  { id: '5', name: 'The Spirit', url: `${AVATAR_BASE_URL}Amara` },     
-  { id: '6', name: 'The Saint', url: `${AVATAR_BASE_URL}Omar` },      
+  { id: '1', name: 'The Strategist', url: '/avatars/1.png' }, 
+  { id: '2', name: 'The Prodigy', url: '/avatars/2.png' },    
+  { id: '3', name: 'The Guardian', url: '/avatars/3.png' },   
+  { id: '4', name: 'The Striker', url: '/avatars/4.png' },    
+  { id: '5', name: 'The Spirit', url: '/avatars/5.png' },     
+  { id: '6', name: 'The Saint', url: '/avatars/6.png' },      
 ];
 
-export const getAvatarSrc = (seedOrId?: string) => {
+const FALLBACK_BASE_URL = "https://api.dicebear.com/9.x/notionists/svg?backgroundColor=b6e3f4,c0aede,d1d4f9&seed=";
+
+// Updated Signature: Accepts optional globalAssets from server
+export const getAvatarSrc = (seedOrId?: string, globalAssets: GlobalAssets = {}) => {
   // 1. Default fallback
   if (!seedOrId) return AVAILABLE_AVATARS[0].url;
 
-  // 2. Cek Cache Lokal (Untuk Upload Custom Mentor)
-  // Hanya bekerja di browser yang sama tempat upload dilakukan
+  // 2. [PRIORITY NEW] Cek Global Assets dari Server
+  // Jika Mentor sudah upload, pakai ini agar muncul di semua device
+  if (globalAssets && globalAssets[seedOrId]) {
+    return globalAssets[seedOrId];
+  }
+
+  // 3. Cek Cache Lokal (Legacy/Fallback)
   if (typeof window !== 'undefined') {
     const cached = localStorage.getItem(`avatar_cache_${seedOrId}`);
     if (cached && cached.length > 50) return cached;
   }
   
-  // 3. Cek apakah ID sesuai dengan preset 1-6
+  // 4. Cek apakah ID sesuai dengan preset 1-6 (Local Path)
   const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
   if (found) return found.url;
 
-  // 4. Jika input berupa URL lengkap (https://...)
+  // 5. Jika input berupa URL lengkap/Data URI
   if (seedOrId.startsWith('http') || seedOrId.startsWith('data:image')) {
     return seedOrId;
   }
 
-  // 5. FALLBACK PINTAR (Fix Broken Images):
-  // Jika gambar custom tidak ditemukan (misal ganti HP),
-  // Generate avatar unik berdasarkan username/seed tersebut.
-  // Ini mencegah gambar "pecah/hilang".
-  return `${AVATAR_BASE_URL}${seedOrId}`;
+  // 6. Fallback path
+  return `/avatars/${seedOrId}.png`;
+};
+
+export const getOnlineFallback = (seed: string) => {
+  const seedMap: Record<string, string> = {
+    '1': 'Felix',
+    '2': 'Ryan', 
+    '3': 'Mason',
+    '4': 'Leo',
+    '5': 'Caleb',
+    '6': 'Omar',
+  };
+  const finalSeed = seedMap[seed] || seed;
+  return `${FALLBACK_BASE_URL}${finalSeed}`;
 };

@@ -1,9 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, UploadCloud } from 'lucide-react';
-import { User, AppTheme, getRankInfo } from '../types';
-import { AVAILABLE_AVATARS, getAvatarSrc } from '../constants';
+import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, UploadCloud, Loader2 } from 'lucide-react';
+import { User, AppTheme, getRankInfo, GlobalAssets } from '../types';
+import { AVAILABLE_AVATARS, getAvatarSrc, getOnlineFallback } from '../constants';
 import ThemeToggle from './ThemeToggle';
+import { api } from '../services/ApiService';
 
 interface HeaderProps {
   currentUser: User | null;
@@ -16,9 +17,13 @@ interface HeaderProps {
   toggleTheme: () => void;
   performSync?: () => Promise<void>;
   handleUpdateProfile?: (user: User) => void;
+  globalAssets?: GlobalAssets; // Received from App
+  refreshAssets?: (assets: GlobalAssets) => void; // To update app state
 }
 
-const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme, performSync, handleUpdateProfile, totalPoints }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, toggleTheme, performSync, handleUpdateProfile, totalPoints, globalAssets, refreshAssets
+}) => {
   const isLegends = currentTheme === 'legends';
   const isMentor = currentUser?.role === 'mentor';
   
@@ -36,6 +41,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
   // Upload Logic
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Calculate Season Points
   const seasonPoints = totalPoints * 4;
@@ -66,18 +72,24 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     }
   };
 
-  // Robust Error Handler
+  // --- ROBUST ERROR HANDLER (SYNC FIX) ---
   const handleMainAvatarError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    // If main avatar fails, fallback to a safe generated avatar based on username
-    // This prevents the broken image icon
-    const fallbackUrl = getAvatarSrc(currentUser?.username || 'User');
+    // Jika gambar lokal (1.png) gagal load di HP lain, ganti ke Online Fallback yang "Keren"
+    const seed = currentUser?.avatarSeed || currentUser?.username || 'User';
+    const fallbackUrl = getOnlineFallback(seed);
+    
     if (e.currentTarget.src !== fallbackUrl) {
       e.currentTarget.src = fallbackUrl;
     }
   };
 
-  const handleGridImgError = (id: string) => {
-    setImgErrors(prev => ({ ...prev, [id]: true }));
+  const handleGridImgError = (id: string, e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const fallbackUrl = getOnlineFallback(id);
+    if (e.currentTarget.src !== fallbackUrl) {
+       e.currentTarget.src = fallbackUrl;
+    } else {
+       setImgErrors(prev => ({ ...prev, [id]: true }));
+    }
   };
 
   // --- MANUAL IMAGE UPLOAD HANDLER (MENTOR ONLY) ---
@@ -89,26 +101,68 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && uploadTargetId) {
+      setIsUploading(true);
+      
       const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        // Save to LocalStorage
-        localStorage.setItem(`avatar_cache_${uploadTargetId}`, base64String);
-        
-        // Clear error for this ID so it retries loading
-        setImgErrors(prev => {
-           const newState = { ...prev };
-           delete newState[uploadTargetId];
-           return newState;
-        });
+      reader.onloadend = async () => {
+        let base64String = reader.result as string;
 
-        // Force re-render of selection if it was selected
-        if (editForm.avatarSeed === uploadTargetId) {
-           setEditForm(prev => ({ ...prev })); 
-        }
+        // --- COMPRESS IMAGE (Max 100KB) ---
+        // Create an image object to resize
+        const img = new Image();
+        img.src = base64String;
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          // Resize to max 500px width/height to keep DB small
+          const MAX_SIZE = 500; 
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Export as moderate quality JPEG
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          
+          // UPLOAD TO SERVER API
+          const success = await api.uploadGlobalAsset(uploadTargetId, compressedBase64);
+          
+          if (success) {
+            // Update local state immediately
+            if (refreshAssets && globalAssets) {
+               refreshAssets({ ...globalAssets, [uploadTargetId]: compressedBase64 });
+            }
+            alert(`Avatar ${uploadTargetId} successfully uploaded to Server! Everyone will see this now.`);
+          } else {
+            alert("Upload failed. Check connection.");
+          }
+          
+          setIsUploading(false);
+          
+          // Clear error
+          setImgErrors(prev => {
+             const newState = { ...prev };
+             delete newState[uploadTargetId];
+             return newState;
+          });
+        };
       };
       reader.readAsDataURL(file);
     }
@@ -128,7 +182,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
             >
               <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105 bg-black/50`}>
                  <img 
-                   src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username)} 
+                   src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username, globalAssets)} 
                    onError={handleMainAvatarError}
                    className="w-full h-full object-cover" 
                    alt="Avatar" 
@@ -192,7 +246,7 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
               <div className="flex items-center gap-4 pb-4 border-b border-white/10">
                  <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
-                      src={getAvatarSrc(editForm.avatarSeed)} 
+                      src={getAvatarSrc(editForm.avatarSeed, globalAssets)} 
                       onError={handleMainAvatarError}
                       alt="Preview" 
                       className="w-full h-full object-cover" 
@@ -225,50 +279,54 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                          <div 
                            key={avatar.id}
                            onClick={(e) => {
-                             // If it's an error state, only Mentor can trigger upload
-                             if (hasError) {
+                             // SPECIAL FEATURE: MENTOR UPLOAD TO SERVER
+                             if (isMentor) {
                                e.stopPropagation();
-                               if (isMentor) triggerUpload(avatar.id);
+                               // Confirm upload only if not error to avoid accidental clicks
+                               if (!hasError) {
+                                  if(confirm(`Upload new image for "${avatar.name}" to SERVER?`)) {
+                                    triggerUpload(avatar.id);
+                                  } else {
+                                    setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }));
+                                  }
+                               } else {
+                                  triggerUpload(avatar.id);
+                               }
                              } else {
                                setEditForm(prev => ({ ...prev, avatarSeed: avatar.id }));
                              }
                            }}
                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group cursor-pointer
-                             ${isSelected && !hasError
+                             ${isSelected 
                                ? (isLegends 
                                   ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105 shadow-lg shadow-[#d4af37]/20' 
                                   : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105 shadow-lg shadow-emerald-500/20') 
                                : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-100'
                              }`}
-                           title={hasError && isMentor ? "Click to Upload Image" : avatar.name}
+                           title={isMentor ? "Click to Upload to Server" : avatar.name}
                          >
                            {/* Gradient Background */}
                            <div className={`absolute inset-0 ${isLegends ? 'bg-gradient-to-br from-[#3a080e] to-[#0f0404]' : 'bg-gradient-to-br from-slate-800 to-slate-950'}`} />
                            
-                           {!hasError ? (
-                               <img 
-                                 src={getAvatarSrc(avatar.id)} 
-                                 alt={avatar.name} 
-                                 onError={() => handleGridImgError(avatar.id)}
-                                 className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-110" 
-                               />
-                           ) : (
-                               // UPLOAD STATE UI (Visible to all, but only Mentor has Icon)
-                               <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 gap-1 p-2 hover:bg-white/5 transition-colors">
-                                  {isMentor ? (
-                                    <>
-                                      <UploadCloud className="w-6 h-6 animate-pulse text-yellow-500" />
-                                      <span className="text-[7px] uppercase font-bold text-center leading-tight text-yellow-500">Tap to Upload</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-[7px] uppercase font-bold text-center leading-tight">Image Missing</span>
-                                  )}
+                           {/* Avatar Image with Online Fallback Logic */}
+                           <img 
+                             src={getAvatarSrc(avatar.id, globalAssets)} 
+                             alt={avatar.name} 
+                             onError={(e) => handleGridImgError(avatar.id, e)}
+                             className={`absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-110 ${hasError && isMentor ? 'opacity-50' : ''}`} 
+                           />
+
+                           {/* Error/Upload Overlay */}
+                           {(hasError || isMentor) && (
+                               <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 transition-colors z-10 ${hasError ? 'bg-black/50' : 'opacity-0 hover:bg-black/60 hover:opacity-100'}`}>
+                                  <UploadCloud className="w-6 h-6 text-yellow-500" />
+                                  <span className="text-[7px] uppercase font-bold text-center leading-tight text-yellow-500">Upload to Server</span>
                                </div>
                            )}
 
-                           {/* Selection Overlay (Only if not error) */}
-                           {isSelected && !hasError && (
-                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-10">
+                           {/* Selection Overlay */}
+                           {isSelected && !isMentor && (
+                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-20">
                                <Check className="w-8 h-8 text-white drop-shadow-md" />
                              </div>
                            )}
@@ -282,6 +340,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
                     })}
                  </div>
               </div>
+
+              {/* Uploading Indicator */}
+              {isUploading && (
+                <div className="text-center py-2 text-yellow-500 text-xs font-bold animate-pulse flex justify-center gap-2">
+                   <Loader2 className="w-4 h-4 animate-spin" /> Uploading to Server...
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Full Name</label>

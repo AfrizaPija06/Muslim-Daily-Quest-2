@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS } from './types';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
@@ -12,7 +12,7 @@ import RegisterPage from './components/RegisterPage';
 import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
 
-// SQL Script Constant - DIPERBARUI UNTUK IZIN EDIT (WITH CHECK)
+// SQL Script Constant
 const SQL_REPAIR_SCRIPT = `-- LANGKAH PENTING:
 -- 1. HAPUS semua kode lama di layar ini.
 -- 2. COPY & PASTE kode baru ini.
@@ -38,23 +38,19 @@ with check (true);
 -- Inisialisasi data (jika belum ada)
 insert into app_sync (id, json_data) values ('global_store_v7', '{}') on conflict do nothing;`;
 
-// PROJECT ID SPECIFIC
 const SUPABASE_PROJECT_ID = "fymoxcdhskimzxpljjgi";
 const SUPABASE_SQL_URL = `https://supabase.com/dashboard/project/${SUPABASE_PROJECT_ID}/sql/new`;
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
-  // --- VERSION RESET LOGIC ---
   useEffect(() => {
-    // Versi ini diubah ke 7.4 untuk MEMAKSA munculin popup instruksi lagi
     const APP_VERSION = 'v7.4_fix_access'; 
     const storedVersion = localStorage.getItem('nur_quest_version');
     
     if (storedVersion !== APP_VERSION) {
       console.warn("System Update V7.4: Fixing Write Access...");
       localStorage.setItem('nur_quest_version', APP_VERSION);
-      // Kita force reload halaman sekali agar user sadar ada update
       setIsResetting(true);
       setTimeout(() => setIsResetting(false), 1500);
     }
@@ -66,6 +62,11 @@ const App: React.FC = () => {
   const [groups, setGroups] = useState<string[]>(() => {
     const saved = localStorage.getItem('nur_quest_groups');
     return saved ? JSON.parse(saved) : MENTORING_GROUPS;
+  });
+  
+  // NEW: Global Assets State
+  const [globalAssets, setGlobalAssets] = useState<GlobalAssets>(() => {
+    return JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
   });
   
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +106,12 @@ const App: React.FC = () => {
           setGroups(result.groups);
           localStorage.setItem('nur_quest_groups', JSON.stringify(result.groups));
         }
+        
+        // SYNC ASSETS
+        if (result.assets) {
+           setGlobalAssets(result.assets);
+           localStorage.setItem('nur_quest_assets', JSON.stringify(result.assets));
+        }
 
         Object.keys(result.trackers).forEach(uname => {
           if (uname !== currentUser?.username) {
@@ -122,7 +129,6 @@ const App: React.FC = () => {
         const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
         
-        // Auto-show repair modal if database table is missing OR permissions error
         if (msg.toLowerCase().includes("relation") || msg.toLowerCase().includes("policy")) {
            setShowRepairModal(true);
         }
@@ -142,20 +148,16 @@ const App: React.FC = () => {
     }
   }, [currentUser, data, groups, isSyncing, isResetting, isOnline]);
 
-  // --- UPDATE PROFILE (Edit User) ---
   const handleUpdateProfile = async (updatedUser: User) => {
     if (!currentUser) return;
-
     try {
       addLog("Updating Profile...");
       const oldUsername = currentUser.username;
       const newUsername = updatedUser.username;
       
-      // 1. Update Current State & Persist Session Immediately
       setCurrentUser(updatedUser);
       localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
       
-      // 2. Handle Username Change (Migration)
       if (oldUsername !== newUsername) {
         const trackerData = localStorage.getItem(`ibadah_tracker_${oldUsername}`);
         if (trackerData) {
@@ -164,14 +166,12 @@ const App: React.FC = () => {
         }
       }
 
-      // 3. Update Local User List
       const usersStr = localStorage.getItem('nur_quest_users');
       let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
       allUsers = allUsers.filter(u => u.username !== oldUsername && u.username !== newUsername);
       allUsers.push(updatedUser);
       localStorage.setItem('nur_quest_users', JSON.stringify(allUsers));
 
-      // 4. Push to Cloud (Targeted Update)
       const res = await api.updateUserProfile(updatedUser);
 
       if (res.success) {
@@ -179,11 +179,16 @@ const App: React.FC = () => {
       } else {
         addLog(`Update Failed: ${res.error}`);
       }
-
     } catch (e: any) {
       console.error("Update Profile Failed:", e);
       addLog(`Update Profile Failed: ${e.message}`);
     }
+  };
+
+  // Helper to refresh assets (called from Header)
+  const refreshAssets = (newAssets: GlobalAssets) => {
+    setGlobalAssets(newAssets);
+    localStorage.setItem('nur_quest_assets', JSON.stringify(newAssets));
   };
 
   useEffect(() => {
@@ -201,7 +206,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
     performSync();
-    // Sync interval accelerated to 5 seconds
     const interval = setInterval(performSync, 5000);
     return () => clearInterval(interval);
   }, [performSync, isResetting]);
@@ -236,11 +240,10 @@ const App: React.FC = () => {
   const updateGroups = async (newGroups: string[]) => {
     setGroups(newGroups);
     localStorage.setItem('nur_quest_groups', JSON.stringify(newGroups));
-    
-    // Trigger sync to push group update
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const trackers = {}; 
-    await api.updateDatabase({ users, trackers, groups: newGroups });
+    const assets = JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
+    await api.updateDatabase({ users, trackers, groups: newGroups, assets });
   };
 
   const totalPoints = useMemo(() => {
@@ -259,7 +262,9 @@ const App: React.FC = () => {
     currentTheme,
     toggleTheme,
     performSync,
-    networkLogs
+    networkLogs,
+    globalAssets, // Pass global assets down
+    refreshAssets
   };
 
   if (isResetting) {
@@ -277,7 +282,7 @@ const App: React.FC = () => {
 
   return (
     <>
-      {/* STATUS BAR WITH CLICK HANDLER */}
+      {/* STATUS BAR */}
       <div 
         onClick={() => {
            console.log("Status Bar Clicked. Online:", isOnline, "Error:", syncErrorMsg);
@@ -288,7 +293,6 @@ const App: React.FC = () => {
            }
         }}
         className="fixed bottom-4 left-4 z-[9999] flex items-center gap-3 bg-black/90 backdrop-blur-xl border border-white/20 p-2 pr-5 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer group max-w-[85vw] hover:bg-white/10"
-        title={!isOnline ? "Click to troubleshoot connection" : "Click to sync now"}
       >
         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isOnline ? 'bg-emerald-500/20' : 'bg-red-500/20'} transition-colors`}>
            {isOnline ? <Activity className="w-4 h-4 text-emerald-500 animate-pulse" /> : <WifiOff className="w-4 h-4 text-red-500 animate-pulse" />}
@@ -388,7 +392,6 @@ const App: React.FC = () => {
         </div>
       )}
       
-      {/* TOP ALERTS FOR CRITICAL ERRORS */}
       {!isOnline && isTableError && !showRepairModal && (
         <div 
           onClick={() => setShowRepairModal(true)}
