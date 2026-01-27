@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Lock, ArrowRight, ShieldAlert, Crown, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { ADMIN_CREDENTIALS } from '../constants';
@@ -35,8 +35,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
     const user = users.find((u: any) => u.username === username && u.password === password);
     
     if (user) {
-      // Logic for Status Check
-      // If status is undefined, treat as 'active' (backward compatibility for old data)
       const status = user.status || 'active';
 
       if (status === 'pending') {
@@ -67,10 +65,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
         <ThemeToggle currentTheme={currentTheme} toggleTheme={toggleTheme} themeStyles={themeStyles} />
       </div>
       <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-8 ${themeStyles.glow} relative z-10`}>
-        <div className="text-center mb-8">
-          <div className={`inline-block p-4 rounded-2xl mb-4 border ${themeStyles.border} bg-white/5`}>
-            {currentTheme === 'legends' ? <Crown className={`w-10 h-10 ${themeStyles.textAccent}`} /> : <Lock className="w-10 h-10 text-emerald-500" />}
+        <div className="text-center mb-8 flex flex-col items-center">
+          {/* Main Logo Image */}
+          <div className="mb-4 relative group">
+             <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
+             <img 
+               src="/logo.png" 
+               alt="Game Logo" 
+               className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+             />
           </div>
+          
           <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
             {currentTheme === 'legends' ? 'Mentoring Legends' : 'Leveling Mentoring'}
           </h2>

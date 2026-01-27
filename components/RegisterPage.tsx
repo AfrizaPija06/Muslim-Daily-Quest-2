@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { User as UserIcon, ShieldCheck, Scroll, Eye, EyeOff, Clock, Loader2, WifiOff } from 'lucide-react';
+import { ShieldCheck, Eye, EyeOff, Clock, Loader2, WifiOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
-import { Role, AppTheme, User, UserStatus } from '../types';
+import { User, AppTheme } from '../types';
 import { ADMIN_CREDENTIALS } from '../constants';
 import { api } from '../services/ApiService';
 
@@ -34,7 +34,6 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
     setIsOfflineReg(false);
 
     try {
-      // 1. Validation Local
       const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
       if (localUsers.some((u: any) => u.username === formData.username) || formData.username === ADMIN_CREDENTIALS.username) { 
         setError("Username sudah digunakan."); 
@@ -42,34 +41,28 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
         return; 
       }
 
-      // Create new user object
       const { confirmPassword, ...rest } = formData;
       const newUser: User = { ...rest, role: 'mentee', status: 'pending' };
 
-      // 2. Try Fetch Cloud
       let cloudUsers = [];
       try {
         const db = await api.fetchDatabase();
         cloudUsers = db.users || [];
         
-        // Global Validation
         if (cloudUsers.some((u: any) => u.username === formData.username)) {
           setError("Username sudah digunakan (terdeteksi di server).");
           setIsRegistering(false);
           return;
         }
 
-        // 3. Try Update Cloud
         const updatedUsers = [...cloudUsers, newUser];
         const pushSuccess = await api.updateDatabase({ ...db, users: updatedUsers });
 
         if (!pushSuccess) throw new Error("Push Failed");
 
-        // Sync Local with Cloud result
         localStorage.setItem('nur_quest_users', JSON.stringify(updatedUsers));
 
       } catch (netErr) {
-        // --- OFFLINE FALLBACK ---
         console.warn("Network failed, saving locally first.");
         const updatedLocal = [...localUsers, newUser];
         localStorage.setItem('nur_quest_users', JSON.stringify(updatedLocal));
@@ -123,9 +116,15 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
         <ThemeToggle currentTheme={currentTheme} toggleTheme={toggleTheme} themeStyles={themeStyles} />
       </div>
       <div className={`w-full max-w-lg ${themeStyles.card} rounded-3xl p-8 ${themeStyles.glow} relative z-10`}>
-        <div className="text-center mb-8">
-          <div className={`inline-block p-4 rounded-2xl mb-4 border ${themeStyles.border} bg-white/5`}>
-            {currentTheme === 'legends' ? <Scroll className={`w-10 h-10 ${themeStyles.textAccent}`} /> : <UserIcon className="w-10 h-10 text-yellow-500" />}
+        <div className="text-center mb-8 flex flex-col items-center">
+           {/* Main Logo Image */}
+           <div className="mb-4 relative group">
+             <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
+             <img 
+               src="/logo.png" 
+               alt="Game Logo" 
+               className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+             />
           </div>
           <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
             {currentTheme === 'legends' ? 'Join The Ranks' : 'Registrasi Mentee'}
