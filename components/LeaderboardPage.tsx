@@ -22,7 +22,8 @@ interface LeaderboardPageProps {
   groups: string[];
   updateGroups: (newGroups: string[]) => Promise<void>;
   handleUpdateProfile?: (user: User) => void;
-  globalAssets?: GlobalAssets; // Pass global assets
+  globalAssets?: GlobalAssets;
+  refreshAssets?: (assets: GlobalAssets) => void;
 }
 
 interface LeaderboardData {
@@ -41,7 +42,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'avatars' | 'groups' | 'network'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -229,13 +230,24 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
   
-  // Get list of presets for Avatars tab
   const presets = globalAssets ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) : [];
 
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} globalAssets={globalAssets} />
+      <Header 
+        currentUser={currentUser} 
+        setView={setView} 
+        totalPoints={0} 
+        handleLogout={handleLogout} 
+        activeView="leaderboard" 
+        themeStyles={themeStyles} 
+        currentTheme={currentTheme} 
+        toggleTheme={toggleTheme} 
+        handleUpdateProfile={handleUpdateProfile} 
+        globalAssets={globalAssets} 
+        refreshAssets={refreshAssets}
+      />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
         {/* Header Section */}

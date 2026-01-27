@@ -35,6 +35,9 @@ const Header: React.FC<HeaderProps> = ({
     avatarSeed: ''
   });
 
+  // NEW: Temporary Avatar Preview (Solusi agar gambar tidak hilang saat Sync berjalan)
+  const [tempAvatar, setTempAvatar] = useState<string | null>(null);
+
   // Upload Logic
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -45,10 +48,10 @@ const Header: React.FC<HeaderProps> = ({
 
   const openProfileModal = () => {
     if (currentUser) {
+      setTempAvatar(null); // Reset preview saat modal dibuka
       setEditForm({
         fullName: currentUser.fullName,
         username: currentUser.username,
-        // Default avatar seed is the asset key stored in user profile, or fallback to username
         avatarSeed: currentUser.avatarSeed || (isMentor ? `user_${currentUser.username}` : currentUser.username)
       });
       setIsEditingProfile(true);
@@ -77,12 +80,11 @@ const Header: React.FC<HeaderProps> = ({
       reader.onloadend = async () => {
         const base64String = reader.result as string;
         
-        // Resize logic to save DB space
         const img = new Image();
         img.src = base64String;
         img.onload = async () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 400; // Profile pic size limit
+          const MAX_SIZE = 400; 
           let width = img.width;
           let height = img.height;
           
@@ -96,15 +98,22 @@ const Header: React.FC<HeaderProps> = ({
           ctx?.drawImage(img, 0, 0, width, height);
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
           
-          // KEY LOGIC: Save as 'user_{username}'
+          // 1. SET PREVIEW LOKAL SEGERA (Agar tidak kedip/hilang)
+          setTempAvatar(compressedBase64);
+
+          // 2. Upload ke Server
           const assetKey = `user_${currentUser.username}`;
           const success = await api.uploadGlobalAsset(assetKey, compressedBase64);
           
           if (success) {
             setEditForm(prev => ({ ...prev, avatarSeed: assetKey }));
-            if (refreshAssets && globalAssets) refreshAssets({ ...globalAssets, [assetKey]: compressedBase64 });
+            // 3. Update Global State Aplikasi (Agar halaman lain juga tahu)
+            if (refreshAssets && globalAssets) {
+               refreshAssets({ ...globalAssets, [assetKey]: compressedBase64 });
+            }
           } else {
             alert("Upload failed. Check connection.");
+            setTempAvatar(null); // Kembalikan jika gagal
           }
           setIsUploading(false);
         };
@@ -114,8 +123,6 @@ const Header: React.FC<HeaderProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- GET AVAILABLE PRESETS FOR MENTEE ---
-  // Filter assets that start with 'preset_'
   const availablePresets = globalAssets 
     ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) 
     : [];
@@ -137,7 +144,6 @@ const Header: React.FC<HeaderProps> = ({
                    alt="Avatar" 
                  />
               </div>
-              {/* Dynamic Rank Badge */}
               <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
                 <Trophy className={`w-3 h-3 ${currentRank.color}`} />
                 <span className={`text-[8px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
@@ -195,12 +201,12 @@ const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-4 pb-4 border-b border-white/10">
                  <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 relative group ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
-                      src={getAvatarSrc(editForm.avatarSeed, globalAssets)} 
+                      // PENTING: Gunakan tempAvatar jika ada, ini mencegah gambar hilang saat sync
+                      src={tempAvatar || getAvatarSrc(editForm.avatarSeed, globalAssets)} 
                       alt="Preview" 
                       className="w-full h-full object-cover" 
                     />
                     
-                    {/* MENTOR ONLY: Camera Overlay */}
                     {isMentor && (
                       <div 
                         onClick={() => fileInputRef.current?.click()}
@@ -222,7 +228,6 @@ const Header: React.FC<HeaderProps> = ({
                  </div>
               </div>
 
-              {/* MENTEE ONLY: PRESET SELECTION GRID */}
               {!isMentor && (
                 <div className="space-y-2">
                    <div className="flex justify-between items-center">
@@ -233,7 +238,6 @@ const Header: React.FC<HeaderProps> = ({
                      <div className="grid grid-cols-3 gap-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                         {availablePresets.map((presetKey) => {
                            const isSelected = editForm.avatarSeed === presetKey;
-                           // Fetch from global assets
                            const imgSrc = globalAssets ? globalAssets[presetKey] : '';
                            
                            return (
@@ -301,7 +305,6 @@ const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
             
-            {/* Hidden File Input for Mentor Personal Upload */}
             {isMentor && (
               <input 
                 type="file" 
