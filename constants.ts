@@ -28,9 +28,6 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // PUBLIC CLOUD SYNC CONFIG
-// Database migrated to Supabase (lib/supabaseClient.ts).
-// Old Cloudflare KV Demo URL removed.
-
 export const INITIAL_DATA: WeeklyData = {
   days: DAYS_OF_WEEK.map((day, idx) => ({
     id: idx,
@@ -50,54 +47,43 @@ export const MENTORING_GROUPS = [
   'Umar bin Khattab'
 ];
 
-// --- AVATAR SYSTEM CONFIGURATION ---
-// ?v=2 ditambahkan untuk memaksa browser memuat ulang gambar baru (bypass cache 404 lama)
+// --- AVATAR SYSTEM CONFIGURATION (ONLINE FIX) ---
+// Menggunakan Dicebear API (Adventurer Style) agar gambar selalu muncul di device manapun
+// tanpa perlu file lokal.
+const AVATAR_BASE_URL = "https://api.dicebear.com/9.x/adventurer/svg?seed=";
+
 export const AVAILABLE_AVATARS = [
-  { id: '1', name: 'The Strategist', url: '/avatars/1.png?v=2' }, 
-  { id: '2', name: 'The Prodigy', url: '/avatars/2.png?v=2' },    
-  { id: '3', name: 'The Guardian', url: '/avatars/3.png?v=2' },   
-  { id: '4', name: 'The Striker', url: '/avatars/4.png?v=2' },    
-  { id: '5', name: 'The Spirit', url: '/avatars/5.png?v=2' },     
-  { id: '6', name: 'The Saint', url: '/avatars/6.png?v=2' },      
+  { id: '1', name: 'The Strategist', url: `${AVATAR_BASE_URL}Alexander` }, 
+  { id: '2', name: 'The Prodigy', url: `${AVATAR_BASE_URL}Sarah` },    
+  { id: '3', name: 'The Guardian', url: `${AVATAR_BASE_URL}Darius` },   
+  { id: '4', name: 'The Striker', url: `${AVATAR_BASE_URL}Leo` },    
+  { id: '5', name: 'The Spirit', url: `${AVATAR_BASE_URL}Amara` },     
+  { id: '6', name: 'The Saint', url: `${AVATAR_BASE_URL}Omar` },      
 ];
 
 export const getAvatarSrc = (seedOrId?: string) => {
   // 1. Default fallback
   if (!seedOrId) return AVAILABLE_AVATARS[0].url;
 
-  // 2. PRIORITY: Check LocalStorage for manually uploaded avatar fixes
+  // 2. Cek Cache Lokal (Untuk Upload Custom Mentor)
+  // Hanya bekerja di browser yang sama tempat upload dilakukan
   if (typeof window !== 'undefined') {
     const cached = localStorage.getItem(`avatar_cache_${seedOrId}`);
-    // Pastikan data valid (base64 gambar biasanya panjang)
     if (cached && cached.length > 50) return cached;
   }
   
-  // 3. Check if seed is a valid ID (1-6) from constants
+  // 3. Cek apakah ID sesuai dengan preset 1-6
   const found = AVAILABLE_AVATARS.find(a => a.id === seedOrId);
   if (found) return found.url;
 
-  // 4. Support manual number input
-  if (!isNaN(Number(seedOrId))) {
-    return `/avatars/${seedOrId}.png?v=2`;
-  }
-
-  // 5. If full URL
-  if (seedOrId.startsWith('http') || seedOrId.startsWith('data:image') || seedOrId.startsWith('/')) {
+  // 4. Jika input berupa URL lengkap (https://...)
+  if (seedOrId.startsWith('http') || seedOrId.startsWith('data:image')) {
     return seedOrId;
   }
 
-  // 6. Hash Fallback
-  let hash = 0;
-  for (let i = 0; i < seedOrId.length; i++) {
-    hash = seedOrId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = (Math.abs(hash) % AVAILABLE_AVATARS.length) + 1;
-  
-  // Check cache for the hashed index too
-  if (typeof window !== 'undefined') {
-    const cachedHash = localStorage.getItem(`avatar_cache_${index}`);
-    if (cachedHash && cachedHash.length > 50) return cachedHash;
-  }
-
-  return `/avatars/${index}.png?v=2`;
+  // 5. FALLBACK PINTAR (Fix Broken Images):
+  // Jika gambar custom tidak ditemukan (misal ganti HP),
+  // Generate avatar unik berdasarkan username/seed tersebut.
+  // Ini mencegah gambar "pecah/hilang".
+  return `${AVATAR_BASE_URL}${seedOrId}`;
 };

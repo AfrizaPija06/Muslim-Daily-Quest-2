@@ -66,10 +66,13 @@ const Header: React.FC<HeaderProps> = ({ currentUser, setView, handleLogout, act
     }
   };
 
+  // Robust Error Handler
   const handleMainAvatarError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const src = getAvatarSrc('1'); 
-    if (e.currentTarget.src !== src && src) {
-      e.currentTarget.src = src;
+    // If main avatar fails, fallback to a safe generated avatar based on username
+    // This prevents the broken image icon
+    const fallbackUrl = getAvatarSrc(currentUser?.username || 'User');
+    if (e.currentTarget.src !== fallbackUrl) {
+      e.currentTarget.src = fallbackUrl;
     }
   };
 
