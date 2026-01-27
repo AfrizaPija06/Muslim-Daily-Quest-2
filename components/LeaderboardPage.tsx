@@ -102,11 +102,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 60000); 
+    const interval = setInterval(loadData, 5000); // Faster refresh for admin
     return () => clearInterval(interval);
   }, [currentUser]); 
 
-  // --- FIXED: HANDLE APPROVAL LOGIC WITH ROBUST ERROR HANDLING ---
+  // --- FIXED: HANDLE APPROVAL LOGIC ---
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
     setIsProcessing(true);
     try {
@@ -124,20 +124,22 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         status: action === 'approve' ? 'active' : 'rejected' 
       };
 
-      // 4. Update Database Directly
+      // 4. OPTIMISTIC UPDATE: Save to LocalStorage IMMEDIATELY
+      // This prevents UI reverting while waiting for cloud
+      const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
+      localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
+      loadData(); // Refresh UI instantly
+
+      // 5. Update Database in Background
       const response = await api.updateUserProfile(updatedUser);
       
       if (response.success) {
-        // 5. Update Local State
-        const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
-        localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
-        loadData(); // Refresh UI
-        
-        if (response.warning) {
-          console.warn(response.warning);
-        }
+        // Trigger a full sync to ensure cloud consistency
+        performSync();
       } else {
-        alert(`Failed: ${response.error || "Server Connection Error"}`);
+        // If cloud fails, warn the user but keep local state (Offline Mode)
+        console.warn("Cloud update failed, data saved locally:", response.error);
+        alert(`Warning: Access Granted locally, but Cloud Sync failed.\nError: ${response.error}\n\nPlease check your internet or run the SQL Repair script.`);
       }
     } catch (e: any) {
       console.error(e);
@@ -167,7 +169,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
         alert(`User ${targetName} berhasil dihapus permanen.`);
       } else {
-        throw new Error("Gagal menghapus dari server.");
+        throw new Error("Gagal menghapus dari server. Cek koneksi.");
       }
       loadData();
     } catch (e: any) {

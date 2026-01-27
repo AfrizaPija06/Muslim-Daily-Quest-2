@@ -12,10 +12,14 @@ import RegisterPage from './components/RegisterPage';
 import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
 
-// SQL Script Constant - Updated with clearer instructions
-const SQL_REPAIR_SCRIPT = `-- LANGKAH 1: HAPUS semua kode yang mungkin sudah ada di layar ini.
--- LANGKAH 2: PASTE (Tempel) semua kode di bawah ini.
--- LANGKAH 3: Klik tombol "RUN" (biasanya warna hijau di kanan bawah/atas).
+// SQL Script Constant - DIPERBARUI UNTUK IZIN EDIT (WITH CHECK)
+const SQL_REPAIR_SCRIPT = `-- LANGKAH PENTING:
+-- 1. HAPUS semua kode lama di layar ini.
+-- 2. COPY & PASTE kode baru ini.
+-- 3. Klik RUN.
+
+-- Hapus policy lama jika ada (untuk reset izin)
+drop policy if exists "Public Access" on app_sync;
 
 create table if not exists app_sync (
   id text primary key,
@@ -25,10 +29,13 @@ create table if not exists app_sync (
 
 alter table app_sync enable row level security;
 
--- Memberikan akses baca/tulis ke publik (tanpa login) agar aplikasi web bisa akses
-create policy "Public Access" on app_sync for all using (true);
+-- Memberikan akses PENUH (Baca/Tulis/Edit)
+create policy "Public Access" on app_sync 
+for all 
+using (true) 
+with check (true);
 
--- Inisialisasi data kosong agar tidak error not found
+-- Inisialisasi data (jika belum ada)
 insert into app_sync (id, json_data) values ('global_store_v7', '{}') on conflict do nothing;`;
 
 // PROJECT ID SPECIFIC
@@ -40,12 +47,16 @@ const App: React.FC = () => {
 
   // --- VERSION RESET LOGIC ---
   useEffect(() => {
-    const APP_VERSION = 'v7.3_instruction_update'; // Updated version trigger
+    // Versi ini diubah ke 7.4 untuk MEMAKSA munculin popup instruksi lagi
+    const APP_VERSION = 'v7.4_fix_access'; 
     const storedVersion = localStorage.getItem('nur_quest_version');
     
     if (storedVersion !== APP_VERSION) {
-      console.warn("System Update V7.3: Updating instructions...");
+      console.warn("System Update V7.4: Fixing Write Access...");
       localStorage.setItem('nur_quest_version', APP_VERSION);
+      // Kita force reload halaman sekali agar user sadar ada update
+      setIsResetting(true);
+      setTimeout(() => setIsResetting(false), 1500);
     }
   }, []);
 
@@ -111,8 +122,8 @@ const App: React.FC = () => {
         const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
         
-        // Auto-show repair modal if database table is missing
-        if (msg.toLowerCase().includes("relation")) {
+        // Auto-show repair modal if database table is missing OR permissions error
+        if (msg.toLowerCase().includes("relation") || msg.toLowerCase().includes("policy")) {
            setShowRepairModal(true);
         }
         
@@ -255,15 +266,14 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
         <Loader2 className="w-10 h-10 animate-spin mb-4" />
-        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Update V7.3</h2>
-        <p className="text-xs text-white/50 mt-2">Updating guides...</p>
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Update V7.4</h2>
+        <p className="text-xs text-white/50 mt-2">Fixing access permissions...</p>
       </div>
     );
   }
 
   const errorLower = syncErrorMsg.toLowerCase();
-  const isTableError = errorLower.includes("relation") || errorLower.includes("does not exist") || errorLower.includes("42p01");
-  const isAuthError = errorLower.includes("api key") || errorLower.includes("jwt") || errorLower.includes("401");
+  const isTableError = errorLower.includes("relation") || errorLower.includes("does not exist") || errorLower.includes("42p01") || errorLower.includes("policy");
 
   return (
     <>
@@ -285,7 +295,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex flex-col overflow-hidden">
           <span className={`text-[10px] font-black uppercase tracking-tighter truncate ${isOnline ? 'text-emerald-500' : 'text-red-500'}`}>
-            {isOnline ? 'SYSTEM ONLINE' : (isTableError ? 'DATABASE MISSING' : 'OFFLINE MODE')}
+            {isOnline ? 'SYSTEM ONLINE' : (isTableError ? 'DATABASE ERROR' : 'OFFLINE MODE')}
           </span>
           <span className="text-[8px] text-white/50 uppercase font-bold flex items-center gap-1 truncate w-full">
              {isSyncing ? 'SYNCING...' : (isOnline ? 'LIVE CONNECTION' : (isTableError ? 'CLICK TO FIX' : 'CLICK TO RETRY'))}
@@ -305,21 +315,21 @@ const App: React.FC = () => {
                    <Database className="w-8 h-8 text-red-500" />
                  </div>
                  <div>
-                   <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase text-red-500`}>Database Issue</h3>
-                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Initial Setup Required</p>
+                   <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase text-red-500`}>Update Database</h3>
+                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Permission Fix Required</p>
                  </div>
               </div>
 
               <div className="space-y-4">
                 <div className="bg-red-950/30 p-4 rounded-xl border border-red-500/20">
                   <p className="text-xs text-red-200 leading-relaxed font-bold">
-                     Database belum siap. Ikuti langkah ini:
+                     Database menolak perubahan data (Grant Access).
                   </p>
                   <ol className="text-[10px] text-red-300/70 mt-2 list-decimal ml-4 space-y-1">
-                     <li>Klik tombol biru <strong>"Open SQL Editor"</strong> di bawah.</li>
-                     <li>Jika ada tulisan/kode lama di sana, <strong>HAPUS SEMUANYA</strong> sampai kosong.</li>
-                     <li><strong>PASTE</strong> kode dari kotak hitam di bawah ini.</li>
-                     <li>Klik tombol hijau <strong>RUN</strong> di Supabase.</li>
+                     <li>Klik tombol biru <strong>"Open SQL Editor"</strong>.</li>
+                     <li><strong>HAPUS SEMUA</strong> kode lama di layar SQL Editor.</li>
+                     <li><strong>PASTE</strong> kode baru dari kotak di bawah ini.</li>
+                     <li>Klik tombol hijau <strong>RUN</strong>.</li>
                   </ol>
                 </div>
 
@@ -328,7 +338,7 @@ const App: React.FC = () => {
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(SQL_REPAIR_SCRIPT);
-                          alert("SQL Script Copied! Sekarang Paste di SQL Editor.");
+                          alert("SQL Script Copied! Paste di SQL Editor.");
                         }}
                         className="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-lg text-xs flex items-center gap-1 text-white font-bold shadow-lg"
                       >
@@ -385,7 +395,7 @@ const App: React.FC = () => {
           className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-3 z-[99999] animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-red-500 flex items-center justify-center gap-2 shadow-xl"
         >
           <AlertTriangle className="w-4 h-4 animate-bounce" />
-          <span>Database Missing: Click here to fix setup</span>
+          <span>Database Permission Error: Click here to fix</span>
         </div>
       )}
 
