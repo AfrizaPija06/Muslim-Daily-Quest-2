@@ -35,9 +35,6 @@ const Header: React.FC<HeaderProps> = ({
     avatarSeed: ''
   });
 
-  // NEW: Temporary Avatar Preview to prevent flickering/disappearing on sync
-  const [tempAvatar, setTempAvatar] = useState<string | null>(null);
-
   // Upload Logic
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -48,9 +45,6 @@ const Header: React.FC<HeaderProps> = ({
 
   const openProfileModal = () => {
     if (currentUser) {
-      // Reset temp avatar when opening modal
-      setTempAvatar(null);
-      
       setEditForm({
         fullName: currentUser.fullName,
         username: currentUser.username,
@@ -102,20 +96,15 @@ const Header: React.FC<HeaderProps> = ({
           ctx?.drawImage(img, 0, 0, width, height);
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
           
-          // 1. SET LOCAL PREVIEW IMMEDIATELY (Fixes the "disappearing" issue)
-          setTempAvatar(compressedBase64);
-
-          // 2. Upload to Server
+          // KEY LOGIC: Save as 'user_{username}'
           const assetKey = `user_${currentUser.username}`;
           const success = await api.uploadGlobalAsset(assetKey, compressedBase64);
           
           if (success) {
             setEditForm(prev => ({ ...prev, avatarSeed: assetKey }));
-            // Update global store for app-wide consistency
             if (refreshAssets && globalAssets) refreshAssets({ ...globalAssets, [assetKey]: compressedBase64 });
           } else {
             alert("Upload failed. Check connection.");
-            setTempAvatar(null); // Revert preview on failure
           }
           setIsUploading(false);
         };
@@ -206,8 +195,7 @@ const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-4 pb-4 border-b border-white/10">
                  <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 relative group ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
-                      // PRIORITIZE TEMP AVATAR (Immediate Local Preview)
-                      src={tempAvatar || getAvatarSrc(editForm.avatarSeed, globalAssets)} 
+                      src={getAvatarSrc(editForm.avatarSeed, globalAssets)} 
                       alt="Preview" 
                       className="w-full h-full object-cover" 
                     />

@@ -23,7 +23,6 @@ interface LeaderboardPageProps {
   updateGroups: (newGroups: string[]) => Promise<void>;
   handleUpdateProfile?: (user: User) => void;
   globalAssets?: GlobalAssets; // Pass global assets
-  refreshAssets?: (assets: GlobalAssets) => void; // ADDED: Function to update assets state immediately
 }
 
 interface LeaderboardData {
@@ -42,7 +41,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'avatars' | 'groups' | 'network'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -140,16 +139,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           const success = await api.uploadGlobalAsset(presetId, compressed);
           
           if(success) {
-            // FIX: Update UI immediately
-            if (refreshAssets && globalAssets) {
-               refreshAssets({ ...globalAssets, [presetId]: compressed });
-            } else {
-               // Fallback trigger sync
-               await performSync();
-            }
+            await performSync(); // Trigger sync so new asset appears in list
             alert("Avatar Preset Uploaded!");
           } else {
-            alert("Failed to upload preset. Check network.");
+            alert("Failed to upload preset.");
           }
           
           setIsUploadingPreset(false);
@@ -164,14 +157,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     if(confirm("Are you sure? Mentees currently using this avatar will revert to default.")) {
       const success = await api.deleteGlobalAsset(key);
       if(success) {
-         // FIX: Update UI immediately
-         if (refreshAssets && globalAssets) {
-            const newAssets = { ...globalAssets };
-            delete newAssets[key];
-            refreshAssets(newAssets);
-         } else {
-            await performSync();
-         }
+        await performSync();
       } else {
         alert("Failed to delete.");
       }
@@ -249,19 +235,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <Header 
-        currentUser={currentUser} 
-        setView={setView} 
-        totalPoints={0} 
-        handleLogout={handleLogout} 
-        activeView="leaderboard" 
-        themeStyles={themeStyles} 
-        currentTheme={currentTheme} 
-        toggleTheme={toggleTheme} 
-        handleUpdateProfile={handleUpdateProfile} 
-        globalAssets={globalAssets} 
-        refreshAssets={refreshAssets} // Pass refresh prop to Header too
-      />
+      <Header currentUser={currentUser} setView={setView} totalPoints={0} handleLogout={handleLogout} activeView="leaderboard" themeStyles={themeStyles} currentTheme={currentTheme} toggleTheme={toggleTheme} handleUpdateProfile={handleUpdateProfile} globalAssets={globalAssets} />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
         {/* Header Section */}
