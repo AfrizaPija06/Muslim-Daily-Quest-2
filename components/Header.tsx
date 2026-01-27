@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, UploadCloud, Loader2, Camera, Image as ImageIcon } from 'lucide-react';
+import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, Loader2, Camera, Image as ImageIcon } from 'lucide-react';
 import { User, AppTheme, getRankInfo, GlobalAssets } from '../types';
 import { getAvatarSrc } from '../constants';
 import ThemeToggle from './ThemeToggle';
@@ -48,7 +48,8 @@ const Header: React.FC<HeaderProps> = ({
       setEditForm({
         fullName: currentUser.fullName,
         username: currentUser.username,
-        avatarSeed: currentUser.avatarSeed || currentUser.username
+        // Default avatar seed is the asset key stored in user profile, or fallback to username
+        avatarSeed: currentUser.avatarSeed || (isMentor ? `user_${currentUser.username}` : currentUser.username)
       });
       setIsEditingProfile(true);
     }
@@ -67,7 +68,7 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // --- MENTOR: UPLOAD OWN PROFILE PICTURE ---
+  // --- MENTOR ONLY: UPLOAD PERSONAL PROFILE PICTURE ---
   const handleMentorProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && currentUser) {
@@ -81,7 +82,7 @@ const Header: React.FC<HeaderProps> = ({
         img.src = base64String;
         img.onload = async () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 400; // Small profile pic
+          const MAX_SIZE = 400; // Profile pic size limit
           let width = img.width;
           let height = img.height;
           
@@ -95,7 +96,7 @@ const Header: React.FC<HeaderProps> = ({
           ctx?.drawImage(img, 0, 0, width, height);
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
           
-          // UPLOAD AS "user_username"
+          // KEY LOGIC: Save as 'user_{username}'
           const assetKey = `user_${currentUser.username}`;
           const success = await api.uploadGlobalAsset(assetKey, compressedBase64);
           
@@ -114,6 +115,7 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   // --- GET AVAILABLE PRESETS FOR MENTEE ---
+  // Filter assets that start with 'preset_'
   const availablePresets = globalAssets 
     ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) 
     : [];
@@ -135,12 +137,14 @@ const Header: React.FC<HeaderProps> = ({
                    alt="Avatar" 
                  />
               </div>
+              {/* Dynamic Rank Badge */}
               <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
                 <Trophy className={`w-3 h-3 ${currentRank.color}`} />
                 <span className={`text-[8px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
                 </span>
               </div>
+              
               <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                  <UserCircle className="w-6 h-6 text-white" />
               </div>
@@ -154,7 +158,13 @@ const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-center gap-3">
             {performSync && (
-              <button onClick={performSync} className={`p-3 border rounded-xl hover:text-emerald-500 transition-all ${themeStyles.inputBg} ${themeStyles.border} ${themeStyles.textSecondary}`} title="Force Sync Data"><RefreshCw className="w-5 h-5" /></button>
+              <button 
+                onClick={performSync} 
+                className={`p-3 border rounded-xl hover:text-emerald-500 transition-all ${themeStyles.inputBg} ${themeStyles.border} ${themeStyles.textSecondary}`}
+                title="Force Sync Data"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
             )}
             <ThemeToggle currentTheme={currentTheme} toggleTheme={toggleTheme} themeStyles={themeStyles} />
             <nav className={`flex items-center gap-1 p-1 rounded-xl border ${themeStyles.border} ${themeStyles.inputBg}`}>
@@ -181,7 +191,7 @@ const Header: React.FC<HeaderProps> = ({
             </h3>
 
             <div className="space-y-4">
-              {/* CURRENT AVATAR & RANK */}
+              {/* CURRENT AVATAR PREVIEW */}
               <div className="flex items-center gap-4 pb-4 border-b border-white/10">
                  <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 relative group ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
@@ -189,13 +199,15 @@ const Header: React.FC<HeaderProps> = ({
                       alt="Preview" 
                       className="w-full h-full object-cover" 
                     />
+                    
+                    {/* MENTOR ONLY: Camera Overlay */}
                     {isMentor && (
                       <div 
                         onClick={() => fileInputRef.current?.click()}
                         className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
                       >
-                         <Camera className="w-6 h-6 text-white mb-1" />
-                         <span className="text-[8px] text-white uppercase font-bold">Change</span>
+                         {isUploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white mb-1" />}
+                         <span className="text-[8px] text-white uppercase font-bold">{isUploading ? 'Wait' : 'Upload'}</span>
                       </div>
                     )}
                  </div>
@@ -210,17 +222,18 @@ const Header: React.FC<HeaderProps> = ({
                  </div>
               </div>
 
-              {/* MENTEE: PRESET SELECTION GRID */}
+              {/* MENTEE ONLY: PRESET SELECTION GRID */}
               {!isMentor && (
                 <div className="space-y-2">
                    <div className="flex justify-between items-center">
-                     <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar</label>
+                     <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
                    </div>
                    
                    {availablePresets.length > 0 ? (
-                     <div className="grid grid-cols-3 gap-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                     <div className="grid grid-cols-3 gap-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                         {availablePresets.map((presetKey) => {
                            const isSelected = editForm.avatarSeed === presetKey;
+                           // Fetch from global assets
                            const imgSrc = globalAssets ? globalAssets[presetKey] : '';
                            
                            return (
@@ -244,18 +257,12 @@ const Header: React.FC<HeaderProps> = ({
                         })}
                      </div>
                    ) : (
-                     <div className="p-4 border border-dashed border-white/20 rounded-xl text-center">
-                        <ImageIcon className="w-6 h-6 mx-auto mb-2 text-white/30" />
-                        <p className="text-[10px] text-white/50">No avatars available yet.<br/>Ask your Mentor to upload presets.</p>
+                     <div className="p-6 border border-dashed border-white/20 rounded-xl text-center bg-white/5">
+                        <ImageIcon className="w-8 h-8 mx-auto mb-2 text-white/30" />
+                        <p className="text-[10px] text-white/50 font-bold uppercase">No Avatars Available</p>
+                        <p className="text-[9px] text-white/30">Please ask your Mentor to upload presets in Dashboard.</p>
                      </div>
                    )}
-                </div>
-              )}
-
-              {/* MENTOR UPLOAD INDICATOR */}
-              {isUploading && (
-                <div className="text-center py-2 text-yellow-500 text-xs font-bold animate-pulse flex justify-center gap-2">
-                   <Loader2 className="w-4 h-4 animate-spin" /> Uploading to Server...
                 </div>
               )}
 
@@ -295,13 +302,16 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             
             {/* Hidden File Input for Mentor Personal Upload */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*"
-              onChange={handleMentorProfileUpload}
-            />
+            {isMentor && (
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleMentorProfileUpload}
+              />
+            )}
+
           </div>
         </div>
       )}

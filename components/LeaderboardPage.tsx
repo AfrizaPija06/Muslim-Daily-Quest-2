@@ -22,7 +22,7 @@ interface LeaderboardPageProps {
   groups: string[];
   updateGroups: (newGroups: string[]) => Promise<void>;
   handleUpdateProfile?: (user: User) => void;
-  globalAssets?: GlobalAssets; // NEW
+  globalAssets?: GlobalAssets; // Pass global assets
 }
 
 interface LeaderboardData {
@@ -120,7 +120,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       reader.onloadend = async () => {
         const base64String = reader.result as string;
         
-        // Compress
+        // Compress Image
         const img = new Image();
         img.src = base64String;
         img.onload = async () => {
@@ -134,12 +134,16 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           ctx?.drawImage(img, 0, 0, width, height);
           const compressed = canvas.toDataURL('image/jpeg', 0.8);
 
-          // Upload with unique ID
+          // Upload with unique ID prefixed with 'preset_'
           const presetId = `preset_${Date.now()}`;
           const success = await api.uploadGlobalAsset(presetId, compressed);
           
-          if(success) performSync(); // Trigger sync to update UI
-          else alert("Failed to upload preset.");
+          if(success) {
+            await performSync(); // Trigger sync so new asset appears in list
+            alert("Avatar Preset Uploaded!");
+          } else {
+            alert("Failed to upload preset.");
+          }
           
           setIsUploadingPreset(false);
         };
@@ -150,10 +154,13 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const handleDeletePreset = async (key: string) => {
-    if(confirm("Delete this avatar preset? Mentees using it will revert to default.")) {
+    if(confirm("Are you sure? Mentees currently using this avatar will revert to default.")) {
       const success = await api.deleteGlobalAsset(key);
-      if(success) performSync();
-      else alert("Failed to delete.");
+      if(success) {
+        await performSync();
+      } else {
+        alert("Failed to delete.");
+      }
     }
   };
 
@@ -221,6 +228,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
+  
+  // Get list of presets for Avatars tab
   const presets = globalAssets ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) : [];
 
   return (

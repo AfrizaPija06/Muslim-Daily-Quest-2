@@ -7,6 +7,7 @@ import Footer from './Footer';
 import StatCard from './StatCard';
 import PrayerCell from './PrayerCell';
 import { PRAYER_KEYS, PrayerState, WeeklyData, DayData, POINTS, User, getRankInfo, GlobalAssets } from '../types';
+import { getAvatarSrc } from '../constants';
 
 interface TrackerPageProps {
   currentUser: any;
@@ -19,7 +20,8 @@ interface TrackerPageProps {
   toggleTheme: () => void;
   totalPoints: number;
   handleUpdateProfile?: (user: User) => void;
-  globalAssets?: GlobalAssets; // NEW
+  globalAssets?: GlobalAssets;
+  refreshAssets?: (assets: GlobalAssets) => void;
 }
 
 interface MiniLeaderboardData {
@@ -31,18 +33,16 @@ interface MiniLeaderboardData {
   rankName: string;
   rankColor: string;
   role: string;
+  avatarSeed?: string;
 }
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
   currentUser, setView, handleLogout, data, setData, 
-  themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile, globalAssets
+  themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile, globalAssets, refreshAssets
 }) => {
   const [leaderboard, setLeaderboard] = useState<MiniLeaderboardData[]>([]);
 
-  // Constants based on user request:
-  // 5 Prayers * 27 Points (Mosque) * 7 Days = 945
-  // 15 Lines Tilawah * 1 Point * 7 Days = 105
-  // Total Weekly Target = 1050
+  // Constants
   const WEEKLY_TARGET = 1050;
 
   // Calculate day points
@@ -55,23 +55,19 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     return prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
   };
 
-  // Date Statistics Calculation & Dynamic Week
+  // Date Statistics Calculation
   const { dateDisplay, seasonTitle } = useMemo(() => {
     const now = new Date();
     const currentDay = now.getDate();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const monthName = now.toLocaleString('id-ID', { month: 'long' }).toUpperCase(); // Indo
-    const enMonthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase(); // Eng for label
-    
-    // Calculate Week Number (1-4/5)
+    const monthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
     const currentWeek = Math.ceil(currentDay / 7);
 
     return {
       dateDisplay: {
-        label: `${enMonthName} PROGRESS`,
+        label: `${monthName} PROGRESS`,
         value: `${currentDay}/${daysInMonth}`
       },
-      // Format: PEKAN 3/4: ISTIQAMAH
       seasonTitle: `PEKAN ${currentWeek}/4: ISTIQAMAH` 
     };
   }, []);
@@ -85,7 +81,6 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       const processed = allUsers
         .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
         .map(u => {
-          // FIX: Use prop 'currentUser' for self to ensure instant update UI (bypassing localstorage lag)
           const isMe = u.username === currentUser.username;
           const displayUser = isMe ? currentUser : u;
 
@@ -121,7 +116,8 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             monthlyPoints: monthlyPts,
             rankName: rankInfo.name,
             rankColor: rankInfo.color,
-            role: displayUser.role
+            role: displayUser.role,
+            avatarSeed: displayUser.avatarSeed
           };
         });
       
@@ -151,15 +147,20 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                   <td className="px-3 py-3 w-8">
                     <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
                   </td>
-                  <td className="px-1 py-3">
-                    <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px] flex items-center gap-1`}>
-                      {user.fullName.split(' ')[0]}
-                      {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
+                  <td className="px-1 py-3 flex items-center gap-2">
+                    {/* Avatar in List */}
+                    <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 shrink-0">
+                       <img src={getAvatarSrc(user.avatarSeed || user.username, globalAssets)} className="w-full h-full object-cover" />
                     </div>
-                    {/* Rank Indicator */}
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
-                      <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
+                    <div>
+                      <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[80px] flex items-center gap-1`}>
+                        {user.fullName.split(' ')[0]}
+                        {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
+                        <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
+                      </div>
                     </div>
                   </td>
                   <td className={`px-3 py-3 text-right text-xs font-bold ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
@@ -191,15 +192,14 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         toggleTheme={toggleTheme} 
         handleUpdateProfile={handleUpdateProfile}
         globalAssets={globalAssets}
+        refreshAssets={refreshAssets}
       />
 
       <main className="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full space-y-6 pb-24">
         
         {/* Stat Cards (Top) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
-           {/* UPDATED: Month Progress Card */}
            <StatCard label={dateDisplay.label} value={dateDisplay.value} icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
-           
            <StatCard label="Prayer EXP" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
         </section>

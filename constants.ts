@@ -48,27 +48,28 @@ export const MENTORING_GROUPS = [
 
 // --- AVATAR SYSTEM CONFIGURATION ---
 
-// Fallback image (Silhouette) if nothing found on server
-const DEFAULT_AVATAR = "https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=User&size=128";
+// Default Fallback jika gambar belum diset atau dihapus dari server
+const DEFAULT_AVATAR_BASE = "https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128&name=";
 
 export const getAvatarSrc = (seedOrId?: string, globalAssets: GlobalAssets = {}) => {
-  if (!seedOrId) return DEFAULT_AVATAR;
+  if (!seedOrId) return `${DEFAULT_AVATAR_BASE}User`;
 
-  // 1. Cek Global Assets (Prioritas Utama - Server Data)
+  // 1. Cek Global Assets dari Server (Prioritas Utama)
+  // Ini menangani 'user_{username}' (Mentor) dan 'preset_{id}' (Mentee)
   if (globalAssets && globalAssets[seedOrId]) {
     return globalAssets[seedOrId];
   }
 
-  // 2. Jika seedOrId itu sendiri adalah Base64 atau URL (Legacy support)
+  // 2. Legacy Support (Jika user lama masih pakai URL/Base64 langsung di field avatarSeed)
   if (seedOrId.startsWith('http') || seedOrId.startsWith('data:image')) {
     return seedOrId;
   }
 
-  // 3. Fallback terakhir
-  return `https://ui-avatars.com/api/?background=10b981&color=fff&name=${seedOrId}&size=128`;
+  // 3. Fallback Terakhir (Inisial Nama)
+  return `${DEFAULT_AVATAR_BASE}${seedOrId}`;
 };
 
-// No longer needed, strictly server assets or placeholder
+// Fungsi ini sudah tidak dipakai secara logika baru, tapi dibiarkan untuk mencegah error import di file lain jika ada sisa
 export const getOnlineFallback = (seed: string) => {
-   return `https://ui-avatars.com/api/?background=334155&color=fff&name=${seed}&size=128`;
+   return `${DEFAULT_AVATAR_BASE}${seed}`;
 };
