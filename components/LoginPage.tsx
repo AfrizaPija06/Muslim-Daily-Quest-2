@@ -88,10 +88,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
           </div>
           
           <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
-            {currentTheme === 'Mentoring Leveling' ? 'Mentoring Leveling' : 'Mentoring Leveling'}
+            Mentoring Leveling
           </h2>
           <p className={`text-[10px] uppercase font-bold mt-1 tracking-widest ${themeStyles.textSecondary}`}>
-            {currentTheme === 'Daily Quest Rohis SMPN 1 Bojonggede' ? 'Daily Quest Rohis SMPN 1 Bojonggede' : 'Daily Quest Rohis SMPN 1 Bojonggede'}
+            Daily Quest Rohis SMPN 1 Bojonggede
           </p>
         </div>
         {error && <div className="mb-6 p-3 bg-red-950/40 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-xs"><ShieldAlert className="w-4 h-4" />{error}</div>}
