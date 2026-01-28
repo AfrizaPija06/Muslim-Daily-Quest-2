@@ -366,7 +366,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         refreshAssets={refreshAssets}
       />
 
-      <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24">
+      <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24 animate-reveal">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -412,8 +412,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {/* --- LEADERBOARD TAB --- */}
         {activeTab === 'leaderboard' && (
-          <>
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="animate-reveal">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <SummaryCard label="Node Status" value="Healthy" icon={<Activity className="w-6 h-6 text-emerald-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Active Members" value={menteesData.length} icon={<Users className="w-6 h-6 text-blue-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Avg. Score" value={menteesData.length ? Math.round(menteesData.reduce((a,b)=>a+b.points,0)/menteesData.length) : 0} icon={<Target className={`w-6 h-6 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
@@ -432,7 +432,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                   </thead>
                   <tbody className={`divide-y ${currentTheme === 'light' ? 'divide-slate-100' : 'divide-white/5'}`}>
                     {sortedWeekly.map((m, i) => (
-                      <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
+                      <tr 
+                        key={m.username} 
+                        className={`stagger-enter hover:bg-white/[0.02] transition-colors`}
+                        style={{ animationDelay: `${i * 30}ms` }}
+                      >
                         <td className="px-6 py-4">
                            <div className="flex items-start gap-4">
                               <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10">
@@ -466,12 +470,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 </table>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* --- ARCHIVES TAB --- */}
         {activeTab === 'archives' && (
-           <section className="space-y-6">
+           <section className="space-y-6 animate-reveal">
               <div className={`${themeStyles.card} rounded-2xl p-6`}>
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -505,8 +509,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                  <div className="mt-6 space-y-4">
                     <h4 className="text-sm font-bold uppercase tracking-widest opacity-70">Saved Archives</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                       {archives && archives.length > 0 ? archives.map((arch) => (
-                          <div key={arch.id} className="p-4 rounded-xl border border-white/10 bg-white/5 flex justify-between items-center group">
+                       {archives && archives.length > 0 ? archives.map((arch, i) => (
+                          <div key={arch.id} className="stagger-enter p-4 rounded-xl border border-white/10 bg-white/5 flex justify-between items-center group" style={{ animationDelay: `${i * 50}ms` }}>
                              <div>
                                 <div className="font-bold text-lg">{arch.id}</div>
                                 <div className="text-[10px] font-mono opacity-50">{new Date(arch.timestamp).toLocaleDateString()}</div>
@@ -530,7 +534,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {/* ... Other Tabs ... */}
         {activeTab === 'avatars' && (
-           <section className="space-y-6">
+           <section className="space-y-6 animate-reveal">
               <div className={`${themeStyles.card} rounded-2xl p-6`}>
                  <div className="flex justify-between items-center mb-6">
                     <div>
@@ -551,8 +555,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                  </div>
 
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {presets.map(key => (
-                       <div key={key} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/30">
+                    {presets.map((key, i) => (
+                       <div key={key} className="stagger-enter relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/30" style={{ animationDelay: `${i * 30}ms` }}>
                           <img src={globalAssets?.[key]} alt="Preset" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                              <button 
@@ -577,9 +581,9 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {/* --- REQUESTS TAB --- */}
         {activeTab === 'requests' && (
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pendingUsers.length === 0 ? <div className="col-span-full py-20 text-center text-xs uppercase tracking-widest opacity-30">No Authentication Requests</div> : pendingUsers.map(u => (
-              <div key={u.username} className={`${themeStyles.card} rounded-2xl p-6 border-l-4 border-yellow-500 animate-in slide-in-from-bottom-2`}>
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-reveal">
+            {pendingUsers.length === 0 ? <div className="col-span-full py-20 text-center text-xs uppercase tracking-widest opacity-30">No Authentication Requests</div> : pendingUsers.map((u, i) => (
+              <div key={u.username} className={`stagger-enter ${themeStyles.card} rounded-2xl p-6 border-l-4 border-yellow-500`} style={{ animationDelay: `${i * 100}ms` }}>
                 <div className="flex justify-between items-start">
                    <div>
                      <h4 className="font-black text-lg">{u.fullName}</h4>
@@ -598,7 +602,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {/* --- GROUPS TAB --- */}
         {activeTab === 'groups' && (
-          <section className="space-y-6">
+          <section className="space-y-6 animate-reveal">
              <div className={`${themeStyles.card} rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-center`}>
                 <div className="flex-1 w-full">
                   <h3 className="text-sm font-bold uppercase tracking-widest mb-1">Establish New Faction</h3>
@@ -610,8 +614,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 </form>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {groups.map(group => (
-                  <div key={group} className={`${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`}>
+                {groups.map((group, i) => (
+                  <div key={group} className={`stagger-enter ${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`} style={{ animationDelay: `${i * 50}ms` }}>
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${currentTheme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}><Flag className={`w-4 h-4 ${themeStyles.textAccent}`} /></div>
                       <span className="font-bold text-sm uppercase tracking-wider">{group}</span>
@@ -625,7 +629,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {/* --- NETWORK TAB --- */}
         {activeTab === 'network' && (
-          <section className="space-y-4">
+          <section className="space-y-4 animate-reveal">
             <div className={`${themeStyles.card} bg-black/90 rounded-2xl border border-white/10 overflow-hidden font-mono text-[11px]`}>
                <div className="p-6 space-y-2 h-[400px] overflow-y-auto">
                  {networkLogs.map((log, i) => (

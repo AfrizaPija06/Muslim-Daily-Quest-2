@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ArrowRight, ShieldAlert, Eye, EyeOff, Gamepad2 } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Eye, EyeOff, Gamepad2, Sparkles } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { ADMIN_CREDENTIALS, GAME_LOGO_URL } from '../constants';
@@ -59,55 +60,88 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 relative transition-colors duration-500 ${themeStyles.bg}`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 relative transition-colors duration-1000 ${themeStyles.bg} overflow-hidden`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <div className={`absolute top-4 right-4 z-20`}>
+      
+      {/* Dynamic Background Glow */}
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full blur-[120px] opacity-20 animate-pulse-glow pointer-events-none ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`} />
+
+      <div className={`absolute top-4 right-4 z-20 animate-reveal`} style={{ animationDelay: '0.5s' }}>
         <ThemeToggle currentTheme={currentTheme} toggleTheme={toggleTheme} themeStyles={themeStyles} />
       </div>
-      <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-8 ${themeStyles.glow} relative z-10`}>
+
+      <div className={`w-full max-w-md ${themeStyles.card} rounded-3xl p-8 ${themeStyles.glow} relative z-10 animate-reveal border-t border-white/10 backdrop-blur-2xl`}>
         <div className="text-center mb-8 flex flex-col items-center">
-          {/* Main Logo Image */}
-          <div className="mb-4 relative group">
-             <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
+          
+          {/* Main Logo Image with Floating Animation */}
+          <div className="mb-6 relative group perspective-1000">
+             {/* Back Glow */}
+             <div className={`absolute inset-0 rounded-full blur-2xl opacity-40 animate-pulse-glow ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
              
-             {!logoError ? (
-               <img 
-                 src={GAME_LOGO_URL}
-                 alt="Game Logo" 
-                 className="w-60 h-60 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
-                 onError={(e) => {
-                   console.warn("Game logo not found, switching to icon fallback.");
-                   setLogoError(true);
-                 }}
-               />
-             ) : (
-               <div className={`w-24 h-24 rounded-2xl flex items-center justify-center relative z-10 border-2 ${currentTheme === 'legends' ? 'bg-[#3a080e] border-[#d4af37] text-[#d4af37]' : 'bg-emerald-900/50 border-emerald-500 text-emerald-400'}`}>
-                  <Gamepad2 className="w-12 h-12" />
-               </div>
+             <div className="animate-float relative z-10">
+                {!logoError ? (
+                  <img 
+                    src={GAME_LOGO_URL}
+                    alt="Game Logo" 
+                    className="w-56 h-56 object-contain drop-shadow-[0_15px_35px_rgba(0,0,0,0.6)] transform transition-transform duration-500 hover:scale-105" 
+                    onError={(e) => {
+                      console.warn("Game logo not found, switching to icon fallback.");
+                      setLogoError(true);
+                    }}
+                  />
+                ) : (
+                  <div className={`w-32 h-32 rounded-3xl flex items-center justify-center border-4 shadow-2xl ${currentTheme === 'legends' ? 'bg-[#3a080e] border-[#d4af37] text-[#d4af37]' : 'bg-emerald-900/50 border-emerald-500 text-emerald-400'}`}>
+                     <Gamepad2 className="w-16 h-16" />
+                  </div>
+                )}
+             </div>
+
+             {/* Decoration Stars */}
+             {currentTheme === 'legends' && (
+                <>
+                  <Sparkles className="absolute -top-4 -right-4 w-8 h-8 text-yellow-400 animate-pulse" />
+                  <Sparkles className="absolute bottom-4 -left-6 w-5 h-5 text-yellow-200 animate-pulse delay-700" />
+                </>
              )}
           </div>
           
-          <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
-            Mentoring Leveling
+          <h2 className={`text-4xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2 drop-shadow-md`}>
+            {currentTheme === 'legends' ? 'Mentoring' : 'Muslim Quest'}
           </h2>
-          <p className={`text-[10px] uppercase font-bold mt-1 tracking-widest ${themeStyles.textSecondary}`}>
-            Daily Quest Rohis SMPN 1 Bojonggede
-          </p>
-        </div>
-        {error && <div className="mb-6 p-3 bg-red-950/40 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-xs"><ShieldAlert className="w-4 h-4" />{error}</div>}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-2">
-            <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} className={`w-full rounded-xl py-4 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} placeholder="MENTOR_OR_MENTEE" />
+          <div className="flex items-center gap-3">
+            <div className={`h-[1px] w-8 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
+            <p className={`text-[10px] uppercase font-bold tracking-[0.3em] ${themeStyles.textSecondary}`}>
+              Daily Tracker
+            </p>
+            <div className={`h-[1px] w-8 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
           </div>
-          <div className="space-y-2">
-            <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${themeStyles.textSecondary}`}>Password</label>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-950/40 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-xs animate-in slide-in-from-top-2">
+            <ShieldAlert className="w-5 h-5 shrink-0" />
+            <span className="font-semibold">{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div className="space-y-2 group">
+            <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 transition-colors ${themeStyles.textSecondary} group-focus-within:${themeStyles.textAccent}`}>Username</label>
+            <input 
+              value={username} 
+              onChange={e => setUsername(e.target.value)} 
+              className={`w-full rounded-xl py-4 px-4 outline-none ${themeStyles.fontDisplay} border transition-all duration-300 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} focus:shadow-[0_0_20px_rgba(16,185,129,0.1)]`} 
+              placeholder="MENTOR_OR_MENTEE" 
+            />
+          </div>
+          <div className="space-y-2 group">
+            <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 transition-colors ${themeStyles.textSecondary} group-focus-within:${themeStyles.textAccent}`}>Password</label>
             <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"} 
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
-                className={`w-full rounded-xl py-4 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`} 
+                className={`w-full rounded-xl py-4 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border transition-all duration-300 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} focus:shadow-[0_0_20px_rgba(16,185,129,0.1)]`} 
                 placeholder="••••••••" 
               />
               <button
@@ -119,9 +153,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
               </button>
             </div>
           </div>
-          <button className={`w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-6 flex items-center justify-center gap-2 ${themeStyles.buttonPrimary} uppercase tracking-wider`}>LOGIN <ArrowRight className="w-5 h-5" /></button>
+          <button className={`w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-8 flex items-center justify-center gap-2 ${themeStyles.buttonPrimary} uppercase tracking-wider transform transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]`}>
+            Start Journey <ArrowRight className="w-5 h-5" />
+          </button>
         </form>
-        <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary}`}>Belum terdaftar? <button onClick={() => setView('register')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Buat akun</button></p>
+        <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary} animate-reveal`} style={{ animationDelay: '0.8s' }}>
+          Belum terdaftar? <button onClick={() => setView('register')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Buat akun</button>
+        </p>
       </div>
     </div>
   );

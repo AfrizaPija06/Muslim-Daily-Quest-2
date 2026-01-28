@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, ShieldCheck, BookOpen, Sword, Calendar, ChevronRight, Trophy, Star, Medal } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
@@ -132,7 +133,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   const sortedMonthly = useMemo(() => [...leaderboard].sort((a, b) => b.monthlyPoints - a.monthlyPoints).slice(0, 10), [leaderboard]);
 
   const MiniLeaderboardTable = ({ title, data, icon, type }: { title: string, data: MiniLeaderboardData[], icon: React.ReactNode, type: 'weekly' | 'monthly' }) => (
-    <div className={`${themeStyles.card} rounded-xl overflow-hidden flex flex-col h-full`}>
+    <div className={`${themeStyles.card} rounded-xl overflow-hidden flex flex-col h-full animate-reveal`}>
       <div className={`p-3 border-b ${themeStyles.border} flex items-center justify-between ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
         <h3 className={`${themeStyles.fontDisplay} text-sm font-bold tracking-wider flex items-center gap-2 uppercase ${themeStyles.textPrimary}`}>
           {icon} {title}
@@ -144,7 +145,11 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             {data.map((user, idx) => {
               const isMe = user.username === currentUser.username;
               return (
-                <tr key={user.username} className={`${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}>
+                <tr 
+                  key={user.username} 
+                  className={`stagger-enter ${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}
+                  style={{ animationDelay: `${idx * 50}ms` }}
+                >
                   <td className="px-3 py-3 w-8 align-middle">
                     <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
                   </td>
@@ -202,7 +207,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         refreshAssets={refreshAssets}
       />
 
-      <main className="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full space-y-6 pb-24">
+      <main className="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full space-y-6 pb-24 animate-reveal">
         
         {/* Stat Cards (Top) */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
@@ -215,7 +220,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* LEFT: Weekly Leaderboard */}
-          <div className="hidden lg:block lg:col-span-3 sticky top-24">
+          <div className="hidden lg:block lg:col-span-3 sticky top-24" style={{ animationDelay: '0.1s' }}>
              <MiniLeaderboardTable 
                 title="Weekly Top" 
                 data={sortedWeekly} 
@@ -226,7 +231,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
           {/* CENTER: Quest Board (Tracker) */}
           <div className="col-span-1 lg:col-span-6 space-y-6">
-            <section className={`${themeStyles.card} rounded-xl overflow-hidden`}>
+            <section className={`${themeStyles.card} rounded-xl overflow-hidden animate-reveal`}>
               <div className={`p-4 border-b ${themeStyles.border} flex justify-between items-center ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-gradient-to-r from-transparent via-white/5 to-transparent'}`}>
                 <h2 className={`${themeStyles.fontDisplay} ${themeStyles.textPrimary} text-xl font-bold tracking-wider flex items-center gap-2 uppercase`}>
                   {currentTheme === 'legends' ? <Sword className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
@@ -252,7 +257,11 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                       const isToday = new Date().getDay() === (day.id + 1) % 7; 
                       
                       return (
-                        <tr key={day.id} className={`group transition-colors duration-200 hover:bg-white/5`}>
+                        <tr 
+                          key={day.id} 
+                          className={`stagger-enter group transition-colors duration-200 hover:bg-white/5`}
+                          style={{ animationDelay: `${idx * 50}ms` }}
+                        >
                           <td className={`px-6 py-4 font-bold text-sm ${themeStyles.textSecondary}`}>
                             <div className="flex items-center gap-2">
                               <span className={isToday ? themeStyles.textAccent : ''}>{day.dayName}</span>
@@ -305,7 +314,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
               </div>
             </section>
 
-            <section className="space-y-4">
+            <section className="space-y-4 animate-reveal" style={{ animationDelay: '0.4s' }}>
               <div className="flex justify-between items-end px-2">
                 <div>
                   <h3 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${themeStyles.textSecondary}`}>
@@ -321,13 +330,13 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                 </div>
               </div>
               <div className={`relative h-6 w-full rounded-full border ${themeStyles.border} overflow-hidden ${themeStyles.inputBg} ${themeStyles.glow}`}>
-                <div className={`absolute top-0 left-0 h-full bg-gradient-to-r ${themeStyles.progressBar}`} style={{ width: `${Math.min(100, (totalPoints / WEEKLY_TARGET) * 100)}%` }} />
+                <div className={`absolute top-0 left-0 h-full bg-gradient-to-r ${themeStyles.progressBar} transition-all duration-1000 ease-out`} style={{ width: `${Math.min(100, (totalPoints / WEEKLY_TARGET) * 100)}%` }} />
               </div>
             </section>
           </div>
 
           {/* RIGHT: Monthly Leaderboard */}
-          <div className="hidden lg:block lg:col-span-3 sticky top-24">
+          <div className="hidden lg:block lg:col-span-3 sticky top-24" style={{ animationDelay: '0.2s' }}>
              <MiniLeaderboardTable 
                 title="Season Rank" 
                 data={sortedMonthly} 
