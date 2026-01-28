@@ -1,4 +1,3 @@
-
 import { WeeklyData, User, MENTORING_GROUPS, GlobalAssets } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
@@ -97,6 +96,73 @@ class ApiService {
     }
   }
 
+  // --- SAFE REGISTRATION (Prevents Race Conditions) ---
+  async registerUserSafe(newUser: User): Promise<{ success: boolean; isOffline: boolean; error?: string }> {
+    const MAX_RETRIES = 5;
+    
+    // Cek koneksi awal sederhana
+    if (!navigator.onLine) {
+       // Save offline immediately without retrying
+       const local = this.getLocalData();
+       if (!local.users.find(u => u.username === newUser.username)) {
+          local.users.push(newUser);
+          this.saveLocalData(local.users, local.trackers, local.groups, local.assets);
+       }
+       return { success: true, isOffline: true };
+    }
+
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        // JITTER: Tunggu waktu acak 200ms - 1500ms untuk mencegah tabrakan request antar HP
+        const delay = 200 + Math.random() * 1300;
+        await new Promise(r => setTimeout(r, delay));
+
+        // 1. Fetch data TERBARU dari cloud
+        const db = await this.fetchDatabase();
+        
+        // 2. Cek duplikasi (siapa tahu sudah masuk di percobaan sebelumnya)
+        if (db.users.some((u: any) => u.username === newUser.username)) {
+          return { success: true, isOffline: false };
+        }
+
+        // 3. Append user baru
+        db.users.push(newUser);
+        
+        // 4. Push kembali ke cloud
+        // Kita panggil supabase langsung disini untuk menangkap error murni, bukan lewat updateDatabase wrapper
+        const { error } = await supabase
+          .from('app_sync')
+          .upsert({ 
+            id: DB_ROW_ID, 
+            json_data: db,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+
+        // Update local storage agar sinkron
+        this.saveLocalData(db.users, db.trackers, db.groups, db.assets);
+        
+        return { success: true, isOffline: false };
+
+      } catch (e: any) {
+        console.warn(`[REGISTER] Retry ${i + 1}/${MAX_RETRIES} failed:`, e.message);
+        
+        // Jika ini retry terakhir dan masih gagal, fallback ke offline save
+        if (i === MAX_RETRIES - 1) {
+           const local = this.getLocalData();
+           if (!local.users.find(u => u.username === newUser.username)) {
+              local.users.push(newUser);
+              this.saveLocalData(local.users, local.trackers, local.groups, local.assets);
+           }
+           return { success: true, isOffline: true };
+        }
+      }
+    }
+    
+    return { success: false, isOffline: false, error: "Traffic tinggi. Coba lagi." };
+  }
+
   async updateUserProfile(user: User): Promise<{ success: boolean; error?: string; warning?: string }> {
     try {
       const db = await this.fetchDatabase();
@@ -117,7 +183,6 @@ class ApiService {
     }
   }
   
-  // NEW: Upload Asset to Server
   async uploadGlobalAsset(id: string, base64Data: string): Promise<boolean> {
     try {
       const db = await this.fetchDatabase();
@@ -128,7 +193,6 @@ class ApiService {
       const success = await this.updateDatabase(db);
       if (!success) throw new Error("Database Write Failed");
       
-      // Update local storage immediately for UI feedback
       localStorage.setItem('nur_quest_assets', JSON.stringify(db.assets));
       return true;
     } catch (e) {
@@ -137,7 +201,6 @@ class ApiService {
     }
   }
 
-  // NEW: Delete Asset from Server
   async deleteGlobalAsset(id: string): Promise<boolean> {
     try {
       const db = await this.fetchDatabase();
@@ -217,13 +280,28 @@ class ApiService {
     let hasChanges = false;
 
     if (currentUser) {
+      // Logic Merging User: Prioritaskan data cloud jika kita tidak mengubah profile
+      // Tapi update jika kita mengubah profile.
+      // Untuk amannya di Tracker, kita hanya update Tracker data, bukan list User
+      // KECUALI jika ini adalah Admin yang sedang melakukan operasi User.
+      
       const userIndex = db.users.findIndex((u: any) => u.username === currentUser.username);
       if (userIndex !== -1) {
+        // Cek apakah data user lokal kita lebih baru/beda? (Misal ganti avatar)
+        // Tapi hati-hati menimpa status approval dari admin
         if (JSON.stringify(db.users[userIndex]) !== JSON.stringify(currentUser)) {
-           db.users[userIndex] = currentUser;
+           // HANYA update jika role kita Admin atau data diri sendiri
+           // Dan jangan menimpa status jika kita mentee
+           if (currentUser.role === 'mentee') {
+              const cloudStatus = db.users[userIndex].status;
+              db.users[userIndex] = { ...currentUser, status: cloudStatus };
+           } else {
+              db.users[userIndex] = currentUser;
+           }
            hasChanges = true;
         }
       } else {
+        // Jika user tidak ada di cloud (kasus langka jika registerSafe berhasil)
         db.users.push(currentUser);
         hasChanges = true;
       }
@@ -260,7 +338,7 @@ class ApiService {
       users: db.users, 
       trackers: db.trackers, 
       groups: db.groups.length > localGroups.length ? db.groups : localGroups,
-      assets: db.assets, // Pass assets back
+      assets: db.assets,
       updatedLocalData, 
       success: isOnline,
       errorMessage: isOnline ? undefined : (syncError.includes('relation') ? syncError : "Offline Mode")

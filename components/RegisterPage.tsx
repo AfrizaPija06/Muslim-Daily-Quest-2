@@ -44,33 +44,20 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
       const { confirmPassword, ...rest } = formData;
       const newUser: User = { ...rest, role: 'mentee', status: 'pending' };
 
-      let cloudUsers = [];
-      try {
-        const db = await api.fetchDatabase();
-        cloudUsers = db.users || [];
-        
-        if (cloudUsers.some((u: any) => u.username === formData.username)) {
-          setError("Username sudah digunakan (terdeteksi di server).");
-          setIsRegistering(false);
-          return;
+      // GUNAKAN METODE SAFE REGISTRATION
+      // Ini akan mencoba beberapa kali dan menunggu giliran (jitter) untuk menghindari tabrakan data
+      const result = await api.registerUserSafe(newUser);
+
+      if (result.success) {
+        if (result.isOffline) {
+           setIsOfflineReg(true);
         }
-
-        const updatedUsers = [...cloudUsers, newUser];
-        const pushSuccess = await api.updateDatabase({ ...db, users: updatedUsers });
-
-        if (!pushSuccess) throw new Error("Push Failed");
-
-        localStorage.setItem('nur_quest_users', JSON.stringify(updatedUsers));
-
-      } catch (netErr) {
-        console.warn("Network failed, saving locally first.");
-        const updatedLocal = [...localUsers, newUser];
-        localStorage.setItem('nur_quest_users', JSON.stringify(updatedLocal));
-        setIsOfflineReg(true);
+        setSuccess(true);
+        setError(null);
+      } else {
+        setError(result.error || "Gagal mendaftar. Silakan coba lagi.");
       }
-      
-      setSuccess(true);
-      setError(null);
+
     } catch (err) {
       console.error(err);
       setError("Terjadi kesalahan sistem. Coba lagi.");
@@ -94,7 +81,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
           </h2>
           <p className={`${themeStyles.textSecondary} mb-8`}>
             {isOfflineReg 
-              ? "Koneksi ke server gagal, namun data tersimpan di HP ini. Silakan Login, data akan otomatis dikirim saat koneksi stabil."
+              ? "Koneksi ke server lambat/putus. Data disimpan di HP ini. Mohon JANGAN logout dulu dan buka aplikasi lagi nanti saat sinyal bagus agar data terkirim."
               : "Data Anda telah dikirim ke Server Admin. Akun sedang menunggu persetujuan Mentor."
             }
           </p>
@@ -124,7 +111,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
                <img 
                  src={GAME_LOGO_URL}
                  alt="Game Logo" 
-                 className="w-60 h-60 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                 className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
                  onError={(e) => {
                    console.warn("Logo failed to load, switching to fallback");
                    setLogoError(true);
@@ -204,7 +191,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
             className={`md:col-span-2 w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-4 flex items-center justify-center gap-2 uppercase tracking-wider ${themeStyles.buttonPrimary} ${isRegistering ? 'opacity-70 cursor-wait' : ''}`}
           >
             {isRegistering ? (
-              <>Mengirim ke Server... <Loader2 className="w-5 h-5 animate-spin" /></>
+              <>Menyinkronkan Antrian... <Loader2 className="w-5 h-5 animate-spin" /></>
             ) : (
               <>DAFTAR SEKARANG <ShieldCheck className="w-5 h-5" /></>
             )}
