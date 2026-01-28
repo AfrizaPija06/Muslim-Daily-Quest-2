@@ -75,14 +75,14 @@ export const RANK_TIERS = [
     min: 4200, 
     color: 'text-emerald-400', 
     bg: 'bg-emerald-500/20 border-emerald-500',
-    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Epic.png' // MASUKKAN LINK ICON EPIC DISINI
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/epic.png' // MASUKKAN LINK ICON EPIC DISINI
   },
   { 
     name: 'Grand Master', 
     min: 3150, 
     color: 'text-red-400', 
     bg: 'bg-red-500/20 border-red-500',
-    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Grand%20Master.png' // MASUKKAN LINK ICON GM DISINI
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/grand%20master.png' // MASUKKAN LINK ICON GM DISINI
   },
   { 
     name: 'Master', 
@@ -96,7 +96,7 @@ export const RANK_TIERS = [
     min: 1050, 
     color: 'text-blue-400', 
     bg: 'bg-blue-500/20 border-blue-500',
-    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Elite.png' // MASUKKAN LINK ICON ELITE DISINI
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/elite.png' // MASUKKAN LINK ICON ELITE DISINI
   },
   { 
     name: 'Warrior', 
