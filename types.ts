@@ -60,13 +60,51 @@ export const POINTS = {
 
 // --- RANK SYSTEM ---
 
+// ANDA BISA MENGGANTI LINK DALAM 'iconUrl' DENGAN LINK GAMBAR ANDA SENDIRI
+// REKOMENDASI: Gunakan gambar PNG transparan ukuran kecil (misal 64x64 atau 128x128)
 export const RANK_TIERS = [
-  { name: 'Mythic Glory', min: 5250, color: 'text-purple-400', bg: 'bg-purple-500/20 border-purple-500' },
-  { name: 'Epic', min: 4200, color: 'text-emerald-400', bg: 'bg-emerald-500/20 border-emerald-500' },
-  { name: 'Grand Master', min: 3150, color: 'text-red-400', bg: 'bg-red-500/20 border-red-500' },
-  { name: 'Master', min: 2100, color: 'text-yellow-400', bg: 'bg-yellow-500/20 border-yellow-500' },
-  { name: 'Elite', min: 1050, color: 'text-blue-400', bg: 'bg-blue-500/20 border-blue-500' },
-  { name: 'Warrior', min: 0, color: 'text-slate-400', bg: 'bg-slate-500/20 border-slate-500' },
+  { 
+    name: 'Mythic Glory', 
+    min: 5250, 
+    color: 'text-purple-400', 
+    bg: 'bg-purple-500/20 border-purple-500',
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Mythic.png' // MASUKKAN LINK ICON MYTHIC DISINI
+  },
+  { 
+    name: 'Epic', 
+    min: 4200, 
+    color: 'text-emerald-400', 
+    bg: 'bg-emerald-500/20 border-emerald-500',
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Epic.png' // MASUKKAN LINK ICON EPIC DISINI
+  },
+  { 
+    name: 'Grand Master', 
+    min: 3150, 
+    color: 'text-red-400', 
+    bg: 'bg-red-500/20 border-red-500',
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Grand%20Master.png' // MASUKKAN LINK ICON GM DISINI
+  },
+  { 
+    name: 'Master', 
+    min: 2100, 
+    color: 'text-yellow-400', 
+    bg: 'bg-yellow-500/20 border-yellow-500',
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Master.png' // MASUKKAN LINK ICON MASTER DISINI
+  },
+  { 
+    name: 'Elite', 
+    min: 1050, 
+    color: 'text-blue-400', 
+    bg: 'bg-blue-500/20 border-blue-500',
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Elite.png' // MASUKKAN LINK ICON ELITE DISINI
+  },
+  { 
+    name: 'Warrior', 
+    min: 0, 
+    color: 'text-slate-400', 
+    bg: 'bg-slate-500/20 border-slate-500',
+    iconUrl: 'https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/icon%20rank/Warrior.png' // MASUKKAN LINK ICON WARRIOR DISINI
+  },
 ];
 
 export const getRankInfo = (points: number) => {

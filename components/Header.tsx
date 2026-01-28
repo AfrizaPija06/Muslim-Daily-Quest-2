@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, Loader2, Camera, Image as ImageIcon } from 'lucide-react';
 import { User, AppTheme, getRankInfo, GlobalAssets } from '../types';
@@ -144,8 +143,15 @@ const Header: React.FC<HeaderProps> = ({
                    alt="Avatar" 
                  />
               </div>
+              
+              {/* RANK BADGE DISPLAY */}
               <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
-                <Trophy className={`w-3 h-3 ${currentRank.color}`} />
+                {/* Check for Custom Icon URL */}
+                {currentRank.iconUrl ? (
+                   <img src={currentRank.iconUrl} alt="Rank" className="w-4 h-4 object-contain" />
+                ) : (
+                   <Trophy className={`w-3 h-3 ${currentRank.color}`} />
+                )}
                 <span className={`text-[8px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
                 </span>
@@ -219,7 +225,7 @@ const Header: React.FC<HeaderProps> = ({
                  </div>
                  <div>
                     <div className={`inline-flex items-center gap-2 px-3 py-1 mb-1 rounded-full border ${currentRank.bg}`}>
-                      <Trophy className={`w-3 h-3 ${currentRank.color}`} />
+                      {currentRank.iconUrl ? <img src={currentRank.iconUrl} className="w-4 h-4 object-contain"/> : <Trophy className={`w-3 h-3 ${currentRank.color}`} />}
                       <span className={`text-[10px] font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
                         {currentRank.name}
                       </span>

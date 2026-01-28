@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, ShieldCheck, BookOpen, Sword, Calendar, ChevronRight, Trophy, Star, Medal } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
@@ -32,6 +31,7 @@ interface MiniLeaderboardData {
   monthlyPoints: number;
   rankName: string;
   rankColor: string;
+  rankIcon?: string; // New field
   role: string;
   avatarSeed?: string;
 }
@@ -116,6 +116,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             monthlyPoints: monthlyPts,
             rankName: rankInfo.name,
             rankColor: rankInfo.color,
+            rankIcon: rankInfo.iconUrl,
             role: displayUser.role,
             avatarSeed: displayUser.avatarSeed
           };
@@ -158,7 +159,11 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                         {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
+                        {user.rankIcon ? (
+                          <img src={user.rankIcon} className="w-3 h-3 object-contain" alt="rank" />
+                        ) : (
+                          <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
+                        )}
                         <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
                       </div>
                     </div>
@@ -190,8 +195,8 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         themeStyles={themeStyles} 
         currentTheme={currentTheme} 
         toggleTheme={toggleTheme} 
-        handleUpdateProfile={handleUpdateProfile}
-        globalAssets={globalAssets}
+        handleUpdateProfile={handleUpdateProfile} 
+        globalAssets={globalAssets} 
         refreshAssets={refreshAssets}
       />
 
