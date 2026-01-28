@@ -42,7 +42,7 @@ const Header: React.FC<HeaderProps> = ({
   const [isUploading, setIsUploading] = useState(false);
 
   // Calculate Season Points
-  const seasonPoints = totalPoints * 4;
+  const seasonPoints = totalPoints * 1;
   const currentRank = getRankInfo(seasonPoints);
 
   const openProfileModal = () => {
@@ -144,15 +144,15 @@ const Header: React.FC<HeaderProps> = ({
                  />
               </div>
               
-              {/* RANK BADGE DISPLAY */}
-              <div className={`absolute -bottom-2 -right-4 scale-75 md:scale-100 flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-lg ${currentRank.bg}`}>
+              {/* RANK BADGE DISPLAY (HEADER) - IMPROVED SIZE */}
+              <div className={`absolute -bottom-2 -right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-lg ${currentRank.bg}`}>
                 {/* Check for Custom Icon URL */}
                 {currentRank.iconUrl ? (
-                   <img src={currentRank.iconUrl} alt="Rank" className="w-4 h-4 object-contain" />
+                   <img src={currentRank.iconUrl} alt="Rank" className="w-5 h-5 object-contain" />
                 ) : (
-                   <Trophy className={`w-3 h-3 ${currentRank.color}`} />
+                   <Trophy className={`w-3.5 h-3.5 ${currentRank.color}`} />
                 )}
-                <span className={`text-[8px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
                 </span>
               </div>
@@ -204,8 +204,8 @@ const Header: React.FC<HeaderProps> = ({
 
             <div className="space-y-4">
               {/* CURRENT AVATAR PREVIEW */}
-              <div className="flex items-center gap-4 pb-4 border-b border-white/10">
-                 <div className={`w-20 h-20 rounded-full overflow-hidden border-4 bg-black/50 relative group ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
+              <div className="flex items-center gap-5 pb-6 border-b border-white/10">
+                 <div className={`w-24 h-24 rounded-full overflow-hidden border-4 bg-black/50 relative group shrink-0 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
                       // PENTING: Gunakan tempAvatar jika ada, ini mencegah gambar hilang saat sync
                       src={tempAvatar || getAvatarSrc(editForm.avatarSeed, globalAssets)} 
@@ -223,14 +223,19 @@ const Header: React.FC<HeaderProps> = ({
                       </div>
                     )}
                  </div>
-                 <div>
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 mb-1 rounded-full border ${currentRank.bg}`}>
-                      {currentRank.iconUrl ? <img src={currentRank.iconUrl} className="w-4 h-4 object-contain"/> : <Trophy className={`w-3 h-3 ${currentRank.color}`} />}
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
+                 <div className="flex flex-col justify-center">
+                    {/* RANK BADGE DISPLAY (MODAL) - BIGGER SIZE */}
+                    <div className={`inline-flex items-center gap-3 px-4 py-2 mb-2 rounded-full border ${currentRank.bg}`}>
+                      {currentRank.iconUrl ? (
+                        <img src={currentRank.iconUrl} className="w-8 h-8 object-contain drop-shadow-md"/> 
+                      ) : (
+                        <Trophy className={`w-6 h-6 ${currentRank.color}`} />
+                      )}
+                      <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
                         {currentRank.name}
                       </span>
                    </div>
-                   <p className="text-[10px] opacity-50">Season EXP: {seasonPoints}</p>
+                   <p className="text-xs opacity-50 font-mono">Season EXP: {seasonPoints}</p>
                  </div>
               </div>
 

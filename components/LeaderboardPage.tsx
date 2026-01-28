@@ -425,8 +425,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                         <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            {/* RANK ICON DISPLAY */}
-                            {m.rankIcon && <img src={m.rankIcon} className="w-6 h-6 object-contain" alt="Rank" />}
+                            {/* RANK ICON DISPLAY - INCREASED SIZE */}
+                            {m.rankIcon && <img src={m.rankIcon} className="w-8 h-8 object-contain drop-shadow" alt="Rank" />}
                             <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
                           </div>
                         </td>

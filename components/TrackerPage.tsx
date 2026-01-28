@@ -160,7 +160,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
                         {user.rankIcon ? (
-                          <img src={user.rankIcon} className="w-3 h-3 object-contain" alt="rank" />
+                          <img src={user.rankIcon} className="w-5 h-5 object-contain" alt="rank" />
                         ) : (
                           <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
                         )}
