@@ -74,7 +74,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
                <img 
                  src={GAME_LOGO_URL}
                  alt="Game Logo" 
-                 className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                 className="w-60 h-60 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
                  onError={(e) => {
                    console.warn("Game logo not found, switching to icon fallback.");
                    setLogoError(true);
