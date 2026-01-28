@@ -102,7 +102,6 @@ class ApiService {
     
     // Cek koneksi awal sederhana
     if (!navigator.onLine) {
-       // Save offline immediately without retrying
        const local = this.getLocalData();
        if (!local.users.find(u => u.username === newUser.username)) {
           local.users.push(newUser);
@@ -113,23 +112,17 @@ class ApiService {
 
     for (let i = 0; i < MAX_RETRIES; i++) {
       try {
-        // JITTER: Tunggu waktu acak 200ms - 1500ms untuk mencegah tabrakan request antar HP
         const delay = 200 + Math.random() * 1300;
         await new Promise(r => setTimeout(r, delay));
 
-        // 1. Fetch data TERBARU dari cloud
         const db = await this.fetchDatabase();
         
-        // 2. Cek duplikasi (siapa tahu sudah masuk di percobaan sebelumnya)
         if (db.users.some((u: any) => u.username === newUser.username)) {
           return { success: true, isOffline: false };
         }
 
-        // 3. Append user baru
         db.users.push(newUser);
         
-        // 4. Push kembali ke cloud
-        // Kita panggil supabase langsung disini untuk menangkap error murni, bukan lewat updateDatabase wrapper
         const { error } = await supabase
           .from('app_sync')
           .upsert({ 
@@ -140,15 +133,11 @@ class ApiService {
 
         if (error) throw error;
 
-        // Update local storage agar sinkron
         this.saveLocalData(db.users, db.trackers, db.groups, db.assets);
-        
         return { success: true, isOffline: false };
 
       } catch (e: any) {
         console.warn(`[REGISTER] Retry ${i + 1}/${MAX_RETRIES} failed:`, e.message);
-        
-        // Jika ini retry terakhir dan masih gagal, fallback ke offline save
         if (i === MAX_RETRIES - 1) {
            const local = this.getLocalData();
            if (!local.users.find(u => u.username === newUser.username)) {
@@ -163,24 +152,51 @@ class ApiService {
     return { success: false, isOffline: false, error: "Traffic tinggi. Coba lagi." };
   }
 
+  // UPDATED: SAFE PROFILE UPDATE (Fixes 'Balik Lagi' issue)
   async updateUserProfile(user: User): Promise<{ success: boolean; error?: string; warning?: string }> {
-    try {
-      const db = await this.fetchDatabase();
-      const index = db.users.findIndex((u: any) => u.username === user.username);
-      
-      if (index !== -1) {
-        db.users[index] = user;
-      } else {
-        db.users.push(user);
-      }
+    const MAX_RETRIES = 3;
 
-      const success = await this.updateDatabase(db);
-      if (!success) throw new Error("Database Write Failed");
-      
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message || "Unknown Error" };
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        // Jitter sedikit untuk menghindari tabrakan jika admin menekan tombol cepat
+        if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
+
+        // 1. Ambil data cloud TERBARU
+        const db = await this.fetchDatabase();
+        const index = db.users.findIndex((u: any) => u.username === user.username);
+        
+        // 2. Modifikasi user
+        if (index !== -1) {
+          db.users[index] = { ...db.users[index], ...user }; // Merge agar tidak menimpa field lain tak terduga
+        } else {
+          db.users.push(user);
+        }
+
+        // 3. Simpan langsung via Supabase (bypass updateDatabase wrapper agar kita bisa catch error update)
+        const { error } = await supabase
+          .from('app_sync')
+          .upsert({ 
+            id: DB_ROW_ID, 
+            json_data: db,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+
+        // 4. Update local data agar sinkron
+        this.saveLocalData(db.users, db.trackers, db.groups, db.assets);
+        
+        return { success: true };
+
+      } catch (e: any) {
+        console.warn(`[UPDATE PROFILE] Retry ${i + 1}/${MAX_RETRIES} failed:`, e.message);
+        // Jika ini retry terakhir, kita return error
+        if (i === MAX_RETRIES - 1) {
+          return { success: false, error: e.message || "Network Conflict" };
+        }
+      }
     }
+    return { success: false, error: "Max retries exceeded" };
   }
   
   async uploadGlobalAsset(id: string, base64Data: string): Promise<boolean> {

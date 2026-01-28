@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2, Image as ImageIcon, UploadCloud } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -108,9 +107,87 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); 
+    // Reduce interval frequency to prevent UI stutter
+    const interval = setInterval(loadData, 10000); 
     return () => clearInterval(interval);
   }, [currentUser]); 
+
+  // --- EXPORT FUNCTIONALITY ---
+  const handleDetailedExport = () => {
+    const wb = XLSX.utils.book_new();
+
+    // 1. SHEET REKAP UTAMA (Rank Sheet)
+    const summaryData = menteesData.map((m, i) => ({
+      Rank: i + 1,
+      Nama_Lengkap: m.fullName,
+      Username: m.username,
+      Kelompok: m.group,
+      Tier: m.rankName,
+      Total_EXP: m.points,
+      Last_Sync: m.lastUpdated
+    }));
+    
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    // Auto-width columns roughly
+    summaryWs['!cols'] = [{wch:5}, {wch:25}, {wch:15}, {wch:25}, {wch:15}, {wch:10}, {wch:20}];
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Rank Sheet");
+
+    // 2. SHEET PER USER (Detail)
+    menteesData.forEach(mentee => {
+      // Hanya export mentee, mentor tidak perlu detail ibadah biasanya (atau opsional)
+      // Kita export semua agar lengkap
+      const trackerStr = localStorage.getItem(`ibadah_tracker_${mentee.username}`);
+      if (!trackerStr) return;
+
+      const tracker: WeeklyData = JSON.parse(trackerStr);
+
+      // Format data agar sesuai Screenshot (Hari | Subuh | Dzuhur | Ashar | Maghrib | Isya | Quran)
+      const exportRows = tracker.days.map(day => {
+        const getStatus = (val: number) => {
+          if (val === 2) return "Masjid";
+          if (val === 1) return "Rumah";
+          return "-"; // atau kosong
+        };
+
+        return {
+          Hari: day.dayName,
+          Subuh: getStatus(day.prayers.subuh),
+          Dzuhur: getStatus(day.prayers.zuhur), // Ejaan sesuai request
+          Ashar: getStatus(day.prayers.asar),
+          Maghrib: getStatus(day.prayers.magrib),
+          Isya: getStatus(day.prayers.isya),
+          Quran: day.tilawah
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      
+      // Styling kolom agar rapi
+      ws['!cols'] = [
+        {wch: 10}, // Hari
+        {wch: 10}, // Subuh
+        {wch: 10}, // Dzuhur
+        {wch: 10}, // Ashar
+        {wch: 10}, // Maghrib
+        {wch: 10}, // Isya
+        {wch: 8}  // Quran
+      ];
+
+      // Nama Sheet Excel maksimal 31 karakter dan tidak boleh ada simbol aneh
+      let sheetName = mentee.fullName.replace(/[\\/?*[\]]/g, "").substring(0, 30);
+      
+      // Handle jika ada nama kembar (append username sedikit)
+      if (wb.SheetNames.includes(sheetName)) {
+        sheetName = `${sheetName.substring(0,25)}_${mentee.username.substring(0,3)}`;
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    // Download File
+    const dateStr = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Laporan_Mentoring_${dateStr}.xlsx`);
+  };
 
   // --- AVATAR MANAGEMENT LOGIC ---
   const handleUploadPreset = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,48 +243,72 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
-    setIsProcessing(true);
-    try {
-      const usersStr = localStorage.getItem('nur_quest_users');
-      let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-      const targetUser = allUsers.find(u => u.username === username);
-      if (!targetUser) throw new Error("User not found locally");
+    // 1. OPTIMISTIC UPDATE (Langsung ubah UI tanpa tunggu Server)
+    const targetUser = pendingUsers.find(u => u.username === username);
+    if (!targetUser) return;
 
-      const updatedUser: User = { 
-        ...targetUser, 
-        status: action === 'approve' ? 'active' : 'rejected' 
-      };
+    const updatedUser: User = { 
+      ...targetUser, 
+      status: action === 'approve' ? 'active' : 'rejected' 
+    };
 
-      const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
-      localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
-      loadData(); 
-
-      const response = await api.updateUserProfile(updatedUser);
-      if (response.success) performSync();
-      else alert(`Warning: Cloud Sync failed.`);
-    } catch (e: any) {
-      console.error(e);
-      alert(`Error: ${e.message}`);
-    } finally {
-      setIsProcessing(false);
+    // Hapus dari list pending visual
+    setPendingUsers(prev => prev.filter(u => u.username !== username));
+    
+    // Jika approve, tambahkan ke list aktif visual (sementara)
+    if (action === 'approve') {
+       const newActiveUser: LeaderboardData = {
+          fullName: targetUser.fullName,
+          username: targetUser.username,
+          avatarSeed: targetUser.avatarSeed,
+          group: targetUser.group,
+          points: 0,
+          monthlyPoints: 0,
+          rankName: 'Warrior',
+          rankColor: 'text-slate-400',
+          activeDays: 0,
+          lastUpdated: new Date().toISOString(),
+          status: 'active',
+          role: 'mentee'
+       };
+       setMenteesData(prev => [...prev, newActiveUser]);
     }
+
+    // 2. Update Local Storage
+    const usersStr = localStorage.getItem('nur_quest_users');
+    let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
+    const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
+    localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
+
+    // 3. Background Sync (Server Update)
+    // Kita jalankan di background, user tidak perlu menunggu loading
+    api.updateUserProfile(updatedUser).then(res => {
+      if (!res.success) {
+        console.error("Failed to sync approval to cloud:", res.error);
+        // Jika gagal, mungkin kita perlu revert UI atau tampilkan notifikasi kecil (opsional)
+        // Tapi untuk UX yang mulus, kita biarkan dulu, nanti auto-sync akan mencoba memperbaiki
+      } else {
+        console.log("User approval synced to cloud.");
+      }
+    });
   };
 
   const handleKickUser = async (targetUsername: string, targetName: string) => {
     if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?`)) return;
-    setIsProcessing(true);
+    
+    // Optimistic UI Removal
+    setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
+    setPendingUsers(prev => prev.filter(m => m.username !== targetUsername));
+    
     try {
       const success = await api.deleteUser(targetUsername);
       if (success) {
-        setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
-        setPendingUsers(prev => prev.filter(m => m.username !== targetUsername));
         localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
-        loadData();
-      } else throw new Error("Gagal menghapus.");
+        // No need to loadData(), UI is already updated
+      } else throw new Error("Gagal menghapus di server.");
     } catch (e: any) {
       alert(e.message);
-    } finally {
-      setIsProcessing(false);
+      loadData(); // Revert UI if failed
     }
   };
 
@@ -262,11 +363,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <button onClick={copyLink} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all border ${themeStyles.border} ${themeStyles.inputBg} hover:bg-white/10`}>
               {copied ? <ShieldCheck className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />} {copied ? 'Link Copied!' : 'Share App'}
             </button>
-            <button onClick={() => {
-              const wb = XLSX.utils.book_new();
-              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(menteesData), "Mentees");
-              XLSX.writeFile(wb, "Global_Export.xlsx");
-            }} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary} text-white`}>
+            <button onClick={handleDetailedExport} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary} text-white`}>
               <Download className="w-4 h-4" /> Export DB
             </button>
           </div>
