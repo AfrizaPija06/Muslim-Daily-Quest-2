@@ -400,9 +400,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className={`text-[10px] uppercase font-black tracking-widest ${themeStyles.textSecondary} border-b ${themeStyles.border}`}>
-                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">User Details & Rank</th>
                       <th className="px-6 py-4">Group</th>
-                      <th className="px-6 py-4">Rank</th>
                       <th className="px-6 py-4 text-right">EXP</th>
                       <th className="px-6 py-4 text-center">Action</th>
                     </tr>
@@ -410,26 +409,28 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                   <tbody className={`divide-y ${currentTheme === 'light' ? 'divide-slate-100' : 'divide-white/5'}`}>
                     {sortedWeekly.map((m, i) => (
                       <tr key={m.username} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4 font-bold flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10">
-                             <img src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                             <div className="flex items-center gap-2">
-                               {m.fullName}
-                               {m.role === 'mentor' && <span className="text-[8px] bg-yellow-500 text-black px-1 rounded font-black uppercase">M</span>}
-                             </div>
-                             <div className="text-[9px] opacity-40 font-mono">{m.username}</div>
-                          </div>
+                        <td className="px-6 py-4">
+                           <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10">
+                                <img src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 font-bold text-base">
+                                  {m.fullName}
+                                  {m.role === 'mentor' && <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black uppercase">MENTOR</span>}
+                                </div>
+                                <div className="text-[10px] opacity-40 font-mono mb-1">{m.username}</div>
+                                
+                                {/* RANK BADGE MOVED HERE - BIGGER */}
+                                <div className="flex items-center gap-2">
+                                   {m.rankIcon && <img src={m.rankIcon} className="w-7 h-7 object-contain drop-shadow-md" alt="Rank" />}
+                                   <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
+                                </div>
+                              </div>
+                           </div>
                         </td>
                         <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {/* RANK ICON DISPLAY - INCREASED SIZE */}
-                            {m.rankIcon && <img src={m.rankIcon} className="w-8 h-8 object-contain drop-shadow" alt="Rank" />}
-                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
-                          </div>
-                        </td>
+                        {/* Removed separate Rank Column */}
                         <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
                         <td className="px-6 py-4 text-center">
                           {m.role !== 'mentor' && (

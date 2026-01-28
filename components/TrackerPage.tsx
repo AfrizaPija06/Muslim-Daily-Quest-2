@@ -145,30 +145,32 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
               const isMe = user.username === currentUser.username;
               return (
                 <tr key={user.username} className={`${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}>
-                  <td className="px-3 py-3 w-8">
+                  <td className="px-3 py-3 w-8 align-middle">
                     <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
                   </td>
-                  <td className="px-1 py-3 flex items-center gap-2">
-                    {/* Avatar in List */}
-                    <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 shrink-0">
-                       <img src={getAvatarSrc(user.avatarSeed || user.username, globalAssets)} className="w-full h-full object-cover" />
-                    </div>
-                    <div>
-                      <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[80px] flex items-center gap-1`}>
-                        {user.fullName.split(' ')[0]}
-                        {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
+                  <td className="px-1 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 bg-black/50">
+                        <img src={getAvatarSrc(user.avatarSeed || user.username, globalAssets)} className="w-full h-full object-cover" />
                       </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {user.rankIcon ? (
-                          <img src={user.rankIcon} className="w-5 h-5 object-contain" alt="rank" />
-                        ) : (
-                          <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
-                        )}
-                        <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
+                      <div className="flex flex-col">
+                        <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px] flex items-center gap-1`}>
+                          {user.fullName.split(' ')[0]}
+                          {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
+                        </div>
+                        {/* RANK BADGE */}
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {user.rankIcon ? (
+                            <img src={user.rankIcon} className="w-4 h-4 object-contain" alt="rank" />
+                          ) : (
+                            <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
+                          )}
+                          <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className={`px-3 py-3 text-right text-xs font-bold ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
+                  <td className={`px-3 py-3 text-right text-xs font-bold align-middle ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
                     {type === 'weekly' ? user.points : user.monthlyPoints}
                   </td>
                 </tr>
