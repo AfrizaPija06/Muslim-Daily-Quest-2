@@ -3,10 +3,8 @@ import { ShieldCheck, Eye, EyeOff, Clock, Loader2, WifiOff, Gamepad2 } from 'luc
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { User, AppTheme } from '../types';
-import { ADMIN_CREDENTIALS } from '../constants';
+import { ADMIN_CREDENTIALS, GAME_LOGO_URL } from '../constants';
 import { api } from '../services/ApiService';
-// @ts-ignore
-import gameLogo from '../assets/gamelogo.png';
 
 interface RegisterPageProps {
   setView: (view: any) => void;
@@ -124,7 +122,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
              <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
              {!logoError ? (
                <img 
-                 src={gameLogo}
+                 src={GAME_LOGO_URL}
                  alt="Game Logo" 
                  className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
                  onError={(e) => {

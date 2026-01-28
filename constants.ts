@@ -1,4 +1,3 @@
-
 import { Role, WeeklyData, DAYS_OF_WEEK, GlobalAssets } from './types';
 
 const getEnv = (key: string, fallback: string) => {
@@ -18,6 +17,8 @@ const getEnv = (key: string, fallback: string) => {
   } catch (e) {}
   return fallback;
 };
+
+export const GAME_LOGO_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/gamelogo.png";
 
 export const ADMIN_CREDENTIALS = {
   username: getEnv('VITE_ADMIN_USERNAME', 'mentor_admin'),

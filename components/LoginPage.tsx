@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { ArrowRight, ShieldAlert, Eye, EyeOff, Gamepad2 } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
-import { ADMIN_CREDENTIALS } from '../constants';
+import { ADMIN_CREDENTIALS, GAME_LOGO_URL } from '../constants';
 import { AppTheme } from '../types';
-// @ts-ignore
-import gameLogo from '../assets/gamelogo.png';
 
 interface LoginPageProps {
   setView: (view: any) => void;
@@ -74,7 +72,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
              
              {!logoError ? (
                <img 
-                 src={gameLogo}
+                 src={GAME_LOGO_URL}
                  alt="Game Logo" 
                  className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
                  onError={(e) => {
