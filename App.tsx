@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
@@ -195,7 +194,14 @@ const App: React.FC = () => {
     if (isResetting) return;
     const savedUser = localStorage.getItem('nur_quest_session');
     if (savedUser) {
-      const user = JSON.parse(savedUser);
+      let user = JSON.parse(savedUser);
+      
+      // FORCE UPDATE: Ensure Admin always uses latest credentials (including new Avatar)
+      if (user.username === ADMIN_CREDENTIALS.username) {
+         user = { ...user, ...ADMIN_CREDENTIALS };
+         localStorage.setItem('nur_quest_session', JSON.stringify(user));
+      }
+
       setCurrentUser(user);
       setView('tracker');
       const savedData = localStorage.getItem(`ibadah_tracker_${user.username}`);

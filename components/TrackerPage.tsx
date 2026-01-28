@@ -105,7 +105,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             });
           }
 
-          const monthlyPts = pts * 4;
+          const monthlyPts = pts * 1;
           const rankInfo = getRankInfo(monthlyPts);
 
           return {

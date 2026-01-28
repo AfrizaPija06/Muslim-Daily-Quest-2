@@ -19,13 +19,15 @@ const getEnv = (key: string, fallback: string) => {
 };
 
 export const GAME_LOGO_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/gamelogo.png";
+export const MENTOR_AVATAR_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/Mentor.png";
 
 export const ADMIN_CREDENTIALS = {
   username: getEnv('VITE_ADMIN_USERNAME', 'mentor_admin'),
   password: getEnv('VITE_ADMIN_PASSWORD', 'istiqamah2026'),
   fullName: 'Kak Afriza',
   group: 'Mentoring Legends #kelas7ikhwan',
-  role: 'mentor' as Role
+  role: 'mentor' as Role,
+  avatarSeed: MENTOR_AVATAR_URL
 };
 
 export const INITIAL_DATA: WeeklyData = {
@@ -39,12 +41,7 @@ export const INITIAL_DATA: WeeklyData = {
 };
 
 export const MENTORING_GROUPS = [
-  'Mentoring Legends #kelas7ikhwan',
-  'Al-Fatih', 
-  'Salahuddin', 
-  'Khalid bin Walid', 
-  'Thariq bin Ziyad', 
-  'Umar bin Khattab'
+  'Mentoring Legends #kelas7ikhwan'
 ];
 
 // --- AVATAR SYSTEM CONFIGURATION ---
