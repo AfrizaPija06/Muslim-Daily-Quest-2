@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets } from './types';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
@@ -63,9 +64,13 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : MENTORING_GROUPS;
   });
   
-  // NEW: Global Assets State
   const [globalAssets, setGlobalAssets] = useState<GlobalAssets>(() => {
     return JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
+  });
+  
+  // NEW: Archives State
+  const [archives, setArchives] = useState<ArchivedData[]>(() => {
+    return JSON.parse(localStorage.getItem('nur_quest_archives') || '[]');
   });
   
   const [error, setError] = useState<string | null>(null);
@@ -106,10 +111,15 @@ const App: React.FC = () => {
           localStorage.setItem('nur_quest_groups', JSON.stringify(result.groups));
         }
         
-        // SYNC ASSETS
         if (result.assets) {
            setGlobalAssets(result.assets);
            localStorage.setItem('nur_quest_assets', JSON.stringify(result.assets));
+        }
+
+        // SYNC ARCHIVES
+        if (result.archives) {
+          setArchives(result.archives);
+          localStorage.setItem('nur_quest_archives', JSON.stringify(result.archives));
         }
 
         Object.keys(result.trackers).forEach(uname => {
@@ -184,7 +194,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to refresh assets (called from Header)
   const refreshAssets = (newAssets: GlobalAssets) => {
     setGlobalAssets(newAssets);
     localStorage.setItem('nur_quest_assets', JSON.stringify(newAssets));
@@ -195,13 +204,10 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('nur_quest_session');
     if (savedUser) {
       let user = JSON.parse(savedUser);
-      
-      // FORCE UPDATE: Ensure Admin always uses latest credentials (including new Avatar)
       if (user.username === ADMIN_CREDENTIALS.username) {
          user = { ...user, ...ADMIN_CREDENTIALS };
          localStorage.setItem('nur_quest_session', JSON.stringify(user));
       }
-
       setCurrentUser(user);
       setView('tracker');
       const savedData = localStorage.getItem(`ibadah_tracker_${user.username}`);
@@ -235,7 +241,18 @@ const App: React.FC = () => {
     });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // FIX: Ensure last data is pushed to sync before logout
+    if (currentUser) {
+       addLog("Logging out... Saving data.");
+       // Attempt one final sync logic locally before clearing state
+       const trackers = JSON.parse(localStorage.getItem('nur_quest_trackers') || '{}');
+       // Update local store explicitly
+       localStorage.setItem(`ibadah_tracker_${currentUser.username}`, JSON.stringify(data));
+       // Trigger sync (non-blocking, hope it catches or queue it)
+       await api.sync(currentUser, data, groups);
+    }
+    
     localStorage.removeItem('nur_quest_session');
     setCurrentUser(null);
     setView('login');
@@ -249,7 +266,7 @@ const App: React.FC = () => {
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const trackers = {}; 
     const assets = JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
-    await api.updateDatabase({ users, trackers, groups: newGroups, assets });
+    await api.updateDatabase({ users, trackers, groups: newGroups, assets, archives });
   };
 
   const totalPoints = useMemo(() => {
@@ -269,7 +286,7 @@ const App: React.FC = () => {
     toggleTheme,
     performSync,
     networkLogs,
-    globalAssets, // Pass global assets down
+    globalAssets, 
     refreshAssets
   };
 
@@ -417,7 +434,9 @@ const App: React.FC = () => {
           handleLogout={handleLogout} 
           groups={groups} 
           updateGroups={updateGroups} 
-          handleUpdateProfile={handleUpdateProfile} 
+          handleUpdateProfile={handleUpdateProfile}
+          archives={archives} // Pass archives
+          refreshArchives={() => performSync()}
           {...commonProps} 
         />
       )}

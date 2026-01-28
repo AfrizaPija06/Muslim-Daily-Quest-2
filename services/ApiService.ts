@@ -1,4 +1,5 @@
-import { WeeklyData, User, MENTORING_GROUPS, GlobalAssets } from '../types';
+
+import { WeeklyData, User, MENTORING_GROUPS, GlobalAssets, ArchivedData } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
 const DB_ROW_ID = 'global_store_v7';
@@ -10,6 +11,7 @@ class ApiService {
     const groups = JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS));
     // Load cached assets if any
     const assets = JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
+    const archives = JSON.parse(localStorage.getItem('nur_quest_archives') || '[]');
     
     const trackers: Record<string, WeeklyData> = {};
     if (typeof localStorage !== 'undefined') {
@@ -23,13 +25,14 @@ class ApiService {
          }
        }
     }
-    return { users, trackers, groups, assets };
+    return { users, trackers, groups, assets, archives };
   }
 
-  private saveLocalData(users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets) {
+  private saveLocalData(users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[]) {
     localStorage.setItem('nur_quest_users', JSON.stringify(users));
     localStorage.setItem('nur_quest_groups', JSON.stringify(groups));
     localStorage.setItem('nur_quest_assets', JSON.stringify(assets));
+    localStorage.setItem('nur_quest_archives', JSON.stringify(archives));
     Object.entries(trackers).forEach(([username, data]) => {
       localStorage.setItem(`ibadah_tracker_${username}`, JSON.stringify(data));
     });
@@ -37,7 +40,7 @@ class ApiService {
 
   // --- SUPABASE METHODS ---
 
-  async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets }> {
+  async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[] }> {
     try {
       const { data, error } = await supabase
         .from('app_sync')
@@ -52,7 +55,8 @@ class ApiService {
           users: [],
           trackers: {},
           groups: JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS)),
-          assets: {}
+          assets: {},
+          archives: []
         };
       }
 
@@ -60,7 +64,8 @@ class ApiService {
         users: data.json_data.users || [],
         trackers: data.json_data.trackers || {},
         groups: data.json_data.groups || JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS)),
-        assets: data.json_data.assets || {}
+        assets: data.json_data.assets || {},
+        archives: data.json_data.archives || []
       };
 
     } catch (error: any) {
@@ -72,7 +77,7 @@ class ApiService {
     }
   }
 
-  async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets }): Promise<boolean> {
+  async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[] }): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('app_sync')
@@ -87,7 +92,7 @@ class ApiService {
 
     } catch (error: any) {
       console.warn("[SUPABASE] Update failed, saving locally:", error.message);
-      this.saveLocalData(payload.users, payload.trackers, payload.groups, payload.assets);
+      this.saveLocalData(payload.users, payload.trackers, payload.groups, payload.assets, payload.archives);
       
       if (error.message && error.message.includes('relation')) {
         return false;
@@ -105,7 +110,7 @@ class ApiService {
        const local = this.getLocalData();
        if (!local.users.find(u => u.username === newUser.username)) {
           local.users.push(newUser);
-          this.saveLocalData(local.users, local.trackers, local.groups, local.assets);
+          this.saveLocalData(local.users, local.trackers, local.groups, local.assets, local.archives);
        }
        return { success: true, isOffline: true };
     }
@@ -133,7 +138,7 @@ class ApiService {
 
         if (error) throw error;
 
-        this.saveLocalData(db.users, db.trackers, db.groups, db.assets);
+        this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives);
         return { success: true, isOffline: false };
 
       } catch (e: any) {
@@ -142,7 +147,7 @@ class ApiService {
            const local = this.getLocalData();
            if (!local.users.find(u => u.username === newUser.username)) {
               local.users.push(newUser);
-              this.saveLocalData(local.users, local.trackers, local.groups, local.assets);
+              this.saveLocalData(local.users, local.trackers, local.groups, local.assets, local.archives);
            }
            return { success: true, isOffline: true };
         }
@@ -158,21 +163,17 @@ class ApiService {
 
     for (let i = 0; i < MAX_RETRIES; i++) {
       try {
-        // Jitter sedikit untuk menghindari tabrakan jika admin menekan tombol cepat
         if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
 
-        // 1. Ambil data cloud TERBARU
         const db = await this.fetchDatabase();
         const index = db.users.findIndex((u: any) => u.username === user.username);
         
-        // 2. Modifikasi user
         if (index !== -1) {
-          db.users[index] = { ...db.users[index], ...user }; // Merge agar tidak menimpa field lain tak terduga
+          db.users[index] = { ...db.users[index], ...user }; 
         } else {
           db.users.push(user);
         }
 
-        // 3. Simpan langsung via Supabase (bypass updateDatabase wrapper agar kita bisa catch error update)
         const { error } = await supabase
           .from('app_sync')
           .upsert({ 
@@ -183,20 +184,38 @@ class ApiService {
 
         if (error) throw error;
 
-        // 4. Update local data agar sinkron
-        this.saveLocalData(db.users, db.trackers, db.groups, db.assets);
+        this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives);
         
         return { success: true };
 
       } catch (e: any) {
         console.warn(`[UPDATE PROFILE] Retry ${i + 1}/${MAX_RETRIES} failed:`, e.message);
-        // Jika ini retry terakhir, kita return error
         if (i === MAX_RETRIES - 1) {
           return { success: false, error: e.message || "Network Conflict" };
         }
       }
     }
     return { success: false, error: "Max retries exceeded" };
+  }
+
+  // --- ARCHIVING ---
+  async saveArchive(archive: ArchivedData): Promise<boolean> {
+    try {
+      const db = await this.fetchDatabase();
+      if (!db.archives) db.archives = [];
+      
+      // Remove existing archive with same ID if exists (overwrite)
+      db.archives = db.archives.filter(a => a.id !== archive.id);
+      db.archives.push(archive);
+
+      const success = await this.updateDatabase(db);
+      if (!success) throw new Error("Archive Save Failed");
+      
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   }
   
   async uploadGlobalAsset(id: string, base64Data: string): Promise<boolean> {
@@ -243,7 +262,7 @@ class ApiService {
       delete newTrackers[username];
       
       localStorage.removeItem(`ibadah_tracker_${username}`);
-      return await this.updateDatabase({ ...db, users: newUsers, trackers: newTrackers, assets: db.assets });
+      return await this.updateDatabase({ ...db, users: newUsers, trackers: newTrackers, assets: db.assets, archives: db.archives });
     } catch (error) {
       return false;
     }
@@ -255,6 +274,7 @@ class ApiService {
     trackers: Record<string, WeeklyData>,
     groups: string[],
     assets: GlobalAssets,
+    archives: ArchivedData[],
     updatedLocalData?: WeeklyData,
     success: boolean,
     errorMessage?: string
@@ -272,13 +292,13 @@ class ApiService {
 
       if (error) {
         if (error.code === 'PGRST116') {
-           db = { users: [], trackers: {}, groups: [], assets: {} };
+           db = { users: [], trackers: {}, groups: [], assets: {}, archives: [] };
            isOnline = true;
         } else {
            throw error;
         }
       } else {
-        db = data?.json_data || { users: [], trackers: {}, groups: [], assets: {} };
+        db = data?.json_data || { users: [], trackers: {}, groups: [], assets: {}, archives: [] };
         isOnline = true;
       }
 
@@ -286,6 +306,7 @@ class ApiService {
       if (!db.trackers) db.trackers = {};
       if (!db.groups) db.groups = [];
       if (!db.assets) db.assets = {};
+      if (!db.archives) db.archives = [];
 
     } catch (e: any) {
       db = this.getLocalData();
@@ -296,18 +317,9 @@ class ApiService {
     let hasChanges = false;
 
     if (currentUser) {
-      // Logic Merging User: Prioritaskan data cloud jika kita tidak mengubah profile
-      // Tapi update jika kita mengubah profile.
-      // Untuk amannya di Tracker, kita hanya update Tracker data, bukan list User
-      // KECUALI jika ini adalah Admin yang sedang melakukan operasi User.
-      
       const userIndex = db.users.findIndex((u: any) => u.username === currentUser.username);
       if (userIndex !== -1) {
-        // Cek apakah data user lokal kita lebih baru/beda? (Misal ganti avatar)
-        // Tapi hati-hati menimpa status approval dari admin
         if (JSON.stringify(db.users[userIndex]) !== JSON.stringify(currentUser)) {
-           // HANYA update jika role kita Admin atau data diri sendiri
-           // Dan jangan menimpa status jika kita mentee
            if (currentUser.role === 'mentee') {
               const cloudStatus = db.users[userIndex].status;
               db.users[userIndex] = { ...currentUser, status: cloudStatus };
@@ -317,7 +329,6 @@ class ApiService {
            hasChanges = true;
         }
       } else {
-        // Jika user tidak ada di cloud (kasus langka jika registerSafe berhasil)
         db.users.push(currentUser);
         hasChanges = true;
       }
@@ -326,7 +337,8 @@ class ApiService {
       const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
       const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
 
-      if (localTime > cloudTime) {
+      // Update if local data is newer OR if it's new data
+      if (localTime > cloudTime || (localTime > 0 && !cloudTracker)) {
         db.trackers[currentUser.username] = localData;
         hasChanges = true;
       }
@@ -336,7 +348,7 @@ class ApiService {
       await this.updateDatabase(db);
     } 
     else if (!isOnline && hasChanges) {
-      this.saveLocalData(db.users, db.trackers, db.groups, db.assets);
+      this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives);
     }
 
     let updatedLocalData: WeeklyData | undefined = undefined;
@@ -355,6 +367,7 @@ class ApiService {
       trackers: db.trackers, 
       groups: db.groups.length > localGroups.length ? db.groups : localGroups,
       assets: db.assets,
+      archives: db.archives,
       updatedLocalData, 
       success: isOnline,
       errorMessage: isOnline ? undefined : (syncError.includes('relation') ? syncError : "Offline Mode")

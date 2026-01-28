@@ -1,11 +1,12 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2, Image as ImageIcon, UploadCloud } from 'lucide-react';
+import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2, Image as ImageIcon, UploadCloud, Archive, Save } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
-import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets } from '../types';
+import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, DayData } from '../types';
 import { getAvatarSrc } from '../constants';
 import { api } from '../services/ApiService';
 
@@ -23,6 +24,8 @@ interface LeaderboardPageProps {
   handleUpdateProfile?: (user: User) => void;
   globalAssets?: GlobalAssets;
   refreshAssets?: (assets: GlobalAssets) => void;
+  archives?: ArchivedData[]; // Added Archives
+  refreshArchives?: () => void;
 }
 
 interface LeaderboardData {
@@ -39,18 +42,23 @@ interface LeaderboardData {
   lastUpdated: string;
   status: string;
   role: string;
+  trackerData?: WeeklyData; // Include Raw Data for Archive
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, archives = [], refreshArchives
 }) => {
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'avatars' | 'groups' | 'network'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'avatars' | 'groups' | 'network' | 'archives'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   
+  // Archive States
+  const [selectedMonthName, setSelectedMonthName] = useState('');
+  const [exportSource, setExportSource] = useState('current'); // 'current' or archive ID
+
   // Avatar Management
   const presetInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingPreset, setIsUploadingPreset] = useState(false);
@@ -99,7 +107,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           activeDays,
           lastUpdated: trackerData?.lastUpdated || 'No Data',
           status: 'active',
-          role: displayUser.role
+          role: displayUser.role,
+          trackerData: trackerData || undefined
         };
       });
 
@@ -109,52 +118,107 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-    // Reduce interval frequency to prevent UI stutter
     const interval = setInterval(loadData, 10000); 
     return () => clearInterval(interval);
   }, [currentUser]); 
 
+  // --- ARCHIVING LOGIC ---
+  const handleSaveArchive = async () => {
+    if (!selectedMonthName) {
+      alert("Please enter a month name (e.g., 'Januari 2025')");
+      return;
+    }
+    if (!confirm(`Archive current data as '${selectedMonthName}'? This will snapshot everyone's stats.`)) return;
+
+    setIsProcessing(true);
+    try {
+      const records = menteesData.map(m => ({
+        username: m.username,
+        fullName: m.fullName,
+        group: m.group,
+        totalPoints: m.points,
+        rankName: m.rankName,
+        detailedDays: m.trackerData?.days || []
+      }));
+
+      const newArchive: ArchivedData = {
+        id: selectedMonthName,
+        timestamp: new Date().toISOString(),
+        records
+      };
+
+      const success = await api.saveArchive(newArchive);
+      
+      if (success) {
+        alert("Archive Saved Successfully!");
+        setSelectedMonthName('');
+        if(refreshArchives) refreshArchives();
+      } else {
+        alert("Failed to save archive.");
+      }
+    } catch (e) {
+      alert("Error saving archive.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // --- EXPORT FUNCTIONALITY ---
   const handleDetailedExport = () => {
     const wb = XLSX.utils.book_new();
+    let dataToExport = menteesData;
+    let titlePrefix = "Current";
+
+    // Handle Archive Export
+    if (exportSource !== 'current') {
+      const archive = archives?.find(a => a.id === exportSource);
+      if (!archive) {
+         alert("Archive not found");
+         return;
+      }
+      titlePrefix = archive.id;
+      // Map Archive format to LeaderboardData format for exporting
+      dataToExport = archive.records.map(r => ({
+        fullName: r.fullName,
+        username: r.username,
+        group: r.group,
+        points: r.totalPoints,
+        rankName: r.rankName,
+        lastUpdated: archive.timestamp,
+        trackerData: { days: r.detailedDays, lastUpdated: archive.timestamp }
+      } as LeaderboardData));
+    }
 
     // 1. SHEET REKAP UTAMA (Rank Sheet)
-    const summaryData = menteesData.map((m, i) => ({
+    const summaryData = dataToExport.map((m, i) => ({
       Rank: i + 1,
       Nama_Lengkap: m.fullName,
       Username: m.username,
       Kelompok: m.group,
       Tier: m.rankName,
       Total_EXP: m.points,
-      Last_Sync: m.lastUpdated
+      Last_Sync: m.lastUpdated ? new Date(m.lastUpdated).toLocaleDateString() : '-'
     }));
     
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-    // Auto-width columns roughly
     summaryWs['!cols'] = [{wch:5}, {wch:25}, {wch:15}, {wch:25}, {wch:15}, {wch:10}, {wch:20}];
     XLSX.utils.book_append_sheet(wb, summaryWs, "Rank Sheet");
 
     // 2. SHEET PER USER (Detail)
-    menteesData.forEach(mentee => {
-      // Hanya export mentee, mentor tidak perlu detail ibadah biasanya (atau opsional)
-      // Kita export semua agar lengkap
-      const trackerStr = localStorage.getItem(`ibadah_tracker_${mentee.username}`);
-      if (!trackerStr) return;
+    dataToExport.forEach(mentee => {
+      if (!mentee.trackerData) return;
 
-      const tracker: WeeklyData = JSON.parse(trackerStr);
-
-      // Format data agar sesuai Screenshot (Hari | Subuh | Dzuhur | Ashar | Maghrib | Isya | Quran)
-      const exportRows = tracker.days.map(day => {
+      const exportRows = mentee.trackerData.days.map(day => {
         const getStatus = (val: number) => {
           if (val === 2) return "Masjid";
           if (val === 1) return "Rumah";
-          return "-"; // atau kosong
+          return "-"; 
         };
 
         return {
           Hari: day.dayName,
           Subuh: getStatus(day.prayers.subuh),
-          Dzuhur: getStatus(day.prayers.zuhur), // Ejaan sesuai request
+          Dzuhur: getStatus(day.prayers.zuhur),
           Ashar: getStatus(day.prayers.asar),
           Maghrib: getStatus(day.prayers.magrib),
           Isya: getStatus(day.prayers.isya),
@@ -163,22 +227,9 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       });
 
       const ws = XLSX.utils.json_to_sheet(exportRows);
-      
-      // Styling kolom agar rapi
-      ws['!cols'] = [
-        {wch: 10}, // Hari
-        {wch: 10}, // Subuh
-        {wch: 10}, // Dzuhur
-        {wch: 10}, // Ashar
-        {wch: 10}, // Maghrib
-        {wch: 10}, // Isya
-        {wch: 8}  // Quran
-      ];
+      ws['!cols'] = [{wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 10}, {wch: 8}];
 
-      // Nama Sheet Excel maksimal 31 karakter dan tidak boleh ada simbol aneh
       let sheetName = mentee.fullName.replace(/[\\/?*[\]]/g, "").substring(0, 30);
-      
-      // Handle jika ada nama kembar (append username sedikit)
       if (wb.SheetNames.includes(sheetName)) {
         sheetName = `${sheetName.substring(0,25)}_${mentee.username.substring(0,3)}`;
       }
@@ -186,9 +237,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
-    // Download File
     const dateStr = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `Laporan_Mentoring_${dateStr}.xlsx`);
+    XLSX.writeFile(wb, `Laporan_${titlePrefix}_${dateStr}.xlsx`);
   };
 
   // --- AVATAR MANAGEMENT LOGIC ---
@@ -199,8 +249,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64String = reader.result as string;
-        
-        // Compress Image
         const img = new Image();
         img.src = base64String;
         img.onload = async () => {
@@ -213,18 +261,9 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           const compressed = canvas.toDataURL('image/jpeg', 0.8);
-
-          // Upload with unique ID prefixed with 'preset_'
           const presetId = `preset_${Date.now()}`;
           const success = await api.uploadGlobalAsset(presetId, compressed);
-          
-          if(success) {
-            await performSync(); // Trigger sync so new asset appears in list
-            alert("Avatar Preset Uploaded!");
-          } else {
-            alert("Failed to upload preset.");
-          }
-          
+          if(success) { await performSync(); alert("Avatar Preset Uploaded!"); } else { alert("Failed to upload preset."); }
           setIsUploadingPreset(false);
         };
       };
@@ -236,28 +275,17 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   const handleDeletePreset = async (key: string) => {
     if(confirm("Are you sure? Mentees currently using this avatar will revert to default.")) {
       const success = await api.deleteGlobalAsset(key);
-      if(success) {
-        await performSync();
-      } else {
-        alert("Failed to delete.");
-      }
+      if(success) { await performSync(); } else { alert("Failed to delete."); }
     }
   };
 
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
-    // 1. OPTIMISTIC UPDATE (Langsung ubah UI tanpa tunggu Server)
     const targetUser = pendingUsers.find(u => u.username === username);
     if (!targetUser) return;
 
-    const updatedUser: User = { 
-      ...targetUser, 
-      status: action === 'approve' ? 'active' : 'rejected' 
-    };
-
-    // Hapus dari list pending visual
+    const updatedUser: User = { ...targetUser, status: action === 'approve' ? 'active' : 'rejected' };
     setPendingUsers(prev => prev.filter(u => u.username !== username));
     
-    // Jika approve, tambahkan ke list aktif visual (sementara)
     if (action === 'approve') {
        const newActiveUser: LeaderboardData = {
           fullName: targetUser.fullName,
@@ -276,41 +304,28 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
        setMenteesData(prev => [...prev, newActiveUser]);
     }
 
-    // 2. Update Local Storage
     const usersStr = localStorage.getItem('nur_quest_users');
     let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
     const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
     localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
 
-    // 3. Background Sync (Server Update)
-    // Kita jalankan di background, user tidak perlu menunggu loading
     api.updateUserProfile(updatedUser).then(res => {
-      if (!res.success) {
-        console.error("Failed to sync approval to cloud:", res.error);
-        // Jika gagal, mungkin kita perlu revert UI atau tampilkan notifikasi kecil (opsional)
-        // Tapi untuk UX yang mulus, kita biarkan dulu, nanti auto-sync akan mencoba memperbaiki
-      } else {
-        console.log("User approval synced to cloud.");
-      }
+      if (!res.success) console.error("Failed to sync approval to cloud:", res.error);
     });
   };
 
   const handleKickUser = async (targetUsername: string, targetName: string) => {
     if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?`)) return;
-    
-    // Optimistic UI Removal
     setMenteesData(prev => prev.filter(m => m.username !== targetUsername));
     setPendingUsers(prev => prev.filter(m => m.username !== targetUsername));
-    
     try {
       const success = await api.deleteUser(targetUsername);
       if (success) {
         localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
-        // No need to loadData(), UI is already updated
       } else throw new Error("Gagal menghapus di server.");
     } catch (e: any) {
       alert(e.message);
-      loadData(); // Revert UI if failed
+      loadData(); 
     }
   };
 
@@ -332,7 +347,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
-  
   const presets = globalAssets ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) : [];
 
   return (
@@ -362,12 +376,21 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Production Environment • {currentUser?.group || 'Global'}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={copyLink} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all border ${themeStyles.border} ${themeStyles.inputBg} hover:bg-white/10`}>
-              {copied ? <ShieldCheck className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />} {copied ? 'Link Copied!' : 'Share App'}
-            </button>
-            <button onClick={handleDetailedExport} className={`px-6 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all ${themeStyles.buttonPrimary} text-white`}>
-              <Download className="w-4 h-4" /> Export DB
-            </button>
+             <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
+                <select 
+                  value={exportSource} 
+                  onChange={(e) => setExportSource(e.target.value)}
+                  className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-emerald-400 outline-none p-2 cursor-pointer"
+                >
+                  <option value="current" className="bg-slate-900">Current Data</option>
+                  {archives?.map(arch => (
+                    <option key={arch.id} value={arch.id} className="bg-slate-900">Archive: {arch.id}</option>
+                  ))}
+                </select>
+                <button onClick={handleDetailedExport} className={`flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all hover:text-white text-white/70`}>
+                  <Download className="w-4 h-4" /> Download
+                </button>
+             </div>
           </div>
         </div>
 
@@ -376,6 +399,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           {[
             { id: 'leaderboard', label: 'Members', icon: <Trophy className="w-4 h-4" /> },
             { id: 'requests', label: 'Auth', icon: <UserPlus className="w-4 h-4" />, count: pendingUsers.length },
+            { id: 'archives', label: 'Archives', icon: <Archive className="w-4 h-4" /> },
             { id: 'avatars', label: 'Avatars', icon: <ImageIcon className="w-4 h-4" /> },
             { id: 'groups', label: 'Factions', icon: <Flag className="w-4 h-4" /> },
             { id: 'network', label: 'Logs', icon: <Terminal className="w-4 h-4" /> }
@@ -421,7 +445,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                                 </div>
                                 <div className="text-[10px] opacity-40 font-mono mb-1">{m.username}</div>
                                 
-                                {/* RANK BADGE MOVED HERE - BIGGER */}
+                                {/* RANK BADGE */}
                                 <div className="flex items-center gap-2">
                                    {m.rankIcon && <img src={m.rankIcon} className="w-7 h-7 object-contain drop-shadow-md" alt="Rank" />}
                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
@@ -430,7 +454,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                            </div>
                         </td>
                         <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
-                        {/* Removed separate Rank Column */}
                         <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
                         <td className="px-6 py-4 text-center">
                           {m.role !== 'mentor' && (
@@ -446,8 +469,66 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </>
         )}
 
-        {/* ... Rest of the tabs (Avatars, Requests, Groups, Network) ... */}
-        {/* --- AVATAR MANAGEMENT TAB --- */}
+        {/* --- ARCHIVES TAB --- */}
+        {activeTab === 'archives' && (
+           <section className="space-y-6">
+              <div className={`${themeStyles.card} rounded-2xl p-6`}>
+                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-2">
+                         <Archive className={themeStyles.textAccent} /> Monthly Archives
+                      </h3>
+                      <p className="text-xs opacity-50">Snapshot current leaderboard data into a monthly record.</p>
+                    </div>
+                 </div>
+                 
+                 <div className="mt-6 flex gap-3 items-end border-b border-white/5 pb-8">
+                     <div className="flex-1 space-y-2">
+                        <label className="text-[10px] uppercase font-bold tracking-widest opacity-50">New Archive Name</label>
+                        <input 
+                          value={selectedMonthName} 
+                          onChange={(e) => setSelectedMonthName(e.target.value)}
+                          placeholder="e.g. Januari 2025" 
+                          className={`w-full p-3 rounded-xl border bg-black/20 ${themeStyles.border} outline-none text-sm`}
+                        />
+                     </div>
+                     <button 
+                       onClick={handleSaveArchive}
+                       disabled={isProcessing || !selectedMonthName}
+                       className={`px-6 py-3 rounded-xl ${themeStyles.buttonPrimary} font-bold text-xs uppercase tracking-widest flex items-center gap-2 disabled:opacity-50`}
+                     >
+                       {isProcessing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                       Save Current State
+                     </button>
+                 </div>
+
+                 <div className="mt-6 space-y-4">
+                    <h4 className="text-sm font-bold uppercase tracking-widest opacity-70">Saved Archives</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                       {archives && archives.length > 0 ? archives.map((arch) => (
+                          <div key={arch.id} className="p-4 rounded-xl border border-white/10 bg-white/5 flex justify-between items-center group">
+                             <div>
+                                <div className="font-bold text-lg">{arch.id}</div>
+                                <div className="text-[10px] font-mono opacity-50">{new Date(arch.timestamp).toLocaleDateString()}</div>
+                                <div className="text-[10px] opacity-70 mt-1">{arch.records.length} Records</div>
+                             </div>
+                             <button onClick={() => {
+                               setExportSource(arch.id);
+                               alert(`Selected '${arch.id}' for Export. Click Download button above.`);
+                             }} className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-colors">
+                                <Download className="w-4 h-4" />
+                             </button>
+                          </div>
+                       )) : (
+                          <div className="col-span-full py-8 text-center text-xs opacity-30 italic">No archives found.</div>
+                       )}
+                    </div>
+                 </div>
+              </div>
+           </section>
+        )}
+
+        {/* ... Other Tabs ... */}
         {activeTab === 'avatars' && (
            <section className="space-y-6">
               <div className={`${themeStyles.card} rounded-2xl p-6`}>

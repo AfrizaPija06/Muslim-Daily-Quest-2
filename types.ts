@@ -32,6 +32,20 @@ export interface WeeklyData {
   lastUpdated: string;
 }
 
+// Structure for Archived Monthly Data
+export interface ArchivedData {
+  id: string; // e.g., "Januari 2025"
+  timestamp: string;
+  records: {
+    username: string;
+    fullName: string;
+    group: string;
+    totalPoints: number;
+    rankName: string;
+    detailedDays: DayData[]; // Snapshot of their weekly performance at that time
+  }[];
+}
+
 // Key-Value pair untuk menyimpan gambar Base64 di server
 // Key: avatar ID (misal '1', '2'), Value: Base64 string image
 export type GlobalAssets = Record<string, string>;
