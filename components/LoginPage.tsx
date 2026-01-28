@@ -121,7 +121,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
           </div>
           <button className={`w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-6 flex items-center justify-center gap-2 ${themeStyles.buttonPrimary} uppercase tracking-wider`}>LOGIN <ArrowRight className="w-5 h-5" /></button>
         </form>
-        <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary}`}>Belum terdaftar? <button onClick={() => setView('register')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Daftar Mentee</button></p>
+        <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary}`}>Belum terdaftar? <button onClick={() => setView('register')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Buat akun</button></p>
       </div>
     </div>
   );
