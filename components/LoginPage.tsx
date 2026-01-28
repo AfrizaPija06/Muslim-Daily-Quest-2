@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ArrowRight, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
@@ -58,6 +57,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
     }
   };
 
+  // Construct logo path safely using Vite's base URL
+  // @ts-ignore
+  const logoPath = `${import.meta.env.BASE_URL}logo.png`;
+
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 relative transition-colors duration-500 ${themeStyles.bg}`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
@@ -70,9 +73,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
           <div className="mb-4 relative group">
              <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
              <img 
-               src="/logo.png" 
+               src={`${logoPath}?v=${new Date().getTime()}`} // Cache buster added
                alt="Game Logo" 
                className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+               onError={(e) => {
+                 console.error("Logo failed to load:", e.currentTarget.src);
+                 e.currentTarget.style.display = 'none'; // Hide if broken
+               }}
              />
           </div>
           

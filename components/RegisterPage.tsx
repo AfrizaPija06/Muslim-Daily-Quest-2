@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ShieldCheck, Eye, EyeOff, Clock, Loader2, WifiOff } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
@@ -24,6 +23,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
   const [success, setSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isOfflineReg, setIsOfflineReg] = useState(false);
+
+  // Construct logo path safely using Vite's base URL
+  // @ts-ignore
+  const logoPath = `${import.meta.env.BASE_URL}logo.png`;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +124,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
            <div className="mb-4 relative group">
              <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
              <img 
-               src="logo.png" 
+               src={`${logoPath}?v=${new Date().getTime()}`} 
                alt="Game Logo" 
                className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
              />
