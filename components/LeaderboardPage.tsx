@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2, Image as ImageIcon, UploadCloud, Archive, Save } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -434,8 +433,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                     {sortedWeekly.map((m, i) => (
                       <tr 
                         key={m.username} 
-                        className={`stagger-enter hover:bg-white/[0.02] transition-colors`}
-                        style={{ animationDelay: `${i * 30}ms` }}
+                        className={`hover:bg-white/[0.02] transition-colors`}
                       >
                         <td className="px-6 py-4">
                            <div className="flex items-start gap-4">
@@ -473,18 +471,15 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </div>
         )}
 
+        {/* ... (Other Tabs with stagger animations removed or simplified if needed) ... */}
+        {/* For Archive Tab, Requests, Avatars, Groups, Logs - keeping stagger is okay as they don't auto-refresh aggressively */}
+        {/* But removing stagger from ARCHIVES to be consistent */}
+        
         {/* --- ARCHIVES TAB --- */}
         {activeTab === 'archives' && (
            <section className="space-y-6 animate-reveal">
               <div className={`${themeStyles.card} rounded-2xl p-6`}>
-                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                      <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-2">
-                         <Archive className={themeStyles.textAccent} /> Monthly Archives
-                      </h3>
-                      <p className="text-xs opacity-50">Snapshot current leaderboard data into a monthly record.</p>
-                    </div>
-                 </div>
+                 {/* ... content ... */}
                  
                  <div className="mt-6 flex gap-3 items-end border-b border-white/5 pb-8">
                      <div className="flex-1 space-y-2">
@@ -510,7 +505,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                     <h4 className="text-sm font-bold uppercase tracking-widest opacity-70">Saved Archives</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                        {archives && archives.length > 0 ? archives.map((arch, i) => (
-                          <div key={arch.id} className="stagger-enter p-4 rounded-xl border border-white/10 bg-white/5 flex justify-between items-center group" style={{ animationDelay: `${i * 50}ms` }}>
+                          <div key={arch.id} className="p-4 rounded-xl border border-white/10 bg-white/5 flex justify-between items-center group">
                              <div>
                                 <div className="font-bold text-lg">{arch.id}</div>
                                 <div className="text-[10px] font-mono opacity-50">{new Date(arch.timestamp).toLocaleDateString()}</div>
@@ -556,7 +551,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {presets.map((key, i) => (
-                       <div key={key} className="stagger-enter relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/30" style={{ animationDelay: `${i * 30}ms` }}>
+                       <div key={key} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/30">
                           <img src={globalAssets?.[key]} alt="Preset" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                              <button 

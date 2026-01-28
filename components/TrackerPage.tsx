@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, ShieldCheck, BookOpen, Sword, Calendar, ChevronRight, Trophy, Star, Medal } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
@@ -36,6 +35,82 @@ interface MiniLeaderboardData {
   role: string;
   avatarSeed?: string;
 }
+
+// Extracted Component to prevent re-mounting on parent updates
+const MiniLeaderboardTable = ({ 
+  title, 
+  data, 
+  icon, 
+  type, 
+  currentUser, 
+  themeStyles, 
+  currentTheme, 
+  globalAssets 
+}: { 
+  title: string, 
+  data: MiniLeaderboardData[], 
+  icon: React.ReactNode, 
+  type: 'weekly' | 'monthly',
+  currentUser: any,
+  themeStyles: any,
+  currentTheme: any,
+  globalAssets?: GlobalAssets
+}) => (
+  <div className={`${themeStyles.card} rounded-xl overflow-hidden flex flex-col h-full`}>
+    <div className={`p-3 border-b ${themeStyles.border} flex items-center justify-between ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
+      <h3 className={`${themeStyles.fontDisplay} text-sm font-bold tracking-wider flex items-center gap-2 uppercase ${themeStyles.textPrimary}`}>
+        {icon} {title}
+      </h3>
+    </div>
+    <div className="overflow-y-auto max-h-[500px]">
+      <table className="w-full text-left">
+        <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : (currentTheme === 'light' ? 'divide-slate-100' : 'divide-slate-800')}`}>
+          {data.map((user, idx) => {
+            const isMe = user.username === currentUser.username;
+            return (
+              <tr 
+                key={user.username} 
+                className={`${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}
+              >
+                <td className="px-3 py-3 w-8 align-middle">
+                  <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
+                </td>
+                <td className="px-1 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 bg-black/50">
+                      <img src={getAvatarSrc(user.avatarSeed || user.username, globalAssets)} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px] flex items-center gap-1`}>
+                        {user.fullName.split(' ')[0]}
+                        {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
+                      </div>
+                      {/* RANK BADGE */}
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {user.rankIcon ? (
+                          <img src={user.rankIcon} className="w-4 h-4 object-contain" alt="rank" />
+                        ) : (
+                          <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
+                        )}
+                        <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td className={`px-3 py-3 text-right text-xs font-bold align-middle ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
+                  {type === 'weekly' ? user.points : user.monthlyPoints}
+                </td>
+              </tr>
+            );
+          })}
+          {data.length === 0 && (
+             <tr><td colSpan={3} className="p-4 text-center text-xs opacity-50">Belum ada data</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
   currentUser, setView, handleLogout, data, setData, 
@@ -132,64 +207,6 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   const sortedWeekly = useMemo(() => [...leaderboard].sort((a, b) => b.points - a.points).slice(0, 10), [leaderboard]);
   const sortedMonthly = useMemo(() => [...leaderboard].sort((a, b) => b.monthlyPoints - a.monthlyPoints).slice(0, 10), [leaderboard]);
 
-  const MiniLeaderboardTable = ({ title, data, icon, type }: { title: string, data: MiniLeaderboardData[], icon: React.ReactNode, type: 'weekly' | 'monthly' }) => (
-    <div className={`${themeStyles.card} rounded-xl overflow-hidden flex flex-col h-full animate-reveal`}>
-      <div className={`p-3 border-b ${themeStyles.border} flex items-center justify-between ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
-        <h3 className={`${themeStyles.fontDisplay} text-sm font-bold tracking-wider flex items-center gap-2 uppercase ${themeStyles.textPrimary}`}>
-          {icon} {title}
-        </h3>
-      </div>
-      <div className="overflow-y-auto max-h-[500px]">
-        <table className="w-full text-left">
-          <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : (currentTheme === 'light' ? 'divide-slate-100' : 'divide-slate-800')}`}>
-            {data.map((user, idx) => {
-              const isMe = user.username === currentUser.username;
-              return (
-                <tr 
-                  key={user.username} 
-                  className={`stagger-enter ${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                >
-                  <td className="px-3 py-3 w-8 align-middle">
-                    <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
-                  </td>
-                  <td className="px-1 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 bg-black/50">
-                        <img src={getAvatarSrc(user.avatarSeed || user.username, globalAssets)} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px] flex items-center gap-1`}>
-                          {user.fullName.split(' ')[0]}
-                          {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
-                        </div>
-                        {/* RANK BADGE */}
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {user.rankIcon ? (
-                            <img src={user.rankIcon} className="w-4 h-4 object-contain" alt="rank" />
-                          ) : (
-                            <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
-                          )}
-                          <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className={`px-3 py-3 text-right text-xs font-bold align-middle ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
-                    {type === 'weekly' ? user.points : user.monthlyPoints}
-                  </td>
-                </tr>
-              );
-            })}
-            {data.length === 0 && (
-               <tr><td colSpan={3} className="p-4 text-center text-xs opacity-50">Belum ada data</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative overflow-x-hidden transition-colors duration-500`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
@@ -226,6 +243,10 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                 data={sortedWeekly} 
                 type="weekly"
                 icon={<Trophy className={`w-4 h-4 ${themeStyles.textGold}`} />} 
+                currentUser={currentUser}
+                themeStyles={themeStyles}
+                currentTheme={currentTheme}
+                globalAssets={globalAssets}
              />
           </div>
 
@@ -259,8 +280,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                       return (
                         <tr 
                           key={day.id} 
-                          className={`stagger-enter group transition-colors duration-200 hover:bg-white/5`}
-                          style={{ animationDelay: `${idx * 50}ms` }}
+                          className={`group transition-colors duration-200 hover:bg-white/5`}
                         >
                           <td className={`px-6 py-4 font-bold text-sm ${themeStyles.textSecondary}`}>
                             <div className="flex items-center gap-2">
@@ -342,6 +362,10 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                 data={sortedMonthly} 
                 type="monthly"
                 icon={<Medal className={`w-4 h-4 ${currentTheme === 'legends' ? 'text-red-400' : 'text-blue-400'}`} />} 
+                currentUser={currentUser}
+                themeStyles={themeStyles}
+                currentTheme={currentTheme}
+                globalAssets={globalAssets}
              />
           </div>
           
@@ -352,12 +376,20 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                 data={sortedWeekly} 
                 type="weekly"
                 icon={<Trophy className={`w-4 h-4 ${themeStyles.textGold}`} />} 
+                currentUser={currentUser}
+                themeStyles={themeStyles}
+                currentTheme={currentTheme}
+                globalAssets={globalAssets}
              />
              <MiniLeaderboardTable 
                 title="Season Rank" 
                 data={sortedMonthly} 
                 type="monthly"
                 icon={<Medal className={`w-4 h-4 ${currentTheme === 'legends' ? 'text-red-400' : 'text-blue-400'}`} />} 
+                currentUser={currentUser}
+                themeStyles={themeStyles}
+                currentTheme={currentTheme}
+                globalAssets={globalAssets}
              />
           </div>
 
