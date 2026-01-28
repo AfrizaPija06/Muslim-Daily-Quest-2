@@ -124,7 +124,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
                <img 
                  src={GAME_LOGO_URL}
                  alt="Game Logo" 
-                 className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                 className="w-60 h-60 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
                  onError={(e) => {
                    console.warn("Logo failed to load, switching to fallback");
                    setLogoError(true);
