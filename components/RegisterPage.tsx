@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Eye, EyeOff, Clock, Loader2, WifiOff } from 'lucide-react';
+import { ShieldCheck, Eye, EyeOff, Clock, Loader2, WifiOff, Gamepad2 } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { User, AppTheme } from '../types';
@@ -25,6 +25,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
   const [success, setSuccess] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isOfflineReg, setIsOfflineReg] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,16 +122,21 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
            {/* Main Logo Image */}
            <div className="mb-4 relative group">
              <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
-             <img 
-               src={gameLogo}
-               alt="Game Logo" 
-               className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
-               onError={(e) => {
-                 console.error("Logo failed to load:", e.currentTarget.src);
-                 e.currentTarget.src = '/logo.png'; // Fallback
-                 e.currentTarget.onerror = null;
-               }}
-             />
+             {!logoError ? (
+               <img 
+                 src={gameLogo}
+                 alt="Game Logo" 
+                 className="w-20 h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                 onError={(e) => {
+                   console.warn("Logo failed to load, switching to fallback");
+                   setLogoError(true);
+                 }}
+               />
+             ) : (
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center relative z-10 border-2 ${currentTheme === 'legends' ? 'bg-[#3a080e] border-[#d4af37] text-[#d4af37]' : 'bg-emerald-900/50 border-emerald-500 text-emerald-400'}`}>
+                  <Gamepad2 className="w-10 h-10" />
+               </div>
+             )}
           </div>
           <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
             {currentTheme === 'legends' ? 'Join The Ranks' : 'Registrasi Mentee'}

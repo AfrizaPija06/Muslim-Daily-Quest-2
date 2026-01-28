@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Eye, EyeOff, Gamepad2 } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import ThemeToggle from './ThemeToggle';
 import { ADMIN_CREDENTIALS } from '../constants';
@@ -22,6 +22,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,16 +71,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
           {/* Main Logo Image */}
           <div className="mb-4 relative group">
              <div className={`absolute inset-0 rounded-full blur-xl opacity-50 ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-500'}`}></div>
-             <img 
-               src={gameLogo}
-               alt="Game Logo" 
-               className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
-               onError={(e) => {
-                 console.error("Logo failed to load:", e.currentTarget.src);
-                 e.currentTarget.src = '/logo.png'; // Fallback to default if import fails
-                 e.currentTarget.onerror = null;
-               }}
-             />
+             
+             {!logoError ? (
+               <img 
+                 src={gameLogo}
+                 alt="Game Logo" 
+                 className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(0,0,0,0.5)]" 
+                 onError={(e) => {
+                   console.warn("Game logo not found, switching to icon fallback.");
+                   setLogoError(true);
+                 }}
+               />
+             ) : (
+               <div className={`w-24 h-24 rounded-2xl flex items-center justify-center relative z-10 border-2 ${currentTheme === 'legends' ? 'bg-[#3a080e] border-[#d4af37] text-[#d4af37]' : 'bg-emerald-900/50 border-emerald-500 text-emerald-400'}`}>
+                  <Gamepad2 className="w-12 h-12" />
+               </div>
+             )}
           </div>
           
           <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>

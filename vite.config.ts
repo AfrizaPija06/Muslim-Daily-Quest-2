@@ -45,10 +45,9 @@ const generateSpaFallback = () => {
 export default defineConfig({
   plugins: [react(), generateSpaFallback()],
   base: '/', 
+  // removed alias block to force relative imports usage
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './'),
-    },
+    alias: {}
   },
   build: {
     outDir: 'dist',
