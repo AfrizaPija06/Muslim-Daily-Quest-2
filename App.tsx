@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData } from './types';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
@@ -72,6 +72,10 @@ const App: React.FC = () => {
   const [archives, setArchives] = useState<ArchivedData[]>(() => {
     return JSON.parse(localStorage.getItem('nur_quest_archives') || '[]');
   });
+
+  const [attendance, setAttendance] = useState<AttendanceRecord>(() => {
+    return JSON.parse(localStorage.getItem('nur_quest_attendance') || '{}');
+  });
   
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
@@ -120,6 +124,11 @@ const App: React.FC = () => {
         if (result.archives) {
           setArchives(result.archives);
           localStorage.setItem('nur_quest_archives', JSON.stringify(result.archives));
+        }
+
+        if (result.attendance) {
+          setAttendance(result.attendance);
+          localStorage.setItem('nur_quest_attendance', JSON.stringify(result.attendance));
         }
 
         Object.keys(result.trackers).forEach(uname => {
@@ -266,7 +275,7 @@ const App: React.FC = () => {
     const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
     const trackers = {}; 
     const assets = JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
-    await api.updateDatabase({ users, trackers, groups: newGroups, assets, archives });
+    await api.updateDatabase({ users, trackers, groups: newGroups, assets, archives, attendance });
   };
 
   const totalPoints = useMemo(() => {
@@ -435,8 +444,9 @@ const App: React.FC = () => {
           groups={groups} 
           updateGroups={updateGroups} 
           handleUpdateProfile={handleUpdateProfile}
-          archives={archives} // Pass archives
+          archives={archives} 
           refreshArchives={() => performSync()}
+          attendance={attendance}
           {...commonProps} 
         />
       )}

@@ -1,5 +1,5 @@
 
-import { WeeklyData, User, MENTORING_GROUPS, GlobalAssets, ArchivedData } from '../types';
+import { WeeklyData, User, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
 const DB_ROW_ID = 'global_store_v7';
@@ -12,6 +12,7 @@ class ApiService {
     // Load cached assets if any
     const assets = JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
     const archives = JSON.parse(localStorage.getItem('nur_quest_archives') || '[]');
+    const attendance = JSON.parse(localStorage.getItem('nur_quest_attendance') || '{}');
     
     const trackers: Record<string, WeeklyData> = {};
     if (typeof localStorage !== 'undefined') {
@@ -25,14 +26,15 @@ class ApiService {
          }
        }
     }
-    return { users, trackers, groups, assets, archives };
+    return { users, trackers, groups, assets, archives, attendance };
   }
 
-  private saveLocalData(users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[]) {
+  private saveLocalData(users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[], attendance: AttendanceRecord) {
     localStorage.setItem('nur_quest_users', JSON.stringify(users));
     localStorage.setItem('nur_quest_groups', JSON.stringify(groups));
     localStorage.setItem('nur_quest_assets', JSON.stringify(assets));
     localStorage.setItem('nur_quest_archives', JSON.stringify(archives));
+    localStorage.setItem('nur_quest_attendance', JSON.stringify(attendance));
     Object.entries(trackers).forEach(([username, data]) => {
       localStorage.setItem(`ibadah_tracker_${username}`, JSON.stringify(data));
     });
@@ -40,7 +42,7 @@ class ApiService {
 
   // --- SUPABASE METHODS ---
 
-  async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[] }> {
+  async fetchDatabase(): Promise<{ users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[], attendance: AttendanceRecord }> {
     try {
       const { data, error } = await supabase
         .from('app_sync')
@@ -56,7 +58,8 @@ class ApiService {
           trackers: {},
           groups: JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS)),
           assets: {},
-          archives: []
+          archives: [],
+          attendance: {}
         };
       }
 
@@ -65,7 +68,8 @@ class ApiService {
         trackers: data.json_data.trackers || {},
         groups: data.json_data.groups || JSON.parse(localStorage.getItem('nur_quest_groups') || JSON.stringify(MENTORING_GROUPS)),
         assets: data.json_data.assets || {},
-        archives: data.json_data.archives || []
+        archives: data.json_data.archives || [],
+        attendance: data.json_data.attendance || {}
       };
 
     } catch (error: any) {
@@ -77,7 +81,7 @@ class ApiService {
     }
   }
 
-  async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[] }): Promise<boolean> {
+  async updateDatabase(payload: { users: User[], trackers: Record<string, WeeklyData>, groups: string[], assets: GlobalAssets, archives: ArchivedData[], attendance: AttendanceRecord }): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('app_sync')
@@ -92,7 +96,7 @@ class ApiService {
 
     } catch (error: any) {
       console.warn("[SUPABASE] Update failed, saving locally:", error.message);
-      this.saveLocalData(payload.users, payload.trackers, payload.groups, payload.assets, payload.archives);
+      this.saveLocalData(payload.users, payload.trackers, payload.groups, payload.assets, payload.archives, payload.attendance);
       
       if (error.message && error.message.includes('relation')) {
         return false;
@@ -110,7 +114,7 @@ class ApiService {
        const local = this.getLocalData();
        if (!local.users.find(u => u.username === newUser.username)) {
           local.users.push(newUser);
-          this.saveLocalData(local.users, local.trackers, local.groups, local.assets, local.archives);
+          this.saveLocalData(local.users, local.trackers, local.groups, local.assets, local.archives, local.attendance);
        }
        return { success: true, isOffline: true };
     }
@@ -138,7 +142,7 @@ class ApiService {
 
         if (error) throw error;
 
-        this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives);
+        this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives, db.attendance);
         return { success: true, isOffline: false };
 
       } catch (e: any) {
@@ -147,7 +151,7 @@ class ApiService {
            const local = this.getLocalData();
            if (!local.users.find(u => u.username === newUser.username)) {
               local.users.push(newUser);
-              this.saveLocalData(local.users, local.trackers, local.groups, local.assets, local.archives);
+              this.saveLocalData(local.users, local.trackers, local.groups, local.assets, local.archives, local.attendance);
            }
            return { success: true, isOffline: true };
         }
@@ -184,7 +188,7 @@ class ApiService {
 
         if (error) throw error;
 
-        this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives);
+        this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives, db.attendance);
         
         return { success: true };
 
@@ -215,6 +219,24 @@ class ApiService {
     } catch (e) {
       console.error(e);
       return false;
+    }
+  }
+  
+  async saveAttendance(date: string, records: Record<string, 'H' | 'S' | 'A'>): Promise<boolean> {
+    try {
+      const db = await this.fetchDatabase();
+      if (!db.attendance) db.attendance = {};
+      
+      db.attendance[date] = records;
+      
+      const success = await this.updateDatabase(db);
+      if(!success) throw new Error("Attendance Save Failed");
+      
+      localStorage.setItem('nur_quest_attendance', JSON.stringify(db.attendance));
+      return true;
+    } catch (e) {
+       console.error(e);
+       return false;
     }
   }
   
@@ -262,7 +284,7 @@ class ApiService {
       delete newTrackers[username];
       
       localStorage.removeItem(`ibadah_tracker_${username}`);
-      return await this.updateDatabase({ ...db, users: newUsers, trackers: newTrackers, assets: db.assets, archives: db.archives });
+      return await this.updateDatabase({ ...db, users: newUsers, trackers: newTrackers, assets: db.assets, archives: db.archives, attendance: db.attendance });
     } catch (error) {
       return false;
     }
@@ -275,6 +297,7 @@ class ApiService {
     groups: string[],
     assets: GlobalAssets,
     archives: ArchivedData[],
+    attendance: AttendanceRecord,
     updatedLocalData?: WeeklyData,
     success: boolean,
     errorMessage?: string
@@ -292,13 +315,13 @@ class ApiService {
 
       if (error) {
         if (error.code === 'PGRST116') {
-           db = { users: [], trackers: {}, groups: [], assets: {}, archives: [] };
+           db = { users: [], trackers: {}, groups: [], assets: {}, archives: [], attendance: {} };
            isOnline = true;
         } else {
            throw error;
         }
       } else {
-        db = data?.json_data || { users: [], trackers: {}, groups: [], assets: {}, archives: [] };
+        db = data?.json_data || { users: [], trackers: {}, groups: [], assets: {}, archives: [], attendance: {} };
         isOnline = true;
       }
 
@@ -307,6 +330,7 @@ class ApiService {
       if (!db.groups) db.groups = [];
       if (!db.assets) db.assets = {};
       if (!db.archives) db.archives = [];
+      if (!db.attendance) db.attendance = {};
 
     } catch (e: any) {
       db = this.getLocalData();
@@ -348,7 +372,7 @@ class ApiService {
       await this.updateDatabase(db);
     } 
     else if (!isOnline && hasChanges) {
-      this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives);
+      this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives, db.attendance);
     }
 
     let updatedLocalData: WeeklyData | undefined = undefined;
@@ -368,6 +392,7 @@ class ApiService {
       groups: db.groups.length > localGroups.length ? db.groups : localGroups,
       assets: db.assets,
       archives: db.archives,
+      attendance: db.attendance,
       updatedLocalData, 
       success: isOnline,
       errorMessage: isOnline ? undefined : (syncError.includes('relation') ? syncError : "Offline Mode")

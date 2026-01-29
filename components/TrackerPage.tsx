@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, ShieldCheck, BookOpen, Sword, Calendar, ChevronRight, Trophy, Star, Medal } from 'lucide-react';
+import { TrendingUp, ShieldCheck, BookOpen, Sword, Calendar, ChevronRight, Trophy, Star, Medal, BarChart2, X, Activity } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
@@ -117,6 +118,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile, globalAssets, refreshAssets
 }) => {
   const [leaderboard, setLeaderboard] = useState<MiniLeaderboardData[]>([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   // Constants
   const WEEKLY_TARGET = 1050;
@@ -181,7 +183,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             });
           }
 
-          const monthlyPts = pts * 1;
+          const monthlyPts = pts * 1; // Assuming weekly points * 4 for monthly rank if no historical data is processed here yet
           const rankInfo = getRankInfo(monthlyPts);
 
           return {
@@ -232,6 +234,16 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
            <StatCard label="Prayer EXP" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
            <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
         </section>
+
+        {/* Analytics Toggle Button */}
+        <div className="flex justify-center">
+          <button 
+             onClick={() => setShowAnalytics(true)}
+             className={`px-6 py-2 rounded-full border ${themeStyles.border} ${themeStyles.inputBg} flex items-center gap-2 hover:bg-white/5 transition-all uppercase text-xs font-bold tracking-widest`}
+          >
+             <BarChart2 className="w-4 h-4" /> View Battle Analysis
+          </button>
+        </div>
 
         {/* 3 Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -395,6 +407,108 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
         </div>
         
+        {/* ANALYTICS MODAL */}
+        {showAnalytics && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+             <div className={`w-full max-w-4xl ${themeStyles.card} rounded-3xl p-6 relative overflow-hidden flex flex-col max-h-[90vh] overflow-y-auto`}>
+                <button 
+                  onClick={() => setShowAnalytics(false)}
+                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                
+                <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold uppercase mb-6 flex items-center gap-3`}>
+                   <Activity className={themeStyles.textAccent} /> Battle Analysis
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   {/* PRAYER CONSISTENCY CHART */}
+                   <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                         <h3 className="text-sm font-bold uppercase tracking-widest opacity-70">Prayer Consistency</h3>
+                         <span className="text-xs bg-emerald-500/20 text-emerald-500 px-2 py-1 rounded">Weekly</span>
+                      </div>
+                      <div className={`h-64 ${themeStyles.inputBg} rounded-xl p-4 flex items-end justify-between gap-2 border ${themeStyles.border}`}>
+                         {data.days.map(day => {
+                            const count = Object.values(day.prayers).filter((p: any) => p > 0).length;
+                            const height = (count / 5) * 100;
+                            return (
+                               <div key={day.id} className="flex-1 flex flex-col items-center gap-2 group">
+                                  <div className="w-full relative h-full flex items-end">
+                                     <div 
+                                      style={{ height: `${height}%` }}
+                                      className={`w-full rounded-t-sm transition-all duration-1000 ${count === 5 ? 'bg-emerald-500' : (count >= 3 ? 'bg-yellow-500' : 'bg-red-500')} opacity-80 group-hover:opacity-100 relative`}
+                                     >
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                           {count}
+                                        </div>
+                                     </div>
+                                  </div>
+                                  <span className="text-[10px] uppercase font-bold opacity-50">{day.dayName.substring(0,3)}</span>
+                               </div>
+                            )
+                         })}
+                      </div>
+                   </div>
+
+                   {/* TILAWAH TREND CHART */}
+                   <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                         <h3 className="text-sm font-bold uppercase tracking-widest opacity-70">Tilawah Trend</h3>
+                         <span className="text-xs bg-blue-500/20 text-blue-500 px-2 py-1 rounded">Lines / Day</span>
+                      </div>
+                      <div className={`h-64 ${themeStyles.inputBg} rounded-xl p-4 flex items-end justify-between gap-2 border ${themeStyles.border}`}>
+                         {data.days.map(day => {
+                            const maxVal = Math.max(...data.days.map(d => d.tilawah), 10); // Dynamic Max
+                            const height = Math.min((day.tilawah / maxVal) * 100, 100);
+                            return (
+                               <div key={day.id} className="flex-1 flex flex-col items-center gap-2 group">
+                                  <div className="w-full relative h-full flex items-end">
+                                     <div 
+                                      style={{ height: `${height}%` }}
+                                      className={`w-full rounded-t-sm transition-all duration-1000 bg-blue-500 opacity-80 group-hover:opacity-100 relative`}
+                                     >
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                           {day.tilawah}
+                                        </div>
+                                     </div>
+                                  </div>
+                                  <span className="text-[10px] uppercase font-bold opacity-50">{day.dayName.substring(0,3)}</span>
+                               </div>
+                            )
+                         })}
+                      </div>
+                   </div>
+                </div>
+
+                {/* MONTHLY PROJECTION */}
+                <div className={`mt-8 p-6 rounded-2xl border ${themeStyles.border} bg-white/5`}>
+                   <h3 className="text-sm font-bold uppercase tracking-widest mb-4">Season Projection (Monthly)</h3>
+                   <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                         <p className="text-[10px] opacity-50 uppercase">Est. Total EXP</p>
+                         <p className={`text-2xl font-bold ${themeStyles.fontDisplay} ${themeStyles.textGold}`}>{totalPoints * 4}</p>
+                      </div>
+                      <div>
+                         <p className="text-[10px] opacity-50 uppercase">Prayers Completed</p>
+                         <p className={`text-2xl font-bold ${themeStyles.fontDisplay} ${themeStyles.textAccent}`}>
+                           {data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0) * 4}
+                         </p>
+                      </div>
+                      <div>
+                         <p className="text-[10px] opacity-50 uppercase">Tilawah Lines</p>
+                         <p className={`text-2xl font-bold ${themeStyles.fontDisplay} text-blue-400`}>
+                           {data.days.reduce((acc, d) => acc + d.tilawah, 0) * 4}
+                         </p>
+                      </div>
+                   </div>
+                   <p className="text-[10px] text-center mt-4 opacity-30 italic">* Proyeksi berdasarkan performa pekan ini dikalikan 4.</p>
+                </div>
+             </div>
+          </div>
+        )}
+
         <Footer themeStyles={themeStyles} />
       </main>
     </div>

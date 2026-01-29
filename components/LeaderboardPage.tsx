@@ -1,11 +1,12 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2, Image as ImageIcon, UploadCloud, Archive, Save } from 'lucide-react';
+import { LayoutDashboard, Users, Target, ShieldCheck, Trophy, Download, UserPlus, Calendar, Database, Activity, Terminal, ChevronRight, Server, Flag, Trash2, PlusCircle, Share2, Copy, AlertTriangle, Loader2, Image as ImageIcon, UploadCloud, Archive, Save, CheckSquare, CalendarCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
-import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, DayData } from '../types';
+import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, DayData, AttendanceRecord } from '../types';
 import { getAvatarSrc } from '../constants';
 import { api } from '../services/ApiService';
 
@@ -23,8 +24,9 @@ interface LeaderboardPageProps {
   handleUpdateProfile?: (user: User) => void;
   globalAssets?: GlobalAssets;
   refreshAssets?: (assets: GlobalAssets) => void;
-  archives?: ArchivedData[]; // Added Archives
+  archives?: ArchivedData[]; 
   refreshArchives?: () => void;
+  attendance?: AttendanceRecord;
 }
 
 interface LeaderboardData {
@@ -45,18 +47,22 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, archives = [], refreshArchives
+  currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, archives = [], refreshArchives, attendance = {}
 }) => {
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'avatars' | 'groups' | 'network' | 'archives'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'requests' | 'avatars' | 'groups' | 'attendance' | 'network'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
-  const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   
-  // Archive States
-  const [selectedMonthName, setSelectedMonthName] = useState('');
-  const [exportSource, setExportSource] = useState('current'); // 'current' or archive ID
+  // Attendance State
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => {
+    // Default to this Saturday or Today
+    const d = new Date();
+    // Logic to find next Saturday or current date
+    return d.toISOString().split('T')[0];
+  });
+  const [currentAttendance, setCurrentAttendance] = useState<Record<string, 'H' | 'S' | 'A'>>({});
 
   // Avatar Management
   const presetInputRef = useRef<HTMLInputElement>(null);
@@ -120,61 +126,48 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     const interval = setInterval(loadData, 10000); 
     return () => clearInterval(interval);
   }, [currentUser]); 
+  
+  // Load existing attendance for selected date
+  useEffect(() => {
+     if (attendance && attendance[attendanceDate]) {
+        setCurrentAttendance(attendance[attendanceDate]);
+     } else {
+        setCurrentAttendance({});
+     }
+  }, [attendanceDate, attendance]);
 
-  // --- ARCHIVING LOGIC ---
-  const handleSaveArchive = async () => {
-    if (!selectedMonthName) {
-      alert("Please enter a month name (e.g., 'Januari 2025')");
-      return;
-    }
-    if (!confirm(`Archive current data as '${selectedMonthName}'? This will snapshot everyone's stats.`)) return;
-
-    setIsProcessing(true);
-    try {
-      const records = menteesData.map(m => ({
-        username: m.username,
-        fullName: m.fullName,
-        group: m.group,
-        totalPoints: m.points,
-        rankName: m.rankName,
-        detailedDays: m.trackerData?.days || []
-      }));
-
-      const newArchive: ArchivedData = {
-        id: selectedMonthName,
-        timestamp: new Date().toISOString(),
-        records
-      };
-
-      const success = await api.saveArchive(newArchive);
-      
-      if (success) {
-        alert("Archive Saved Successfully!");
-        setSelectedMonthName('');
-        if(refreshArchives) refreshArchives();
-      } else {
-        alert("Failed to save archive.");
-      }
-    } catch (e) {
-      alert("Error saving archive.");
-    } finally {
-      setIsProcessing(false);
-    }
+  // --- ATTENDANCE LOGIC ---
+  const handleSaveAttendance = async () => {
+     setIsProcessing(true);
+     try {
+       await api.saveAttendance(attendanceDate, currentAttendance);
+       await performSync(); // Sync immediately
+       alert("Attendance Saved!");
+     } catch(e) {
+       alert("Failed to save attendance");
+     } finally {
+       setIsProcessing(false);
+     }
   };
 
-  // --- EXPORT FUNCTIONALITY ---
+  // --- EXPORT FUNCTIONALITY (UPDATED) ---
   const handleDetailedExport = () => {
     const wb = XLSX.utils.book_new();
-    let dataToExport = menteesData;
-    let titlePrefix = "Current";
+    
+    // LOGIC: Find Previous Month Archive
+    const now = new Date();
+    // Go back 1 month
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const targetArchiveId = `${monthNames[prevDate.getMonth()]} ${prevDate.getFullYear()}`;
+    
+    // Fallback search logic (simple string matching)
+    const archive = archives?.find(a => a.id.toLowerCase() === targetArchiveId.toLowerCase());
+    
+    let dataToExport: LeaderboardData[] = [];
+    let titlePrefix = "Current_Data";
 
-    // Handle Archive Export
-    if (exportSource !== 'current') {
-      const archive = archives?.find(a => a.id === exportSource);
-      if (!archive) {
-         alert("Archive not found");
-         return;
-      }
+    if (archive) {
       titlePrefix = archive.id;
       // Map Archive format to LeaderboardData format for exporting
       dataToExport = archive.records.map(r => ({
@@ -186,6 +179,11 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         lastUpdated: archive.timestamp,
         trackerData: { days: r.detailedDays, lastUpdated: archive.timestamp }
       } as LeaderboardData));
+    } else {
+      // Fallback: If no archive found, warn user and export current (or empty)
+      const proceed = confirm(`Archive for previous month '${targetArchiveId}' not found. Download CURRENT data instead?`);
+      if (!proceed) return;
+      dataToExport = menteesData;
     }
 
     // 1. SHEET REKAP UTAMA (Rank Sheet)
@@ -202,8 +200,34 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
     summaryWs['!cols'] = [{wch:5}, {wch:25}, {wch:15}, {wch:25}, {wch:15}, {wch:10}, {wch:20}];
     XLSX.utils.book_append_sheet(wb, summaryWs, "Rank Sheet");
+    
+    // 2. SHEET ABSENSI (ATTENDANCE)
+    if (attendance) {
+       // Filter attendance dates that match the target month
+       const targetMonthIndex = prevDate.getMonth(); // 0-11
+       const targetYear = prevDate.getFullYear();
+       
+       const relevantDates = Object.keys(attendance).filter(dateStr => {
+          const d = new Date(dateStr);
+          // If archive found, use archive date logic, else use current context or general export
+          if (archive) return d.getMonth() === targetMonthIndex && d.getFullYear() === targetYear;
+          return true; // Export all if using current data fallback
+       }).sort();
 
-    // 2. SHEET PER USER (Detail)
+       const attendanceRows = dataToExport.map(m => {
+          const row: any = { Nama: m.fullName, Group: m.group };
+          relevantDates.forEach(date => {
+             const status = attendance[date]?.[m.username] || '-';
+             row[date] = status;
+          });
+          return row;
+       });
+       
+       const attWs = XLSX.utils.json_to_sheet(attendanceRows);
+       XLSX.utils.book_append_sheet(wb, attWs, "Absensi");
+    }
+
+    // 3. SHEET PER USER (Detail)
     dataToExport.forEach(mentee => {
       if (!mentee.trackerData) return;
 
@@ -339,12 +363,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     if (confirm(`Disband '${groupName}'?`)) await updateGroups(groups.filter(g => g !== groupName));
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(window.location.origin);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
   const presets = globalAssets ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) : [];
 
@@ -376,18 +394,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </div>
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
-                <select 
-                  value={exportSource} 
-                  onChange={(e) => setExportSource(e.target.value)}
-                  className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-emerald-400 outline-none p-2 cursor-pointer"
-                >
-                  <option value="current" className="bg-slate-900">Current Data</option>
-                  {archives?.map(arch => (
-                    <option key={arch.id} value={arch.id} className="bg-slate-900">Archive: {arch.id}</option>
-                  ))}
-                </select>
                 <button onClick={handleDetailedExport} className={`flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all hover:text-white text-white/70`}>
-                  <Download className="w-4 h-4" /> Download
+                  <Download className="w-4 h-4" /> Download Report (Prev. Month)
                 </button>
              </div>
           </div>
@@ -397,8 +405,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
           {[
             { id: 'leaderboard', label: 'Members', icon: <Trophy className="w-4 h-4" /> },
+            { id: 'attendance', label: 'Squad Check-in', icon: <CheckSquare className="w-4 h-4" /> },
             { id: 'requests', label: 'Auth', icon: <UserPlus className="w-4 h-4" />, count: pendingUsers.length },
-            { id: 'archives', label: 'Archives', icon: <Archive className="w-4 h-4" /> },
             { id: 'avatars', label: 'Avatars', icon: <ImageIcon className="w-4 h-4" /> },
             { id: 'groups', label: 'Factions', icon: <Flag className="w-4 h-4" /> },
             { id: 'network', label: 'Logs', icon: <Terminal className="w-4 h-4" /> }
@@ -471,57 +479,78 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </div>
         )}
 
-        {/* ... (Other Tabs with stagger animations removed or simplified if needed) ... */}
-        {/* For Archive Tab, Requests, Avatars, Groups, Logs - keeping stagger is okay as they don't auto-refresh aggressively */}
-        {/* But removing stagger from ARCHIVES to be consistent */}
-        
-        {/* --- ARCHIVES TAB --- */}
-        {activeTab === 'archives' && (
+        {/* --- ATTENDANCE TAB --- */}
+        {activeTab === 'attendance' && (
            <section className="space-y-6 animate-reveal">
               <div className={`${themeStyles.card} rounded-2xl p-6`}>
-                 {/* ... content ... */}
-                 
-                 <div className="mt-6 flex gap-3 items-end border-b border-white/5 pb-8">
-                     <div className="flex-1 space-y-2">
-                        <label className="text-[10px] uppercase font-bold tracking-widest opacity-50">New Archive Name</label>
-                        <input 
-                          value={selectedMonthName} 
-                          onChange={(e) => setSelectedMonthName(e.target.value)}
-                          placeholder="e.g. Januari 2025" 
-                          className={`w-full p-3 rounded-xl border bg-black/20 ${themeStyles.border} outline-none text-sm`}
-                        />
-                     </div>
-                     <button 
-                       onClick={handleSaveArchive}
-                       disabled={isProcessing || !selectedMonthName}
-                       className={`px-6 py-3 rounded-xl ${themeStyles.buttonPrimary} font-bold text-xs uppercase tracking-widest flex items-center gap-2 disabled:opacity-50`}
-                     >
-                       {isProcessing ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                       Save Current State
-                     </button>
+                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                      <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-2">
+                         <CalendarCheck className={themeStyles.textAccent} /> Squad Check-in
+                      </h3>
+                      <p className="text-xs opacity-50">Record weekly meeting attendance.</p>
+                    </div>
+                    <div className="flex items-center gap-3 bg-white/5 p-2 rounded-xl">
+                       <input 
+                          type="date"
+                          value={attendanceDate}
+                          onChange={(e) => setAttendanceDate(e.target.value)}
+                          className={`bg-transparent ${themeStyles.textPrimary} text-sm font-bold uppercase outline-none`}
+                       />
+                       <button onClick={handleSaveAttendance} disabled={isProcessing} className={`px-4 py-2 ${themeStyles.buttonPrimary} rounded-lg text-xs font-bold uppercase flex items-center gap-2`}>
+                          {isProcessing ? <Loader2 className="w-3 h-3 animate-spin"/> : <Save className="w-3 h-3" />} Save
+                       </button>
+                    </div>
                  </div>
 
-                 <div className="mt-6 space-y-4">
-                    <h4 className="text-sm font-bold uppercase tracking-widest opacity-70">Saved Archives</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                       {archives && archives.length > 0 ? archives.map((arch, i) => (
-                          <div key={arch.id} className="p-4 rounded-xl border border-white/10 bg-white/5 flex justify-between items-center group">
-                             <div>
-                                <div className="font-bold text-lg">{arch.id}</div>
-                                <div className="text-[10px] font-mono opacity-50">{new Date(arch.timestamp).toLocaleDateString()}</div>
-                                <div className="text-[10px] opacity-70 mt-1">{arch.records.length} Records</div>
-                             </div>
-                             <button onClick={() => {
-                               setExportSource(arch.id);
-                               alert(`Selected '${arch.id}' for Export. Click Download button above.`);
-                             }} className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-colors">
-                                <Download className="w-4 h-4" />
-                             </button>
-                          </div>
-                       )) : (
-                          <div className="col-span-full py-8 text-center text-xs opacity-30 italic">No archives found.</div>
-                       )}
-                    </div>
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                       <thead>
+                          <tr className={`text-[10px] uppercase font-bold tracking-widest ${themeStyles.textSecondary} border-b ${themeStyles.border}`}>
+                             <th className="px-4 py-3">Mentee</th>
+                             <th className="px-4 py-3 text-center">Hadir</th>
+                             <th className="px-4 py-3 text-center">Izin/Sakit</th>
+                             <th className="px-4 py-3 text-center">Alpha</th>
+                          </tr>
+                       </thead>
+                       <tbody className={`divide-y ${currentTheme === 'light' ? 'divide-slate-100' : 'divide-white/5'}`}>
+                          {menteesData.filter(m => m.role === 'mentee').map((mentee) => {
+                             const status = currentAttendance[mentee.username];
+                             return (
+                                <tr key={mentee.username} className="hover:bg-white/5">
+                                   <td className="px-4 py-3 font-bold text-sm">{mentee.fullName}</td>
+                                   <td className="px-4 py-3 text-center">
+                                      <input 
+                                        type="radio" 
+                                        name={`att-${mentee.username}`} 
+                                        checked={status === 'H'} 
+                                        onChange={() => setCurrentAttendance(prev => ({...prev, [mentee.username]: 'H'}))}
+                                        className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                                      />
+                                   </td>
+                                   <td className="px-4 py-3 text-center">
+                                      <input 
+                                        type="radio" 
+                                        name={`att-${mentee.username}`} 
+                                        checked={status === 'S'} 
+                                        onChange={() => setCurrentAttendance(prev => ({...prev, [mentee.username]: 'S'}))}
+                                        className="w-4 h-4 accent-yellow-500 cursor-pointer"
+                                      />
+                                   </td>
+                                   <td className="px-4 py-3 text-center">
+                                      <input 
+                                        type="radio" 
+                                        name={`att-${mentee.username}`} 
+                                        checked={status === 'A'} 
+                                        onChange={() => setCurrentAttendance(prev => ({...prev, [mentee.username]: 'A'}))}
+                                        className="w-4 h-4 accent-red-500 cursor-pointer"
+                                      />
+                                   </td>
+                                </tr>
+                             )
+                          })}
+                       </tbody>
+                    </table>
                  </div>
               </div>
            </section>
@@ -578,7 +607,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         {activeTab === 'requests' && (
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-reveal">
             {pendingUsers.length === 0 ? <div className="col-span-full py-20 text-center text-xs uppercase tracking-widest opacity-30">No Authentication Requests</div> : pendingUsers.map((u, i) => (
-              <div key={u.username} className={`stagger-enter ${themeStyles.card} rounded-2xl p-6 border-l-4 border-yellow-500`} style={{ animationDelay: `${i * 100}ms` }}>
+              <div key={u.username} className={`${themeStyles.card} rounded-2xl p-6 border-l-4 border-yellow-500`}>
                 <div className="flex justify-between items-start">
                    <div>
                      <h4 className="font-black text-lg">{u.fullName}</h4>
@@ -610,7 +639,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
              </div>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {groups.map((group, i) => (
-                  <div key={group} className={`stagger-enter ${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`} style={{ animationDelay: `${i * 50}ms` }}>
+                  <div key={group} className={`${themeStyles.card} p-4 rounded-xl flex items-center justify-between group border hover:border-red-500/50 transition-colors`}>
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${currentTheme === 'light' ? 'bg-slate-100' : 'bg-white/5'}`}><Flag className={`w-4 h-4 ${themeStyles.textAccent}`} /></div>
                       <span className="font-bold text-sm uppercase tracking-wider">{group}</span>

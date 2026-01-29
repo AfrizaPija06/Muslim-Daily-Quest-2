@@ -46,6 +46,11 @@ export interface ArchivedData {
   }[];
 }
 
+// Attendance Data: Key = Date (YYYY-MM-DD), Value = Record<Username, Status>
+// Status: 'H' (Hadir), 'S' (Sakit/Izin), 'A' (Alpha)
+export type AttendanceStatus = 'H' | 'S' | 'A';
+export type AttendanceRecord = Record<string, Record<string, AttendanceStatus>>;
+
 // Key-Value pair untuk menyimpan gambar Base64 di server
 // Key: avatar ID (misal '1', '2'), Value: Base64 string image
 export type GlobalAssets = Record<string, string>;
