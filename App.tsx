@@ -12,14 +12,11 @@ import RegisterPage from './components/RegisterPage';
 import LeaderboardPage from './components/LeaderboardPage';
 import TrackerPage from './components/TrackerPage';
 
-// SQL Script Constant
-const SQL_REPAIR_SCRIPT = `-- LANGKAH PENTING:
--- 1. HAPUS semua kode lama di layar ini.
--- 2. COPY & PASTE kode baru ini.
+// SQL Script Constant: SIMPLE MODE
+const SQL_REPAIR_SCRIPT = `-- LANGKAH:
+-- 1. HAPUS semua kode lama.
+-- 2. PASTE kode ini.
 -- 3. Klik RUN.
-
--- Hapus policy lama jika ada (untuk reset izin)
-drop policy if exists "Public Access" on app_sync;
 
 create table if not exists app_sync (
   id text primary key,
@@ -27,15 +24,12 @@ create table if not exists app_sync (
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
+-- Buka akses FULL PUBLIC (Simple Mode)
 alter table app_sync enable row level security;
+drop policy if exists "Public Access" on app_sync;
+create policy "Public Access" on app_sync for all using (true) with check (true);
 
--- Memberikan akses PENUH (Baca/Tulis/Edit)
-create policy "Public Access" on app_sync 
-for all 
-using (true) 
-with check (true);
-
--- Inisialisasi data (jika belum ada)
+-- Data Awal
 insert into app_sync (id, json_data) values ('global_store_v7', '{}') on conflict do nothing;`;
 
 const SUPABASE_PROJECT_ID = "fymoxcdhskimzxpljjgi";
@@ -45,11 +39,11 @@ const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
-    const APP_VERSION = 'v7.4_fix_access'; 
+    const APP_VERSION = 'v7.5_simple_rollback'; 
     const storedVersion = localStorage.getItem('nur_quest_version');
     
     if (storedVersion !== APP_VERSION) {
-      console.warn("System Update V7.4: Fixing Write Access...");
+      console.warn("System Rollback V7.5: Simplifying...");
       localStorage.setItem('nur_quest_version', APP_VERSION);
       setIsResetting(true);
       setTimeout(() => setIsResetting(false), 1500);
@@ -68,7 +62,6 @@ const App: React.FC = () => {
     return JSON.parse(localStorage.getItem('nur_quest_assets') || '{}');
   });
   
-  // NEW: Archives State
   const [archives, setArchives] = useState<ArchivedData[]>(() => {
     return JSON.parse(localStorage.getItem('nur_quest_archives') || '[]');
   });
@@ -93,7 +86,6 @@ const App: React.FC = () => {
     setNetworkLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
   };
 
-  // --- REFACTORED CLOUD SYNC ---
   const performSync = useCallback(async () => {
     if (isSyncing || isResetting) return;
     
@@ -120,7 +112,6 @@ const App: React.FC = () => {
            localStorage.setItem('nur_quest_assets', JSON.stringify(result.assets));
         }
 
-        // SYNC ARCHIVES
         if (result.archives) {
           setArchives(result.archives);
           localStorage.setItem('nur_quest_archives', JSON.stringify(result.archives));
@@ -147,14 +138,13 @@ const App: React.FC = () => {
         const msg = result.errorMessage || "Unknown Connection Error";
         setSyncErrorMsg(msg);
         
-        if (msg.toLowerCase().includes("relation") || msg.toLowerCase().includes("policy")) {
+        // HANYA tampilkan modal jika error benar-benar soal tabel hilang
+        if (msg.toLowerCase().includes("does not exist") || msg.toLowerCase().includes("42p01")) {
            setShowRepairModal(true);
         }
         
         if (msg !== "Offline Mode") {
            addLog(`Sync Failed: ${msg}`);
-        } else if (isOnline) {
-           addLog("Switched to Offline Mode.");
         }
       }
     } catch (e: any) {
@@ -251,14 +241,9 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // FIX: Ensure last data is pushed to sync before logout
     if (currentUser) {
        addLog("Logging out... Saving data.");
-       // Attempt one final sync logic locally before clearing state
-       const trackers = JSON.parse(localStorage.getItem('nur_quest_trackers') || '{}');
-       // Update local store explicitly
        localStorage.setItem(`ibadah_tracker_${currentUser.username}`, JSON.stringify(data));
-       // Trigger sync (non-blocking, hope it catches or queue it)
        await api.sync(currentUser, data, groups);
     }
     
@@ -303,24 +288,21 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
         <Loader2 className="w-10 h-10 animate-spin mb-4" />
-        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Update V7.4</h2>
-        <p className="text-xs text-white/50 mt-2">Fixing access permissions...</p>
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Rollback</h2>
+        <p className="text-xs text-white/50 mt-2">Restoring simple architecture...</p>
       </div>
     );
   }
 
   const errorLower = syncErrorMsg.toLowerCase();
-  const isTableError = errorLower.includes("relation") || errorLower.includes("does not exist") || errorLower.includes("42p01") || errorLower.includes("policy");
+  const isTableError = errorLower.includes("does not exist") || errorLower.includes("42p01");
 
   return (
     <>
       {/* STATUS BAR */}
       <div 
         onClick={() => {
-           console.log("Status Bar Clicked. Online:", isOnline, "Error:", syncErrorMsg);
            if (!isOnline) {
-             setShowRepairModal(true);
-           } else {
              performSync();
            }
         }}
@@ -334,13 +316,13 @@ const App: React.FC = () => {
             {isOnline ? 'SYSTEM ONLINE' : (isTableError ? 'DATABASE ERROR' : 'OFFLINE MODE')}
           </span>
           <span className="text-[8px] text-white/50 uppercase font-bold flex items-center gap-1 truncate w-full">
-             {isSyncing ? 'SYNCING...' : (isOnline ? 'LIVE CONNECTION' : (isTableError ? 'CLICK TO FIX' : 'CLICK TO RETRY'))}
+             {isSyncing ? 'SYNCING...' : (isOnline ? 'LIVE' : (isTableError ? 'SETUP REQUIRED' : 'RETRYING'))}
              {isSyncing && <RefreshCw className="w-2 h-2 animate-spin" />}
           </span>
         </div>
       </div>
       
-      {/* SELF REPAIR MODAL */}
+      {/* SETUP MODAL (Hanya muncul jika tabel app_sync hilang sama sekali) */}
       {showRepairModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
            <div className={`w-full max-w-lg ${themeStyles.card} rounded-3xl p-6 ${themeStyles.glow} relative border-2 border-red-500/30`}>
@@ -351,22 +333,16 @@ const App: React.FC = () => {
                    <Database className="w-8 h-8 text-red-500" />
                  </div>
                  <div>
-                   <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase text-red-500`}>Update Database</h3>
-                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Permission Fix Required</p>
+                   <h3 className={`text-xl ${themeStyles.fontDisplay} font-bold uppercase text-red-500`}>Setup Database</h3>
+                   <p className="text-[10px] text-white/50 uppercase tracking-widest">Table Missing</p>
                  </div>
               </div>
 
               <div className="space-y-4">
                 <div className="bg-red-950/30 p-4 rounded-xl border border-red-500/20">
                   <p className="text-xs text-red-200 leading-relaxed font-bold">
-                     Database menolak perubahan data (Grant Access).
+                     Table `app_sync` tidak ditemukan. Jalankan script ini di Supabase SQL Editor:
                   </p>
-                  <ol className="text-[10px] text-red-300/70 mt-2 list-decimal ml-4 space-y-1">
-                     <li>Klik tombol biru <strong>"Open SQL Editor"</strong>.</li>
-                     <li><strong>HAPUS SEMUA</strong> kode lama di layar SQL Editor.</li>
-                     <li><strong>PASTE</strong> kode baru dari kotak di bawah ini.</li>
-                     <li>Klik tombol hijau <strong>RUN</strong>.</li>
-                  </ol>
                 </div>
 
                 <div className="relative group">
@@ -374,11 +350,11 @@ const App: React.FC = () => {
                       <button 
                         onClick={() => {
                           navigator.clipboard.writeText(SQL_REPAIR_SCRIPT);
-                          alert("SQL Script Copied! Paste di SQL Editor.");
+                          alert("Code Copied!");
                         }}
                         className="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-lg text-xs flex items-center gap-1 text-white font-bold shadow-lg"
                       >
-                        <Copy className="w-3 h-3" /> Copy Code
+                        <Copy className="w-3 h-3" /> Copy
                       </button>
                    </div>
                    <pre className="bg-black border border-white/20 p-4 pt-10 rounded-xl text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-[200px] shadow-inner">
@@ -387,27 +363,14 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2">
-                   <div className="flex gap-2">
-                     <a 
-                       href={SUPABASE_SQL_URL}
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all text-center"
-                     >
-                       <ExternalLink className="w-4 h-4" /> 1. Open SQL Editor
-                     </a>
-                     <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(SUPABASE_SQL_URL);
-                          alert("Link Copied! Please open it in your browser:\n" + SUPABASE_SQL_URL);
-                        }}
-                        className="w-14 bg-white/10 hover:bg-white/20 text-white rounded-xl flex items-center justify-center"
-                        title="Copy Link if button doesn't work"
-                     >
-                       <LinkIcon className="w-5 h-5" />
-                     </button>
-                   </div>
-                   
+                   <a 
+                     href={SUPABASE_SQL_URL}
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all text-center"
+                   >
+                     <ExternalLink className="w-4 h-4" /> Open SQL Editor
+                   </a>
                    <button 
                      onClick={() => {
                         setShowRepairModal(false);
@@ -416,21 +379,11 @@ const App: React.FC = () => {
                      }}
                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
                    >
-                     <Play className="w-4 h-4" /> 2. Saya Sudah Run Script (Retry)
+                     <Play className="w-4 h-4" /> I Have Run The Script
                    </button>
                 </div>
               </div>
            </div>
-        </div>
-      )}
-      
-      {!isOnline && isTableError && !showRepairModal && (
-        <div 
-          onClick={() => setShowRepairModal(true)}
-          className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-widest text-center py-3 z-[99999] animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-red-500 flex items-center justify-center gap-2 shadow-xl"
-        >
-          <AlertTriangle className="w-4 h-4 animate-bounce" />
-          <span>Database Permission Error: Click here to fix</span>
         </div>
       )}
 

@@ -46,11 +46,6 @@ interface LeaderboardData {
   trackerData?: WeeklyData;
 }
 
-// RELATIVE URL: Kosongkan string ini.
-// Karena Frontend & API di-hosting di domain yang sama oleh Cloudflare Worker,
-// fetch('/api/...') otomatis akan menembak domain sendiri.
-const WORKER_URL = ""; 
-
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
   currentUser, setView, handleLogout, themeStyles, currentTheme, toggleTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, archives = [], refreshArchives, attendance = {}
 }) => {
@@ -126,7 +121,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000); 
+    const interval = setInterval(loadData, 5000); 
     return () => clearInterval(interval);
   }, [currentUser]); 
   
@@ -151,70 +146,76 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
      }
   };
 
-  // --- NEW WORKER-BASED APPROVAL ---
+  // --- SIMPLE DIRECT DATABASE APPROVAL ---
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
+    if (isProcessing) return;
     setIsProcessing(true);
     
     try {
-      // 1. Optimistic Update (UI Langsung Berubah)
-      const targetUser = pendingUsers.find(u => u.username === username);
-      if (targetUser) {
-        setPendingUsers(prev => prev.filter(u => u.username !== username));
-        
-        const updatedUser = { ...targetUser, status: action === 'approve' ? 'active' : 'rejected' };
-        
-        // Update Local Storage agar sync berikutnya tidak menimpa balik
-        const usersStr = localStorage.getItem('nur_quest_users');
-        let allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-        const newUsersList = allUsers.map(u => u.username === username ? updatedUser : u);
-        localStorage.setItem('nur_quest_users', JSON.stringify(newUsersList));
-        
-        if (action === 'approve') {
-           loadData(); // Refresh active list
-        }
-      }
-
-      // 2. Call Worker Endpoint
-      // Menggunakan relative path
-      const response = await fetch(`${WORKER_URL}/api/approve-user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username,
-          action: action,
-          adminPassword: ADMIN_CREDENTIALS.password
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Worker Failed");
-      }
-
-      console.log("Worker Approval Success:", result);
+      // 1. Ambil database terbaru dari Cloud
+      // Kita pakai fungsi yang sudah ada di ApiService
+      const db = await api.fetchDatabase();
       
-      // 3. Trigger background sync to refresh full data
-      performSync(); 
+      // 2. Cari User
+      const userIndex = db.users.findIndex((u: any) => u.username === username);
+      
+      if (userIndex === -1) {
+        alert("User tidak ditemukan di database cloud (mungkin sudah dihapus).");
+        return;
+      }
+
+      // 3. Update Status User secara Lokal (memory)
+      const newStatus = action === 'approve' ? 'active' : 'rejected';
+      db.users[userIndex].status = newStatus;
+      
+      console.log(`Updating ${username} to ${newStatus}`);
+
+      // 4. Push balik seluruh database ke Cloud (Overwrite)
+      const success = await api.updateDatabase(db);
+      
+      if (!success) {
+         throw new Error("Gagal menyimpan ke database. Cek koneksi.");
+      }
+
+      // 5. Update UI Lokal agar Admin langsung lihat hasilnya
+      // Update LocalStorage agar sinkron
+      localStorage.setItem('nur_quest_users', JSON.stringify(db.users));
+      
+      // Refresh state React
+      setPendingUsers(prev => prev.filter(u => u.username !== username));
+      loadData(); // Refresh list active user
+      
+      // Trigger sync global untuk memastikan
+      await performSync();
 
     } catch (e: any) {
-      alert(`Approval Error: ${e.message}`);
-      // Revert UI if needed (not implement complex revert for now)
-      loadData(); // Reload from storage
+      alert(`Error: ${e.message}`);
+      console.error(e);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // ... (Other functions: handleKickUser, handleDetailedExport, etc. remain unchanged)
-  
   const handleDetailedExport = () => {
      const wb = XLSX.utils.book_new();
-     alert("Export logic ready.");
+     // Prepare data
+     const data = menteesData.map(m => ({
+        Nama: m.fullName,
+        Username: m.username,
+        Kelompok: m.group,
+        Poin_Mingguan: m.points,
+        Poin_Bulanan: m.monthlyPoints,
+        Rank: m.rankName,
+        Hari_Aktif: m.activeDays,
+        Role: m.role
+     }));
+     const ws = XLSX.utils.json_to_sheet(data);
+     XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+     XLSX.writeFile(wb, "Laporan_Mentoring.xlsx");
   };
 
   const handleKickUser = async (targetUsername: string, targetName: string) => {
-    if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?`)) return;
+    if (!confirm(`PERINGATAN: Hapus permanen ${targetName}? Data ibadah mereka akan hilang.`)) return;
     try {
       const success = await api.deleteUser(targetUsername);
       if (success) {
@@ -232,11 +233,57 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const handleDeleteGroup = async (groupName: string) => {
-    if (confirm(`Disband '${groupName}'?`)) await updateGroups(groups.filter(g => g !== groupName));
+    if (confirm(`Hapus kelompok '${groupName}'?`)) await updateGroups(groups.filter(g => g !== groupName));
   };
   
-  const handleUploadPreset = async (e: React.ChangeEvent<HTMLInputElement>) => { /* ... existing logic ... */ };
-  const handleDeletePreset = async (key: string) => { /* ... existing logic ... */ };
+  const handleUploadPreset = async (e: React.ChangeEvent<HTMLInputElement>) => { 
+     const file = e.target.files?.[0];
+     if (file) {
+       setIsUploadingPreset(true);
+       const reader = new FileReader();
+       reader.onloadend = async () => {
+          const base64 = reader.result as string;
+          // Compress simple
+          const img = new Image();
+          img.src = base64;
+          img.onload = async () => {
+             const canvas = document.createElement('canvas');
+             const MAX_SIZE = 400;
+             let w = img.width; let h = img.height;
+             if (w > h) { if (w > MAX_SIZE) { h *= MAX_SIZE/w; w=MAX_SIZE; } }
+             else { if (h > MAX_SIZE) { w *= MAX_SIZE/h; h=MAX_SIZE; } }
+             canvas.width = w; canvas.height = h;
+             const ctx = canvas.getContext('2d');
+             ctx?.drawImage(img, 0, 0, w, h);
+             const compressed = canvas.toDataURL('image/jpeg', 0.8);
+             
+             // ID Acak
+             const id = `preset_${Date.now()}`;
+             const success = await api.uploadGlobalAsset(id, compressed);
+             if (success) {
+               if(refreshAssets && globalAssets) refreshAssets({...globalAssets, [id]: compressed});
+               alert("Preset uploaded!");
+             } else {
+               alert("Upload failed");
+             }
+             setIsUploadingPreset(false);
+          }
+       }
+       reader.readAsDataURL(file);
+     }
+     if (presetInputRef.current) presetInputRef.current.value = '';
+  };
+
+  const handleDeletePreset = async (key: string) => {
+     if(confirm("Delete this avatar preset?")) {
+        await api.deleteGlobalAsset(key);
+        if(globalAssets) {
+           const newAssets = {...globalAssets};
+           delete newAssets[key];
+           if(refreshAssets) refreshAssets(newAssets);
+        }
+     }
+  };
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
   const presets = globalAssets ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) : [];
@@ -265,7 +312,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
               <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Backend Admin
             </h2>
-            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Mode: Hybrid Worker • {currentUser?.group || 'Global'}</p>
+            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Mode: Direct Database • {currentUser?.group || 'Global'}</p>
           </div>
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
@@ -350,7 +397,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </div>
         )}
 
-        {/* --- REQUESTS TAB (UPDATED WITH WORKER LOGIC) --- */}
+        {/* --- REQUESTS TAB (DIRECT DB) --- */}
         {activeTab === 'requests' && (
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-reveal">
             {pendingUsers.length === 0 ? <div className="col-span-full py-20 text-center text-xs uppercase tracking-widest opacity-30">No Authentication Requests</div> : pendingUsers.map((u, i) => (
@@ -384,10 +431,9 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </section>
         )}
 
-        {/* ... Other Tabs (Attendance, Avatars, Groups, Network) ... */}
+        {/* ... Other Tabs ... */}
         {activeTab === 'attendance' && (
            <section className="space-y-6 animate-reveal">
-              {/* ... (Existing Attendance UI) ... */}
               <div className={`${themeStyles.card} rounded-2xl p-6`}>
                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
@@ -408,7 +454,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                        </button>
                     </div>
                  </div>
-                 {/* ... Table ... */}
                  <div className="overflow-x-auto">
                     <table className="w-full text-left">
                        <thead>
@@ -464,7 +509,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {activeTab === 'avatars' && (
            <section className="space-y-6 animate-reveal">
-              {/* ... (Existing Avatars UI) ... */}
               <div className={`${themeStyles.card} rounded-2xl p-6`}>
                  <div className="flex justify-between items-center mb-6">
                     <div>
@@ -483,7 +527,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                     </button>
                     <input type="file" ref={presetInputRef} className="hidden" accept="image/*" onChange={handleUploadPreset} />
                  </div>
-                 {/* ... Grid ... */}
                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {presets.map((key, i) => (
                        <div key={key} className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/30">
@@ -506,7 +549,6 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
         {activeTab === 'groups' && (
           <section className="space-y-6 animate-reveal">
-             {/* ... (Existing Groups UI) ... */}
              <div className={`${themeStyles.card} rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-center`}>
                 <div className="flex-1 w-full">
                   <h3 className="text-sm font-bold uppercase tracking-widest mb-1">Establish New Faction</h3>

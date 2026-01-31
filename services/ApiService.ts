@@ -307,6 +307,7 @@ class ApiService {
     let syncError = "";
 
     try {
+      // 1. FETCH FROM CLOUD FIRST
       const { data, error } = await supabase
         .from('app_sync')
         .select('json_data')
@@ -315,6 +316,7 @@ class ApiService {
 
       if (error) {
         if (error.code === 'PGRST116') {
+           // Row not found - Cloud is empty
            db = { users: [], trackers: {}, groups: [], assets: {}, archives: [], attendance: {} };
            isOnline = true;
         } else {
@@ -325,6 +327,7 @@ class ApiService {
         isOnline = true;
       }
 
+      // Initialize defaults
       if (!db.users) db.users = [];
       if (!db.trackers) db.trackers = {};
       if (!db.groups) db.groups = [];
@@ -339,11 +342,23 @@ class ApiService {
     }
 
     let hasChanges = false;
+    
+    // 2. MERGE LOGIC
+    // Jika Cloud Kosong (db.users.length === 0) tapi Local ada isinya (localUsers.length > 0)
+    // Maka FORCE PUSH local ke cloud.
+    const localStore = this.getLocalData();
+    if (isOnline && db.users.length === 0 && localStore.users.length > 0) {
+       console.log("Cloud is empty. Pushing local backup to cloud...");
+       db = localStore;
+       hasChanges = true;
+    }
 
     if (currentUser) {
       const userIndex = db.users.findIndex((u: any) => u.username === currentUser.username);
       if (userIndex !== -1) {
+        // Jika data user di local berbeda dengan cloud (misal ganti role/status), update cloud
         if (JSON.stringify(db.users[userIndex]) !== JSON.stringify(currentUser)) {
+           // Proteksi: Jangan overwrite status 'active' cloud dengan 'pending' local jika user login sebagai mentee
            if (currentUser.role === 'mentee') {
               const cloudStatus = db.users[userIndex].status;
               db.users[userIndex] = { ...currentUser, status: cloudStatus };
@@ -353,6 +368,7 @@ class ApiService {
            hasChanges = true;
         }
       } else {
+        // User baru di device ini, push ke cloud
         db.users.push(currentUser);
         hasChanges = true;
       }
@@ -361,7 +377,7 @@ class ApiService {
       const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
       const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
 
-      // Update if local data is newer OR if it's new data
+      // Update cloud jika data local lebih baru
       if (localTime > cloudTime || (localTime > 0 && !cloudTracker)) {
         db.trackers[currentUser.username] = localData;
         hasChanges = true;
@@ -375,12 +391,14 @@ class ApiService {
       this.saveLocalData(db.users, db.trackers, db.groups, db.assets, db.archives, db.attendance);
     }
 
+    // 3. DETERMINE IF WE NEED TO UPDATE LOCAL UI
     let updatedLocalData: WeeklyData | undefined = undefined;
     if (currentUser && db.trackers[currentUser.username]) {
       const cloudTracker = db.trackers[currentUser.username];
       const cloudTime = cloudTracker?.lastUpdated ? new Date(cloudTracker.lastUpdated).getTime() : 0;
       const localTime = localData.lastUpdated ? new Date(localData.lastUpdated).getTime() : 0;
 
+      // Jika data cloud lebih baru, kirim balik untuk update UI
       if (isOnline && cloudTime > localTime) {
         updatedLocalData = cloudTracker;
       }
