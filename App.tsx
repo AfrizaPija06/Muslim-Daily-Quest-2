@@ -39,11 +39,11 @@ const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
-    const APP_VERSION = 'v7.5_simple_rollback'; 
+    const APP_VERSION = 'v7.6_git_push_mode'; 
     const storedVersion = localStorage.getItem('nur_quest_version');
     
     if (storedVersion !== APP_VERSION) {
-      console.warn("System Rollback V7.5: Simplifying...");
+      console.warn("System Rollback V7.6: Git Push Mode Enabled.");
       localStorage.setItem('nur_quest_version', APP_VERSION);
       setIsResetting(true);
       setTimeout(() => setIsResetting(false), 1500);
@@ -289,7 +289,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
         <Loader2 className="w-10 h-10 animate-spin mb-4" />
         <h2 className="text-xl font-bold font-mono uppercase tracking-widest">System Rollback</h2>
-        <p className="text-xs text-white/50 mt-2">Restoring simple architecture...</p>
+        <p className="text-xs text-white/50 mt-2">Restoring simple Git Push mode...</p>
       </div>
     );
   }

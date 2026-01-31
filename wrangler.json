@@ -1,15 +1,7 @@
 
 {
-  "name": "muslim-daily-quest",
+  "name": "muslim-daily-quest-static",
   "main": "worker.js",
   "compatibility_date": "2024-09-23",
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS"
-  },
-  "vars": {
-    "SUPABASE_URL": "https://fymoxcdhskimzxpljjgi.supabase.co",
-    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5bW94Y2Roc2tpbXp4cGxqamdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjE5ODUsImV4cCI6MjA4NDczNzk4NX0.xToFicuRXwSH21iE0KM_UomxNFGx_2sPqgc55lHuwos",
-    "ADMIN_PASSWORD": "istiqamah2026"
-  }
+  "comment": "File ini tidak aktif karena deployment menggunakan Cloudflare Pages via GitHub"
 }

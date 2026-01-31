@@ -146,14 +146,13 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
      }
   };
 
-  // --- SIMPLE DIRECT DATABASE APPROVAL ---
+  // --- SIMPLE DIRECT DATABASE APPROVAL (ROLLBACK) ---
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
     if (isProcessing) return;
     setIsProcessing(true);
     
     try {
       // 1. Ambil database terbaru dari Cloud
-      // Kita pakai fungsi yang sudah ada di ApiService
       const db = await api.fetchDatabase();
       
       // 2. Cari User
@@ -177,15 +176,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
          throw new Error("Gagal menyimpan ke database. Cek koneksi.");
       }
 
-      // 5. Update UI Lokal agar Admin langsung lihat hasilnya
-      // Update LocalStorage agar sinkron
+      // 5. Update UI Lokal
       localStorage.setItem('nur_quest_users', JSON.stringify(db.users));
-      
-      // Refresh state React
       setPendingUsers(prev => prev.filter(u => u.username !== username));
-      loadData(); // Refresh list active user
-      
-      // Trigger sync global untuk memastikan
+      loadData(); 
       await performSync();
 
     } catch (e: any) {
@@ -312,7 +306,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
               <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Backend Admin
             </h2>
-            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Mode: Direct Database • {currentUser?.group || 'Global'}</p>
+            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Mode: Git Push (Auto) • {currentUser?.group || 'Global'}</p>
           </div>
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
