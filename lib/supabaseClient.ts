@@ -1,10 +1,15 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // --- CONFIGURATION ---
 // Configuration for 'Muslim-Daily-Quest' Supabase Project
 
-const SUPABASE_URL = "https://fymoxcdhskimzxpljjgi.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5bW94Y2Roc2tpbXp4cGxqamdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjE5ODUsImV4cCI6MjA4NDczNzk4NX0.xToFicuRXwSH21iE0KM_UomxNFGx_2sPqgc55lHuwos";
+// Use Environment Variables if available (Vite standard)
+// Fallback to a valid URL structure to prevent "Failed to construct 'URL'" crash on startup
+const FALLBACK_URL = "https://placeholder.supabase.co";
+const FALLBACK_KEY = "placeholder";
+
+// Cast import.meta to any to avoid TS error: Property 'env' does not exist on type 'ImportMeta'.
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || FALLBACK_URL;
+const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

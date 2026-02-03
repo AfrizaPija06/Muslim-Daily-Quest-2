@@ -121,9 +121,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); 
-    return () => clearInterval(interval);
-  }, [currentUser]); 
+  }, [currentUser, globalAssets]); 
   
   useEffect(() => {
      if (attendance && attendance[attendanceDate]) {
@@ -146,42 +144,23 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
      }
   };
 
-  // --- SIMPLE DIRECT DATABASE APPROVAL (ROLLBACK) ---
+  // --- SQL DIRECT APPROVAL ---
   const handleApproval = async (username: string, action: 'approve' | 'reject') => {
     if (isProcessing) return;
     setIsProcessing(true);
     
     try {
-      // 1. Ambil database terbaru dari Cloud
-      const db = await api.fetchDatabase();
-      
-      // 2. Cari User
-      const userIndex = db.users.findIndex((u: any) => u.username === username);
-      
-      if (userIndex === -1) {
-        alert("User tidak ditemukan di database cloud (mungkin sudah dihapus).");
-        return;
-      }
-
-      // 3. Update Status User secara Lokal (memory)
       const newStatus = action === 'approve' ? 'active' : 'rejected';
-      db.users[userIndex].status = newStatus;
+      const success = await api.updateUserStatus(username, newStatus);
       
-      console.log(`Updating ${username} to ${newStatus}`);
-
-      // 4. Push balik seluruh database ke Cloud (Overwrite)
-      const success = await api.updateDatabase(db);
-      
-      if (!success) {
-         throw new Error("Gagal menyimpan ke database. Cek koneksi.");
+      if (success) {
+         // Optimistic Update
+         setPendingUsers(prev => prev.filter(u => u.username !== username));
+         // Sync to refresh full list from SQL
+         await performSync();
+      } else {
+         alert("Gagal update status. Cek koneksi.");
       }
-
-      // 5. Update UI Lokal
-      localStorage.setItem('nur_quest_users', JSON.stringify(db.users));
-      setPendingUsers(prev => prev.filter(u => u.username !== username));
-      loadData(); 
-      await performSync();
-
     } catch (e: any) {
       alert(`Error: ${e.message}`);
       console.error(e);
@@ -214,6 +193,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       const success = await api.deleteUser(targetUsername);
       if (success) {
         localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
+        // Force sync to update list from Server
+        await performSync();
         loadData();
       } else throw new Error("Gagal menghapus.");
     } catch (e: any) { alert(e.message); }
@@ -234,43 +215,26 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
      const file = e.target.files?.[0];
      if (file) {
        setIsUploadingPreset(true);
-       const reader = new FileReader();
-       reader.onloadend = async () => {
-          const base64 = reader.result as string;
-          // Compress simple
-          const img = new Image();
-          img.src = base64;
-          img.onload = async () => {
-             const canvas = document.createElement('canvas');
-             const MAX_SIZE = 400;
-             let w = img.width; let h = img.height;
-             if (w > h) { if (w > MAX_SIZE) { h *= MAX_SIZE/w; w=MAX_SIZE; } }
-             else { if (h > MAX_SIZE) { w *= MAX_SIZE/h; h=MAX_SIZE; } }
-             canvas.width = w; canvas.height = h;
-             const ctx = canvas.getContext('2d');
-             ctx?.drawImage(img, 0, 0, w, h);
-             const compressed = canvas.toDataURL('image/jpeg', 0.8);
-             
-             // ID Acak
-             const id = `preset_${Date.now()}`;
-             const success = await api.uploadGlobalAsset(id, compressed);
-             if (success) {
-               if(refreshAssets && globalAssets) refreshAssets({...globalAssets, [id]: compressed});
-               alert("Preset uploaded!");
-             } else {
-               alert("Upload failed");
-             }
-             setIsUploadingPreset(false);
+       const publicUrl = await api.uploadAvatar(file, `preset_${Date.now()}`);
+       if (publicUrl) {
+          if(refreshAssets && globalAssets) {
+             // For simplicity, we just trigger sync/refresh. 
+             // Ideally we store presets in a separate table or just use raw URLs.
+             refreshAssets({...globalAssets, [`preset_${Date.now()}`]: publicUrl});
           }
+          alert("Preset uploaded!");
+       } else {
+          alert("Upload failed");
        }
-       reader.readAsDataURL(file);
+       setIsUploadingPreset(false);
+       if (presetInputRef.current) presetInputRef.current.value = '';
      }
-     if (presetInputRef.current) presetInputRef.current.value = '';
   };
 
   const handleDeletePreset = async (key: string) => {
+     // Deprecated in SQL mode for now, simple implementation
      if(confirm("Delete this avatar preset?")) {
-        await api.deleteGlobalAsset(key);
+        // Just remove from local view
         if(globalAssets) {
            const newAssets = {...globalAssets};
            delete newAssets[key];
@@ -297,6 +261,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         handleUpdateProfile={handleUpdateProfile} 
         globalAssets={globalAssets} 
         refreshAssets={refreshAssets}
+        // Kirim fungsi refresh manual ke Header agar user bisa tekan tombol sync
+        performSync={performSync}
       />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24 animate-reveal">
@@ -306,7 +272,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
               <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Backend Admin
             </h2>
-            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Mode: Git Push (Auto) • {currentUser?.group || 'Global'}</p>
+            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Mode: Eco (Manual Sync) • {currentUser?.group || 'Global'}</p>
           </div>
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">

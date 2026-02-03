@@ -1,131 +1,26 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, ShieldCheck, BookOpen, Sword, Calendar, ChevronRight, Trophy, Star, Medal, BarChart2, X, Activity } from 'lucide-react';
-import BackgroundOrnament from './BackgroundOrnament';
-import Header from './Header';
-import Footer from './Footer';
-import StatCard from './StatCard';
+import React from 'react';
+import { BookOpen, Calendar, ChevronRight } from 'lucide-react';
+import GameHUD from './GameHUD';
 import PrayerCell from './PrayerCell';
-import { PRAYER_KEYS, PrayerState, WeeklyData, DayData, POINTS, User, getRankInfo, GlobalAssets } from '../types';
-import { getAvatarSrc } from '../constants';
+import { PRAYER_KEYS, PrayerState, WeeklyData, POINTS, User } from '../types';
 
 interface TrackerPageProps {
-  currentUser: any;
-  setView: (view: any) => void;
-  handleLogout: () => void;
+  currentUser: User;
   data: WeeklyData;
   setData: React.Dispatch<React.SetStateAction<WeeklyData>>;
   themeStyles: any;
-  currentTheme: any;
-  toggleTheme: () => void;
+  currentTheme: string;
   totalPoints: number;
-  handleUpdateProfile?: (user: User) => void;
-  globalAssets?: GlobalAssets;
-  refreshAssets?: (assets: GlobalAssets) => void;
 }
-
-interface MiniLeaderboardData {
-  username: string;
-  fullName: string;
-  group: string;
-  points: number;
-  monthlyPoints: number;
-  rankName: string;
-  rankColor: string;
-  rankIcon?: string; // New field
-  role: string;
-  avatarSeed?: string;
-}
-
-// Extracted Component to prevent re-mounting on parent updates
-const MiniLeaderboardTable = ({ 
-  title, 
-  data, 
-  icon, 
-  type, 
-  currentUser, 
-  themeStyles, 
-  currentTheme, 
-  globalAssets 
-}: { 
-  title: string, 
-  data: MiniLeaderboardData[], 
-  icon: React.ReactNode, 
-  type: 'weekly' | 'monthly',
-  currentUser: any,
-  themeStyles: any,
-  currentTheme: any,
-  globalAssets?: GlobalAssets
-}) => (
-  <div className={`${themeStyles.card} rounded-xl overflow-hidden flex flex-col h-full`}>
-    <div className={`p-3 border-b ${themeStyles.border} flex items-center justify-between ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-white/5'}`}>
-      <h3 className={`${themeStyles.fontDisplay} text-sm font-bold tracking-wider flex items-center gap-2 uppercase ${themeStyles.textPrimary}`}>
-        {icon} {title}
-      </h3>
-    </div>
-    <div className="overflow-y-auto max-h-[500px]">
-      <table className="w-full text-left">
-        <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : (currentTheme === 'light' ? 'divide-slate-100' : 'divide-slate-800')}`}>
-          {data.map((user, idx) => {
-            const isMe = user.username === currentUser.username;
-            return (
-              <tr 
-                key={user.username} 
-                className={`${isMe ? (currentTheme === 'legends' ? 'bg-[#d4af37]/20' : (currentTheme === 'light' ? 'bg-emerald-50' : 'bg-emerald-500/20')) : ''} hover:bg-white/5 transition-colors`}
-              >
-                <td className="px-3 py-3 w-8 align-middle">
-                  <span className={`text-xs font-bold ${idx < 3 ? themeStyles.textGold : themeStyles.textSecondary}`}>#{idx + 1}</span>
-                </td>
-                <td className="px-1 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0 bg-black/50">
-                      <img src={getAvatarSrc(user.avatarSeed || user.username, globalAssets)} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex flex-col">
-                      <div className={`text-xs font-bold ${isMe ? themeStyles.textAccent : themeStyles.textPrimary} truncate max-w-[100px] flex items-center gap-1`}>
-                        {user.fullName.split(' ')[0]}
-                        {user.role === 'mentor' && <span className="text-[6px] bg-yellow-500 text-black px-1 rounded uppercase">M</span>}
-                      </div>
-                      {/* RANK BADGE */}
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {user.rankIcon ? (
-                          <img src={user.rankIcon} className="w-4 h-4 object-contain" alt="rank" />
-                        ) : (
-                          <div className={`w-1.5 h-1.5 rounded-full ${user.rankColor.replace('text-', 'bg-').replace('400', '500')}`} />
-                        )}
-                        <span className={`text-[8px] font-black uppercase tracking-wider ${user.rankColor}`}>{user.rankName}</span>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td className={`px-3 py-3 text-right text-xs font-bold align-middle ${themeStyles.fontDisplay} ${themeStyles.textPrimary}`}>
-                  {type === 'weekly' ? user.points : user.monthlyPoints}
-                </td>
-              </tr>
-            );
-          })}
-          {data.length === 0 && (
-             <tr><td colSpan={3} className="p-4 text-center text-xs opacity-50">Belum ada data</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
-  currentUser, setView, handleLogout, data, setData, 
-  themeStyles, currentTheme, toggleTheme, totalPoints, handleUpdateProfile, globalAssets, refreshAssets
+  currentUser, data, setData, themeStyles, currentTheme, totalPoints 
 }) => {
-  const [leaderboard, setLeaderboard] = useState<MiniLeaderboardData[]>([]);
-  const [showAnalytics, setShowAnalytics] = useState(false);
+  const isLegends = currentTheme === 'legends';
 
-  // Constants
-  const WEEKLY_TARGET = 1050;
-
-  // Calculate day points
-  const calculateDayPoints = (day: DayData) => {
-    const prayerPoints = Object.values(day.prayers).reduce((acc, val) => {
+  const calculateDayPoints = (day: any) => {
+    const prayerPoints = Object.values(day.prayers as Record<string, number>).reduce((acc: number, val: number) => {
       if (val === 1) return acc + POINTS.HOME;
       if (val === 2) return acc + POINTS.MOSQUE;
       return acc;
@@ -133,384 +28,118 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     return prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
   };
 
-  // Date Statistics Calculation
-  const { dateDisplay, seasonTitle } = useMemo(() => {
-    const now = new Date();
-    const currentDay = now.getDate();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const monthName = now.toLocaleString('en-US', { month: 'long' }).toUpperCase();
-    const currentWeek = Math.ceil(currentDay / 7);
-
-    return {
-      dateDisplay: {
-        label: `${monthName} PROGRESS`,
-        value: `${currentDay}/${daysInMonth}`
-      },
-      seasonTitle: `PEKAN ${currentWeek}/4: ISTIQAMAH` 
-    };
-  }, []);
-
-  // Fetch Leaderboard Data
-  useEffect(() => {
-    const loadLeaderboard = () => {
-      const usersStr = localStorage.getItem('nur_quest_users');
-      const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-      
-      const processed = allUsers
-        .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
-        .map(u => {
-          const isMe = u.username === currentUser.username;
-          const displayUser = isMe ? currentUser : u;
-
-          let trackerData: WeeklyData | null = null;
-          
-          if (isMe) {
-            trackerData = data;
-          } else {
-            const str = localStorage.getItem(`ibadah_tracker_${u.username}`);
-            trackerData = str ? JSON.parse(str) : null;
-          }
-          
-          let pts = 0;
-          if (trackerData) {
-            trackerData.days.forEach(day => {
-              const prayerPoints = Object.values(day.prayers).reduce((acc: number, val: number) => {
-                if (val === 1) return acc + POINTS.HOME;
-                if (val === 2) return acc + POINTS.MOSQUE;
-                return acc;
-              }, 0);
-              pts += prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
-            });
-          }
-
-          const monthlyPts = pts * 1; // Assuming weekly points * 4 for monthly rank if no historical data is processed here yet
-          const rankInfo = getRankInfo(monthlyPts);
-
-          return {
-            username: displayUser.username,
-            fullName: displayUser.fullName,
-            group: displayUser.group,
-            points: pts,
-            monthlyPoints: monthlyPts,
-            rankName: rankInfo.name,
-            rankColor: rankInfo.color,
-            rankIcon: rankInfo.iconUrl,
-            role: displayUser.role,
-            avatarSeed: displayUser.avatarSeed
-          };
-        });
-      
-      setLeaderboard(processed);
-    };
-
-    loadLeaderboard();
-  }, [data, currentUser]);
-
-  const sortedWeekly = useMemo(() => [...leaderboard].sort((a, b) => b.points - a.points).slice(0, 10), [leaderboard]);
-  const sortedMonthly = useMemo(() => [...leaderboard].sort((a, b) => b.monthlyPoints - a.monthlyPoints).slice(0, 10), [leaderboard]);
+  const currentDayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // Mon=0, Sun=6
 
   return (
-    <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative overflow-x-hidden transition-colors duration-500`}>
-      <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
-      <Header 
-        currentUser={currentUser} 
-        setView={setView} 
-        totalPoints={totalPoints} 
-        handleLogout={handleLogout} 
-        activeView="tracker" 
-        themeStyles={themeStyles} 
-        currentTheme={currentTheme} 
-        toggleTheme={toggleTheme} 
-        handleUpdateProfile={handleUpdateProfile} 
-        globalAssets={globalAssets} 
-        refreshAssets={refreshAssets}
-      />
+    <div className="w-full pb-32">
+      {/* HEADER SECTION IN SCROLL AREA */}
+      <div className="mb-6 mt-2">
+         <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold uppercase tracking-wider ${themeStyles.textPrimary} mb-1 drop-shadow-lg`}>
+           Weekly Quest
+         </h2>
+         <p className={`${themeStyles.textSecondary} text-xs font-mono uppercase tracking-widest`}>
+           Season 4 • Week {Math.ceil(new Date().getDate() / 7)}
+         </p>
+      </div>
 
-      <main className="flex-grow p-4 md:p-6 max-w-[1600px] mx-auto w-full space-y-6 pb-24 animate-reveal">
-        
-        {/* Stat Cards (Top) */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl mx-auto">
-           <StatCard label={dateDisplay.label} value={dateDisplay.value} icon={<Calendar className={`w-8 h-8 ${themeStyles.textAccent}`} />} themeStyles={themeStyles} />
-           <StatCard label="Prayer EXP" value={`${data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0)} Pts`} icon={<ShieldCheck className={`w-8 h-8 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
-           <StatCard label="Tilawah Stat" value={`${data.days.reduce((acc, d) => acc + d.tilawah, 0)} Lines`} icon={<BookOpen className={`w-8 h-8 ${currentTheme === 'legends' ? 'text-blue-300' : 'text-blue-500'}`} />} themeStyles={themeStyles} />
-        </section>
-
-        {/* Analytics Toggle Button */}
-        <div className="flex justify-center">
-          <button 
-             onClick={() => setShowAnalytics(true)}
-             className={`px-6 py-2 rounded-full border ${themeStyles.border} ${themeStyles.inputBg} flex items-center gap-2 hover:bg-white/5 transition-all uppercase text-xs font-bold tracking-widest`}
-          >
-             <BarChart2 className="w-4 h-4" /> View Battle Analysis
-          </button>
-        </div>
-
-        {/* 3 Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* DAYS LIST (STAGES) */}
+      <div className="space-y-4">
+        {data.days.map((day, idx) => {
+          const dayPoints = calculateDayPoints(day);
+          const isToday = idx === currentDayIndex;
+          const isPast = idx < currentDayIndex;
           
-          {/* LEFT: Weekly Leaderboard */}
-          <div className="hidden lg:block lg:col-span-3 sticky top-24" style={{ animationDelay: '0.1s' }}>
-             <MiniLeaderboardTable 
-                title="Weekly Top" 
-                data={sortedWeekly} 
-                type="weekly"
-                icon={<Trophy className={`w-4 h-4 ${themeStyles.textGold}`} />} 
-                currentUser={currentUser}
-                themeStyles={themeStyles}
-                currentTheme={currentTheme}
-                globalAssets={globalAssets}
-             />
-          </div>
+          // Card Styles
+          const cardBase = `${themeStyles.card} rounded-2xl p-4 relative overflow-hidden transition-all duration-300`;
+          const activeBorder = isToday 
+            ? (isLegends ? 'border-[#d4af37] ring-1 ring-[#d4af37]/50' : 'border-emerald-500 ring-1 ring-emerald-500/50') 
+            : 'border-transparent';
+          const bgOpacity = isToday ? 'bg-opacity-100' : (isPast ? 'opacity-80' : 'opacity-60 grayscale-[0.5]');
 
-          {/* CENTER: Quest Board (Tracker) */}
-          <div className="col-span-1 lg:col-span-6 space-y-6">
-            <section className={`${themeStyles.card} rounded-xl overflow-hidden animate-reveal`}>
-              <div className={`p-4 border-b ${themeStyles.border} flex justify-between items-center ${currentTheme === 'light' ? 'bg-slate-50' : 'bg-gradient-to-r from-transparent via-white/5 to-transparent'}`}>
-                <h2 className={`${themeStyles.fontDisplay} ${themeStyles.textPrimary} text-xl font-bold tracking-wider flex items-center gap-2 uppercase`}>
-                  {currentTheme === 'legends' ? <Sword className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
-                  {currentTheme === 'legends' ? 'Battle Log' : 'Weekly Quest Board'}
-                </h2>
-                <div className={`text-[10px] ${themeStyles.textSecondary} px-2 py-1 rounded border ${themeStyles.border} uppercase tracking-widest`}>
-                  EDIT ANYTIME
+          return (
+            <div key={day.id} className={`${cardBase} ${activeBorder} ${bgOpacity}`}>
+              {/* Day Header */}
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-black text-sm uppercase shadow-inner ${isToday ? (isLegends ? 'bg-[#d4af37] text-black' : 'bg-emerald-500 text-white') : `${themeStyles.inputBg} ${themeStyles.textSecondary}`}`}>
+                      {day.dayName.substring(0, 3)}
+                   </div>
+                   <div className="flex flex-col">
+                      <span className={`text-xs font-bold uppercase tracking-widest ${isToday ? themeStyles.textAccent : themeStyles.textPrimary}`}>
+                        Stage {idx + 1}
+                      </span>
+                      <span className="text-[10px] opacity-50 font-mono">
+                        {isToday ? 'ACTIVE MISSION' : (isPast ? 'COMPLETED' : 'LOCKED')}
+                      </span>
+                   </div>
                 </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className={`text-[10px] uppercase tracking-widest font-bold ${themeStyles.textSecondary} border-b ${themeStyles.border}`}>
-                      <th className="px-6 py-4">Day</th>
-                      {PRAYER_KEYS.map(k => <th key={k} className="px-2 py-4 text-center">{k.substring(0,3)}</th>)}
-                      <th className="px-4 py-4 text-center">Tilawah</th>
-                      <th className="px-4 py-4 text-right">EXP</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${currentTheme === 'legends' ? 'divide-[#590d0d]/30' : (currentTheme === 'light' ? 'divide-slate-100' : 'divide-slate-800')}`}>
-                    {data.days.map((day, idx) => {
-                      const dayPoints = calculateDayPoints(day);
-                      const isToday = new Date().getDay() === (day.id + 1) % 7; 
-                      
-                      return (
-                        <tr 
-                          key={day.id} 
-                          className={`group transition-colors duration-200 hover:bg-white/5`}
-                        >
-                          <td className={`px-6 py-4 font-bold text-sm ${themeStyles.textSecondary}`}>
-                            <div className="flex items-center gap-2">
-                              <span className={isToday ? themeStyles.textAccent : ''}>{day.dayName}</span>
-                              {isToday && <div className={`w-1.5 h-1.5 rounded-full ${currentTheme === 'legends' ? 'bg-[#d4af37]' : 'bg-emerald-50'}`} />}
-                            </div>
-                          </td>
-                          {PRAYER_KEYS.map(prayerKey => (
-                            <td key={prayerKey} className="px-1 py-4 text-center">
-                               <PrayerCell 
-                                  state={day.prayers[prayerKey]} 
-                                  isLocked={false} 
-                                  themeStyles={themeStyles}
-                                  currentTheme={currentTheme}
-                                  onClick={() => {
-                                    setData(prev => {
-                                      const newDays = [...prev.days];
-                                      const d = { ...newDays[day.id] };
-                                      d.prayers = { ...d.prayers, [prayerKey]: (d.prayers[prayerKey] + 1) % 3 as PrayerState };
-                                      newDays[day.id] = d;
-                                      return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
-                                    });
-                                  }}
-                                />
-                            </td>
-                          ))}
-                          <td className="px-2 py-4 text-center">
-                            <input
-                              type="number" 
-                              value={day.tilawah === 0 ? '' : day.tilawah}
-                              placeholder="0"
-                              onChange={(e) => {
-                                const val = Math.max(0, parseInt(e.target.value) || 0);
-                                setData(prev => {
-                                  const newDays = [...prev.days];
-                                  newDays[day.id] = { ...newDays[day.id], tilawah: val };
-                                  return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
-                                });
-                              }}
-                              className={`w-12 h-10 text-center rounded-lg ${themeStyles.fontDisplay} text-lg outline-none focus:ring-1 focus:ring-emerald-500 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} border`}
-                            />
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            <span className={`text-lg ${themeStyles.fontDisplay} font-bold ${dayPoints > 0 ? themeStyles.textAccent : themeStyles.textSecondary}`}>{dayPoints}</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="space-y-4 animate-reveal" style={{ animationDelay: '0.4s' }}>
-              <div className="flex justify-between items-end px-2">
-                <div>
-                  <h3 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${themeStyles.textSecondary}`}>
-                    <ChevronRight className={`w-4 h-4 ${themeStyles.textAccent}`} /> Weekly Progress
-                  </h3>
-                  <p className={`text-2xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-wider`}>
-                    {seasonTitle}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textGold}`}>{totalPoints}</span>
-                  <span className={`text-sm font-bold ml-1 ${themeStyles.textSecondary}`}>/ {WEEKLY_TARGET} EXP</span>
-                </div>
-              </div>
-              <div className={`relative h-6 w-full rounded-full border ${themeStyles.border} overflow-hidden ${themeStyles.inputBg} ${themeStyles.glow}`}>
-                <div className={`absolute top-0 left-0 h-full bg-gradient-to-r ${themeStyles.progressBar} transition-all duration-1000 ease-out`} style={{ width: `${Math.min(100, (totalPoints / WEEKLY_TARGET) * 100)}%` }} />
-              </div>
-            </section>
-          </div>
-
-          {/* RIGHT: Monthly Leaderboard */}
-          <div className="hidden lg:block lg:col-span-3 sticky top-24" style={{ animationDelay: '0.2s' }}>
-             <MiniLeaderboardTable 
-                title="Season Rank" 
-                data={sortedMonthly} 
-                type="monthly"
-                icon={<Medal className={`w-4 h-4 ${currentTheme === 'legends' ? 'text-red-400' : 'text-blue-400'}`} />} 
-                currentUser={currentUser}
-                themeStyles={themeStyles}
-                currentTheme={currentTheme}
-                globalAssets={globalAssets}
-             />
-          </div>
-          
-          {/* MOBILE ONLY: Leaderboards Stacked */}
-          <div className="col-span-1 lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-             <MiniLeaderboardTable 
-                title="Weekly Top" 
-                data={sortedWeekly} 
-                type="weekly"
-                icon={<Trophy className={`w-4 h-4 ${themeStyles.textGold}`} />} 
-                currentUser={currentUser}
-                themeStyles={themeStyles}
-                currentTheme={currentTheme}
-                globalAssets={globalAssets}
-             />
-             <MiniLeaderboardTable 
-                title="Season Rank" 
-                data={sortedMonthly} 
-                type="monthly"
-                icon={<Medal className={`w-4 h-4 ${currentTheme === 'legends' ? 'text-red-400' : 'text-blue-400'}`} />} 
-                currentUser={currentUser}
-                themeStyles={themeStyles}
-                currentTheme={currentTheme}
-                globalAssets={globalAssets}
-             />
-          </div>
-
-        </div>
-        
-        {/* ANALYTICS MODAL */}
-        {showAnalytics && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-             <div className={`w-full max-w-4xl ${themeStyles.card} rounded-3xl p-6 relative overflow-hidden flex flex-col max-h-[90vh] overflow-y-auto`}>
-                <button 
-                  onClick={() => setShowAnalytics(false)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
                 
-                <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold uppercase mb-6 flex items-center gap-3`}>
-                   <Activity className={themeStyles.textAccent} /> Battle Analysis
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   {/* PRAYER CONSISTENCY CHART */}
-                   <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                         <h3 className="text-sm font-bold uppercase tracking-widest opacity-70">Prayer Consistency</h3>
-                         <span className="text-xs bg-emerald-500/20 text-emerald-500 px-2 py-1 rounded">Weekly</span>
-                      </div>
-                      <div className={`h-64 ${themeStyles.inputBg} rounded-xl p-4 flex items-end justify-between gap-2 border ${themeStyles.border}`}>
-                         {data.days.map(day => {
-                            const count = Object.values(day.prayers).filter((p: any) => p > 0).length;
-                            const height = (count / 5) * 100;
-                            return (
-                               <div key={day.id} className="flex-1 flex flex-col items-center gap-2 group">
-                                  <div className="w-full relative h-full flex items-end">
-                                     <div 
-                                      style={{ height: `${height}%` }}
-                                      className={`w-full rounded-t-sm transition-all duration-1000 ${count === 5 ? 'bg-emerald-500' : (count >= 3 ? 'bg-yellow-500' : 'bg-red-500')} opacity-80 group-hover:opacity-100 relative`}
-                                     >
-                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                           {count}
-                                        </div>
-                                     </div>
-                                  </div>
-                                  <span className="text-[10px] uppercase font-bold opacity-50">{day.dayName.substring(0,3)}</span>
-                               </div>
-                            )
-                         })}
-                      </div>
-                   </div>
-
-                   {/* TILAWAH TREND CHART */}
-                   <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                         <h3 className="text-sm font-bold uppercase tracking-widest opacity-70">Tilawah Trend</h3>
-                         <span className="text-xs bg-blue-500/20 text-blue-500 px-2 py-1 rounded">Lines / Day</span>
-                      </div>
-                      <div className={`h-64 ${themeStyles.inputBg} rounded-xl p-4 flex items-end justify-between gap-2 border ${themeStyles.border}`}>
-                         {data.days.map(day => {
-                            const maxVal = Math.max(...data.days.map(d => d.tilawah), 10); // Dynamic Max
-                            const height = Math.min((day.tilawah / maxVal) * 100, 100);
-                            return (
-                               <div key={day.id} className="flex-1 flex flex-col items-center gap-2 group">
-                                  <div className="w-full relative h-full flex items-end">
-                                     <div 
-                                      style={{ height: `${height}%` }}
-                                      className={`w-full rounded-t-sm transition-all duration-1000 bg-blue-500 opacity-80 group-hover:opacity-100 relative`}
-                                     >
-                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                                           {day.tilawah}
-                                        </div>
-                                     </div>
-                                  </div>
-                                  <span className="text-[10px] uppercase font-bold opacity-50">{day.dayName.substring(0,3)}</span>
-                               </div>
-                            )
-                         })}
-                      </div>
-                   </div>
+                {/* Score Badge */}
+                <div className={`px-3 py-1 rounded-full border ${themeStyles.border} bg-black/30 backdrop-blur-sm`}>
+                   <span className={`text-sm font-black ${themeStyles.fontDisplay} ${dayPoints > 0 ? (isLegends ? 'text-[#ffdb78]' : 'text-emerald-400') : 'text-slate-500'}`}>
+                     {dayPoints} <span className="text-[8px]">XP</span>
+                   </span>
                 </div>
+              </div>
 
-                {/* MONTHLY PROJECTION */}
-                <div className={`mt-8 p-6 rounded-2xl border ${themeStyles.border} bg-white/5`}>
-                   <h3 className="text-sm font-bold uppercase tracking-widest mb-4">Season Projection (Monthly)</h3>
-                   <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                         <p className="text-[10px] opacity-50 uppercase">Est. Total EXP</p>
-                         <p className={`text-2xl font-bold ${themeStyles.fontDisplay} ${themeStyles.textGold}`}>{totalPoints * 4}</p>
-                      </div>
-                      <div>
-                         <p className="text-[10px] opacity-50 uppercase">Prayers Completed</p>
-                         <p className={`text-2xl font-bold ${themeStyles.fontDisplay} ${themeStyles.textAccent}`}>
-                           {data.days.reduce((acc, d) => acc + Object.values(d.prayers).filter((p: any) => p > 0).length, 0) * 4}
-                         </p>
-                      </div>
-                      <div>
-                         <p className="text-[10px] opacity-50 uppercase">Tilawah Lines</p>
-                         <p className={`text-2xl font-bold ${themeStyles.fontDisplay} text-blue-400`}>
-                           {data.days.reduce((acc, d) => acc + d.tilawah, 0) * 4}
-                         </p>
-                      </div>
-                   </div>
-                   <p className="text-[10px] text-center mt-4 opacity-30 italic">* Proyeksi berdasarkan performa pekan ini dikalikan 4.</p>
-                </div>
-             </div>
-          </div>
-        )}
+              {/* ACTION GRID (Skill Slots) */}
+              <div className="flex justify-between items-center gap-2">
+                 {PRAYER_KEYS.map((key) => (
+                   <PrayerCell 
+                     key={key}
+                     label={key.substring(0,3)}
+                     state={day.prayers[key]}
+                     isLocked={false}
+                     themeStyles={themeStyles}
+                     currentTheme={currentTheme}
+                     onClick={() => {
+                        setData(prev => {
+                          const newDays = [...prev.days];
+                          const d = { ...newDays[day.id] };
+                          d.prayers = { ...d.prayers, [key]: (d.prayers[key] + 1) % 3 as PrayerState };
+                          newDays[day.id] = d;
+                          return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
+                        });
+                     }}
+                   />
+                 ))}
+              </div>
 
-        <Footer themeStyles={themeStyles} />
-      </main>
+              {/* TILAWAH INPUT (Footer of Card) */}
+              <div className={`mt-4 pt-3 border-t ${isLegends ? 'border-[#d4af37]/20' : 'border-white/10'} flex items-center justify-between`}>
+                 <div className="flex items-center gap-2 opacity-70">
+                    <BookOpen className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Tilawah Lines</span>
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                         setData(prev => {
+                            const newDays = [...prev.days];
+                            newDays[day.id] = { ...newDays[day.id], tilawah: Math.max(0, day.tilawah - 1) };
+                            return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
+                         });
+                      }}
+                      className={`w-6 h-6 rounded flex items-center justify-center border ${themeStyles.border} hover:bg-white/10`}
+                    >-</button>
+                    <span className={`text-sm font-bold w-6 text-center ${themeStyles.textPrimary}`}>{day.tilawah}</span>
+                    <button 
+                       onClick={() => {
+                         setData(prev => {
+                            const newDays = [...prev.days];
+                            newDays[day.id] = { ...newDays[day.id], tilawah: day.tilawah + 1 };
+                            return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
+                         });
+                      }}
+                      className={`w-6 h-6 rounded flex items-center justify-center ${isLegends ? 'bg-[#d4af37] text-black' : 'bg-emerald-500 text-white'}`}
+                    >+</button>
+                 </div>
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

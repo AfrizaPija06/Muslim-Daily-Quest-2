@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Check, Loader2, Camera, Image as ImageIcon } from 'lucide-react';
 import { User, AppTheme, getRankInfo, GlobalAssets } from '../types';
@@ -26,7 +27,6 @@ const Header: React.FC<HeaderProps> = ({
   const isLegends = currentTheme === 'legends';
   const isMentor = currentUser?.role === 'mentor';
   
-  // Edit Profile State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({
     fullName: '',
@@ -34,24 +34,20 @@ const Header: React.FC<HeaderProps> = ({
     avatarSeed: ''
   });
 
-  // NEW: Temporary Avatar Preview (Solusi agar gambar tidak hilang saat Sync berjalan)
   const [tempAvatar, setTempAvatar] = useState<string | null>(null);
-
-  // Upload Logic
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Calculate Season Points
   const seasonPoints = totalPoints * 1;
   const currentRank = getRankInfo(seasonPoints);
 
   const openProfileModal = () => {
     if (currentUser) {
-      setTempAvatar(null); // Reset preview saat modal dibuka
+      setTempAvatar(null); 
       setEditForm({
         fullName: currentUser.fullName,
         username: currentUser.username,
-        avatarSeed: currentUser.avatarSeed || (isMentor ? `user_${currentUser.username}` : currentUser.username)
+        avatarSeed: currentUser.avatarSeed || ''
       });
       setIsEditingProfile(true);
     }
@@ -63,68 +59,32 @@ const Header: React.FC<HeaderProps> = ({
         ...currentUser,
         fullName: editForm.fullName,
         username: editForm.username,
-        avatarSeed: editForm.avatarSeed
+        avatarSeed: editForm.avatarSeed // Ini sekarang berisi URL
       };
       handleUpdateProfile(updatedUser);
       setIsEditingProfile(false);
     }
   };
 
-  // --- MENTOR ONLY: UPLOAD PERSONAL PROFILE PICTURE ---
-  const handleMentorProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- NEW: DIRECT STORAGE UPLOAD ---
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && currentUser) {
       setIsUploading(true);
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        
-        const img = new Image();
-        img.src = base64String;
-        img.onload = async () => {
-          const canvas = document.createElement('canvas');
-          const MAX_SIZE = 400; 
-          let width = img.width;
-          let height = img.height;
-          
-          if (width > height) {
-             if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-          } else {
-             if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-          }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-          
-          // 1. SET PREVIEW LOKAL SEGERA (Agar tidak kedip/hilang)
-          setTempAvatar(compressedBase64);
-
-          // 2. Upload ke Server
-          const assetKey = `user_${currentUser.username}`;
-          const success = await api.uploadGlobalAsset(assetKey, compressedBase64);
-          
-          if (success) {
-            setEditForm(prev => ({ ...prev, avatarSeed: assetKey }));
-            // 3. Update Global State Aplikasi (Agar halaman lain juga tahu)
-            if (refreshAssets && globalAssets) {
-               refreshAssets({ ...globalAssets, [assetKey]: compressedBase64 });
-            }
-          } else {
-            alert("Upload failed. Check connection.");
-            setTempAvatar(null); // Kembalikan jika gagal
-          }
-          setIsUploading(false);
-        };
-      };
-      reader.readAsDataURL(file);
+      
+      // 1. Upload ke Supabase Storage (bukan DB text)
+      const publicUrl = await api.uploadAvatar(file, currentUser.username);
+      
+      if (publicUrl) {
+         setTempAvatar(publicUrl); // Tampilkan preview
+         setEditForm(prev => ({ ...prev, avatarSeed: publicUrl })); // Simpan URL ke form
+      } else {
+         alert("Upload gagal. Pastikan file < 2MB.");
+      }
+      setIsUploading(false);
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
-
-  const availablePresets = globalAssets 
-    ? Object.keys(globalAssets).filter(k => k.startsWith('preset_')) 
-    : [];
 
   return (
     <>
@@ -138,20 +98,14 @@ const Header: React.FC<HeaderProps> = ({
             >
               <div className={`w-14 h-14 rounded-full overflow-hidden ${themeStyles.border} border-2 ${themeStyles.glow} transition-transform group-hover:scale-105 bg-black/50`}>
                  <img 
-                   src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username, globalAssets)} 
+                   src={getAvatarSrc(currentUser?.avatarSeed || currentUser?.username)} 
                    className="w-full h-full object-cover" 
                    alt="Avatar" 
                  />
               </div>
               
-              {/* RANK BADGE DISPLAY (HEADER) - IMPROVED SIZE */}
               <div className={`absolute -bottom-2 -right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-lg ${currentRank.bg}`}>
-                {/* Check for Custom Icon URL */}
-                {currentRank.iconUrl ? (
-                   <img src={currentRank.iconUrl} alt="Rank" className="w-5 h-5 object-contain" />
-                ) : (
-                   <Trophy className={`w-3.5 h-3.5 ${currentRank.color}`} />
-                )}
+                <Trophy className={`w-3.5 h-3.5 ${currentRank.color}`} />
                 <span className={`text-[9px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
                 </span>
@@ -207,30 +161,23 @@ const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-5 pb-6 border-b border-white/10">
                  <div className={`w-24 h-24 rounded-full overflow-hidden border-4 bg-black/50 relative group shrink-0 ${isLegends ? 'border-[#d4af37]' : 'border-emerald-500'}`}>
                     <img 
-                      // PENTING: Gunakan tempAvatar jika ada, ini mencegah gambar hilang saat sync
-                      src={tempAvatar || getAvatarSrc(editForm.avatarSeed, globalAssets)} 
+                      src={tempAvatar || getAvatarSrc(editForm.avatarSeed)} 
                       alt="Preview" 
                       className="w-full h-full object-cover" 
                     />
                     
-                    {isMentor && (
-                      <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-                      >
-                         {isUploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white mb-1" />}
-                         <span className="text-[8px] text-white uppercase font-bold">{isUploading ? 'Wait' : 'Upload'}</span>
-                      </div>
-                    )}
+                    {/* ALL USERS CAN UPLOAD NOW because it is cheap (Storage) */}
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                    >
+                       {isUploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white mb-1" />}
+                       <span className="text-[8px] text-white uppercase font-bold">{isUploading ? 'Wait' : 'Upload'}</span>
+                    </div>
                  </div>
                  <div className="flex flex-col justify-center">
-                    {/* RANK BADGE DISPLAY (MODAL) - BIGGER SIZE */}
                     <div className={`inline-flex items-center gap-3 px-4 py-2 mb-2 rounded-full border ${currentRank.bg}`}>
-                      {currentRank.iconUrl ? (
-                        <img src={currentRank.iconUrl} className="w-8 h-8 object-contain drop-shadow-md"/> 
-                      ) : (
-                        <Trophy className={`w-6 h-6 ${currentRank.color}`} />
-                      )}
+                      <Trophy className={`w-6 h-6 ${currentRank.color}`} />
                       <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
                         {currentRank.name}
                       </span>
@@ -239,48 +186,6 @@ const Header: React.FC<HeaderProps> = ({
                  </div>
               </div>
 
-              {!isMentor && (
-                <div className="space-y-2">
-                   <div className="flex justify-between items-center">
-                     <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Select Avatar Class</label>
-                   </div>
-                   
-                   {availablePresets.length > 0 ? (
-                     <div className="grid grid-cols-3 gap-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                        {availablePresets.map((presetKey) => {
-                           const isSelected = editForm.avatarSeed === presetKey;
-                           const imgSrc = globalAssets ? globalAssets[presetKey] : '';
-                           
-                           return (
-                             <div 
-                               key={presetKey}
-                               onClick={() => setEditForm(prev => ({ ...prev, avatarSeed: presetKey }))}
-                               className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group cursor-pointer
-                                 ${isSelected 
-                                   ? (isLegends ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 scale-105' : 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105') 
-                                   : 'border-white/10 hover:border-white/30 hover:scale-105 opacity-80 hover:opacity-100'
-                                 }`}
-                             >
-                               <img src={imgSrc} alt="Preset" className="w-full h-full object-cover" />
-                               {isSelected && (
-                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] z-20">
-                                   <Check className="w-8 h-8 text-white drop-shadow-md" />
-                                 </div>
-                               )}
-                             </div>
-                           );
-                        })}
-                     </div>
-                   ) : (
-                     <div className="p-6 border border-dashed border-white/20 rounded-xl text-center bg-white/5">
-                        <ImageIcon className="w-8 h-8 mx-auto mb-2 text-white/30" />
-                        <p className="text-[10px] text-white/50 font-bold uppercase">No Avatars Available</p>
-                        <p className="text-[9px] text-white/30">Please ask your Mentor to upload presets in Dashboard.</p>
-                     </div>
-                   )}
-                </div>
-              )}
-
               <div className="space-y-2">
                 <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Full Name</label>
                 <input 
@@ -288,16 +193,6 @@ const Header: React.FC<HeaderProps> = ({
                   onChange={(e) => setEditForm(prev => ({ ...prev, fullName: e.target.value }))}
                   className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary}`}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <label className={`text-[10px] font-bold uppercase tracking-widest ${themeStyles.textSecondary}`}>Username</label>
-                <input 
-                  value={editForm.username}
-                  disabled={true} 
-                  className={`w-full rounded-xl py-3 px-4 outline-none ${themeStyles.fontDisplay} border bg-black/20 border-white/5 text-white/50 cursor-not-allowed`}
-                />
-                 <p className="text-[10px] text-white/30 italic">* Username cannot be changed.</p>
               </div>
 
               <div className="pt-4 flex gap-3">
@@ -316,15 +211,13 @@ const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
             
-            {isMentor && (
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*"
-                onChange={handleMentorProfileUpload}
-              />
-            )}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleProfileUpload}
+            />
 
           </div>
         </div>

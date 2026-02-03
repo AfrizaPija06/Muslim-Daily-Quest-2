@@ -10,8 +10,8 @@ export interface User {
   password?: string;
   group: string;
   role: Role;
-  status?: UserStatus; // Optional for backward compatibility
-  avatarSeed?: string; // New field for custom avatar
+  status?: UserStatus;
+  avatarSeed?: string; // Berisi URL gambar dari Supabase Storage
 }
 
 export interface DayData {
@@ -25,6 +25,7 @@ export interface DayData {
     isya: PrayerState;
   };
   tilawah: number;
+  dateStr?: string; // YYYY-MM-DD
 }
 
 export interface WeeklyData {
@@ -32,28 +33,12 @@ export interface WeeklyData {
   lastUpdated: string;
 }
 
-// Structure for Archived Monthly Data
-export interface ArchivedData {
-  id: string; // e.g., "Januari 2025"
-  timestamp: string;
-  records: {
-    username: string;
-    fullName: string;
-    group: string;
-    totalPoints: number;
-    rankName: string;
-    detailedDays: DayData[]; // Snapshot of their weekly performance at that time
-  }[];
-}
-
 // Attendance Data: Key = Date (YYYY-MM-DD), Value = Record<Username, Status>
-// Status: 'H' (Hadir), 'S' (Sakit/Izin), 'A' (Alpha)
 export type AttendanceStatus = 'H' | 'S' | 'A';
 export type AttendanceRecord = Record<string, Record<string, AttendanceStatus>>;
 
-// Key-Value pair untuk menyimpan gambar Base64 di server
-// Key: avatar ID (misal '1', '2'), Value: Base64 string image
 export type GlobalAssets = Record<string, string>;
+export interface ArchivedData { id: string; timestamp: string; records: any[]; }
 
 export const DAYS_OF_WEEK = [
   'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
@@ -78,56 +63,15 @@ export const POINTS = {
 };
 
 // --- RANK SYSTEM ---
-
-// ANDA BISA MENGGANTI LINK DALAM 'iconUrl' DENGAN LINK GAMBAR ANDA SENDIRI
-// REKOMENDASI: Gunakan gambar PNG transparan ukuran kecil (misal 64x64 atau 128x128)
 export const RANK_TIERS = [
-  { 
-    name: 'Mythic Glory', 
-    min: 5250, 
-    color: 'text-purple-400', 
-    bg: 'bg-purple-500/20 border-purple-500',
-    iconUrl: '' // MASUKKAN LINK ICON MYTHIC DISINI
-  },
-  { 
-    name: 'Epic', 
-    min: 4200, 
-    color: 'text-emerald-400', 
-    bg: 'bg-emerald-500/20 border-emerald-500',
-    iconUrl: '' // MASUKKAN LINK ICON EPIC DISINI
-  },
-  { 
-    name: 'Grand Master', 
-    min: 3150, 
-    color: 'text-red-400', 
-    bg: 'bg-red-500/20 border-red-500',
-    iconUrl: '' // MASUKKAN LINK ICON GM DISINI
-  },
-  { 
-    name: 'Master', 
-    min: 2100, 
-    color: 'text-yellow-400', 
-    bg: 'bg-yellow-500/20 border-yellow-500',
-    iconUrl: '' // MASUKKAN LINK ICON MASTER DISINI
-  },
-  { 
-    name: 'Elite', 
-    min: 1050, 
-    color: 'text-blue-400', 
-    bg: 'bg-blue-500/20 border-blue-500',
-    iconUrl: '' // MASUKKAN LINK ICON ELITE DISINI
-  },
-  { 
-    name: 'Warrior', 
-    min: 0, 
-    color: 'text-slate-400', 
-    bg: 'bg-slate-500/20 border-slate-500',
-    iconUrl: '' // MASUKKAN LINK ICON WARRIOR DISINI
-  },
+  { name: 'Mythic Glory', min: 5250, color: 'text-purple-400', bg: 'bg-purple-500/20 border-purple-500', iconUrl: '' },
+  { name: 'Epic', min: 4200, color: 'text-emerald-400', bg: 'bg-emerald-500/20 border-emerald-500', iconUrl: '' },
+  { name: 'Grand Master', min: 3150, color: 'text-red-400', bg: 'bg-red-500/20 border-red-500', iconUrl: '' },
+  { name: 'Master', min: 2100, color: 'text-yellow-400', bg: 'bg-yellow-500/20 border-yellow-500', iconUrl: '' },
+  { name: 'Elite', min: 1050, color: 'text-blue-400', bg: 'bg-blue-500/20 border-blue-500', iconUrl: '' },
+  { name: 'Warrior', min: 0, color: 'text-slate-400', bg: 'bg-slate-500/20 border-slate-500', iconUrl: '' },
 ];
 
 export const getRankInfo = (points: number) => {
-  // Find the highest tier where points >= min
-  const rank = RANK_TIERS.find(r => points >= r.min) || RANK_TIERS[RANK_TIERS.length - 1];
-  return rank;
+  return RANK_TIERS.find(r => points >= r.min) || RANK_TIERS[RANK_TIERS.length - 1];
 };
