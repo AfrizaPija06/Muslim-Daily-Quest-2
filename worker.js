@@ -1,3 +1,3 @@
-
-// File ini tidak digunakan.
-// Deployment ditangani oleh Cloudflare Pages static upload.
+// FILE INI SUDAH DINONAKTIFKAN.
+// Masalah "Hello World" muncul karena Anda membuka link *.workers.dev
+// Silakan buka link *.pages.dev dari dashboard Cloudflare Pages Anda.
