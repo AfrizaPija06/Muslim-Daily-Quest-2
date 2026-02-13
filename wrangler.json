@@ -1,7 +1,5 @@
-
 {
-  "name": "muslim-daily-quest-static",
-  "main": "worker.js",
-  "compatibility_date": "2024-09-23",
-  "comment": "File ini tidak aktif karena deployment menggunakan Cloudflare Pages via GitHub"
+  "name": "mentoring-leveling",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2024-09-23"
 }
