@@ -1,0 +1,96 @@
+
+import React, { useMemo } from 'react';
+import { Trophy, Crown, Medal } from 'lucide-react';
+import { User, WeeklyData, POINTS } from '../types';
+import { getAvatarSrc } from '../constants';
+
+interface MiniLeaderboardProps {
+  currentUser: User | null;
+  themeStyles: any;
+}
+
+const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeStyles }) => {
+  const leaderboardData = useMemo(() => {
+    const usersStr = localStorage.getItem('nur_quest_users');
+    const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
+    
+    return allUsers
+      .filter(u => u.status === 'active' || u.status === undefined)
+      .map(u => {
+        const trackerStr = localStorage.getItem(`ibadah_tracker_${u.username}`);
+        const trackerData: WeeklyData | null = trackerStr ? JSON.parse(trackerStr) : null;
+        
+        let points = 0;
+        if (trackerData) {
+          trackerData.days.forEach(day => {
+            const prayerPoints = Object.values(day.prayers).reduce((acc: number, val: number) => {
+              if (val === 1) return acc + POINTS.HOME;
+              if (val === 2) return acc + POINTS.MOSQUE;
+              return acc;
+            }, 0);
+            points += prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE) + (day.shaum ? POINTS.SHAUM : 0) + (day.tarawih ? POINTS.TARAWIH : 0);
+          });
+        }
+        return { ...u, points };
+      })
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 10); // Top 10
+  }, []);
+
+  return (
+    <div className={`h-full ${themeStyles.card} rounded-3xl p-6 border-2 border-[#fbbf24]/20 flex flex-col gap-4 overflow-hidden`}>
+      <div className="flex items-center gap-3 border-b border-[#fbbf24]/20 pb-4">
+        <div className="p-2 bg-[#fbbf24]/10 rounded-lg">
+          <Trophy className="w-6 h-6 text-[#fbbf24]" />
+        </div>
+        <div>
+          <h3 className={`text-lg ${themeStyles.fontDisplay} font-bold text-[#fefce8] uppercase tracking-wider`}>Top Mujahid</h3>
+          <p className="text-[10px] text-[#fbbf24] uppercase tracking-widest">Ramadhan Leaderboard</p>
+        </div>
+      </div>
+
+      <div className="flex-grow overflow-y-auto no-scrollbar space-y-3 pr-2">
+        {leaderboardData.map((user, idx) => {
+          const isMe = currentUser?.username === user.username;
+          let rankIcon = <span className="font-mono font-bold text-sm w-6 text-center opacity-50">#{idx + 1}</span>;
+          
+          if (idx === 0) rankIcon = <Crown className="w-5 h-5 text-yellow-400" />;
+          if (idx === 1) rankIcon = <Medal className="w-5 h-5 text-gray-300" />;
+          if (idx === 2) rankIcon = <Medal className="w-5 h-5 text-amber-600" />;
+
+          return (
+            <div 
+              key={user.username} 
+              className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isMe ? 'bg-[#fbbf24]/20 border border-[#fbbf24]/50' : 'bg-white/5 border border-transparent hover:bg-white/10'}`}
+            >
+              <div className="flex items-center justify-center w-6 shrink-0">
+                {rankIcon}
+              </div>
+              
+              <div className="w-8 h-8 rounded-full bg-black overflow-hidden border border-white/10 shrink-0">
+                <img src={getAvatarSrc(user.avatarSeed || user.username)} className="w-full h-full object-cover" />
+              </div>
+              
+              <div className="flex-grow min-w-0">
+                <p className={`text-xs font-bold truncate ${isMe ? 'text-[#fbbf24]' : 'text-[#fefce8]'}`}>
+                  {user.fullName}
+                </p>
+                <p className="text-[9px] opacity-50 uppercase truncate">{user.group}</p>
+              </div>
+              
+              <div className="text-right shrink-0">
+                <p className="text-xs font-black text-[#fbbf24]">{user.points}</p>
+                <p className="text-[8px] opacity-50">XP</p>
+              </div>
+            </div>
+          );
+        })}
+        {leaderboardData.length === 0 && (
+          <p className="text-center text-xs opacity-50 py-10">Belum ada data</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MiniLeaderboard;
