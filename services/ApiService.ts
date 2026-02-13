@@ -1,108 +1,164 @@
 
+import { supabase } from '../lib/supabaseClient';
 import { WeeklyData, User, MENTORING_GROUPS } from '../types';
 import { INITIAL_DATA } from '../constants';
 
 class ApiService {
   
-  // --- HELPER: LOCAL STORAGE ---
-  private getLocalUser(): User | null {
-    const s = localStorage.getItem('nur_quest_session');
-    return s ? JSON.parse(s) : null;
-  }
+  // --- AUTHENTICATION ---
 
-  private getLocalUsers(): User[] {
-    const s = localStorage.getItem('nur_quest_users');
-    return s ? JSON.parse(s) : [];
-  }
-
-  // --- REGISTER: STRICTLY OFFLINE ---
-  async registerUserSafe(newUser: User): Promise<{ success: boolean; isOffline: boolean; error?: string }> {
+  async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
     try {
-      // FORCE OFFLINE: Langsung simpan ke Local Storage
-      const localUsers = this.getLocalUsers();
-      
-      if (localUsers.some(u => u.username === newUser.username)) {
-         return { success: false, isOffline: true, error: "Username sudah ada (di HP ini)." };
+      // 1. Fetch User
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .eq('password', password) // Simple auth for Game Style
+        .single();
+
+      if (error || !user) {
+        return { success: false, error: 'Username atau Password salah.' };
       }
-      
-      const updatedUsers = [...localUsers, newUser];
-      localStorage.setItem('nur_quest_users', JSON.stringify(updatedUsers));
-      
-      // Init tracker kosong untuk user baru ini di local
-      const newTracker = { ...INITIAL_DATA, lastUpdated: new Date().toISOString() };
-      localStorage.setItem(`ibadah_tracker_${newUser.username}`, JSON.stringify(newTracker));
 
-      // Simulate network delay for realism
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // 2. Fetch Tracker Data
+      const { data: tracker } = await supabase
+        .from('trackers')
+        .select('data')
+        .eq('username', username)
+        .single();
 
-      return { success: true, isOffline: true };
-    } catch (e: any) {
-      return { success: false, isOffline: true, error: e.message };
-    }
-  }
-
-  // --- SYNC: STRICTLY OFFLINE ---
-  async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
-    const localUsers = this.getLocalUsers();
-    
-    // Result object (Offline/Local)
-    const result = {
+      return { 
         success: true, 
-        users: localUsers,
-        trackers: {} as Record<string, WeeklyData>,
-        groups: MENTORING_GROUPS, 
-        assets: {}, 
-        archives: [],
-        attendance: {}
-    };
+        user: user as User, 
+        data: tracker ? tracker.data : INITIAL_DATA 
+      };
 
-    // Populate trackers from LocalStorage
-    localUsers.forEach(u => {
-        const t = localStorage.getItem(`ibadah_tracker_${u.username}`);
-        if (t) result.trackers[u.username] = JSON.parse(t);
-    });
-
-    if (currentUser) {
-       // Save current user's latest data to local storage "cloud" simulation
-       localStorage.setItem(`ibadah_tracker_${currentUser.username}`, JSON.stringify(localData));
-       result.trackers[currentUser.username] = localData;
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
-    
-    // Simulate quick network check
-    // await new Promise(resolve => setTimeout(resolve, 300));
-
-    return result;
   }
 
-  // --- STORAGE & UTILS ---
-  async uploadAvatar(file: File, username: string): Promise<string | null> {
-    // Offline: Return fake local URL using Blob
-    console.log("Offline Upload: Generating Blob URL");
-    return URL.createObjectURL(file);
+  async registerUserSafe(newUser: User): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 1. Check if user exists
+      const { data: existing } = await supabase
+        .from('users')
+        .select('username')
+        .eq('username', newUser.username)
+        .single();
+
+      if (existing) {
+        return { success: false, error: "Username sudah digunakan." };
+      }
+
+      // 2. Insert User
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert([{
+          username: newUser.username,
+          full_name: newUser.fullName,
+          password: newUser.password,
+          role: newUser.role,
+          group: newUser.group,
+          status: newUser.status,
+          avatar_seed: newUser.avatarSeed,
+          character_id: newUser.characterId
+        }]);
+
+      if (insertError) throw insertError;
+
+      // 3. Initialize Tracker
+      const newTracker = { ...INITIAL_DATA, lastUpdated: new Date().toISOString() };
+      await supabase.from('trackers').insert([{
+        username: newUser.username,
+        data: newTracker
+      }]);
+
+      return { success: true };
+    } catch (e: any) {
+      console.error(e);
+      return { success: false, error: e.message || "Gagal mendaftar ke server." };
+    }
   }
 
-  async updateUserStatus(username: string, status: string): Promise<boolean> {
-     const users = this.getLocalUsers();
-     const idx = users.findIndex(u => u.username === username);
-     if (idx >= 0) {
-        users[idx].status = status as any;
-        localStorage.setItem('nur_quest_users', JSON.stringify(users));
-        return true;
-     }
-     return false;
+  // --- SYNC / DATA MANAGEMENT ---
+
+  // Debounce sync to prevent server spamming
+  async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
+    if (!currentUser) return { success: false };
+
+    try {
+      // Upsert Tracker Data (Save Game)
+      // We store the WHOLE JSON object. Supabase handles JSONB very efficiently.
+      const { error } = await supabase
+        .from('trackers')
+        .upsert({
+          username: currentUser.username,
+          data: localData,
+          last_updated: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (e) {
+      console.error("Sync Failed:", e);
+      return { success: false };
+    }
+  }
+
+  // --- LEADERBOARD & ADMIN ---
+
+  async getAllUsersWithPoints(): Promise<any[]> {
+    try {
+      // Join users and trackers
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          *,
+          trackers ( data )
+        `);
+
+      if (error) throw error;
+
+      // Transform for frontend
+      return data.map((u: any) => ({
+        ...u,
+        avatarSeed: u.avatar_seed, // mapping snake_case db to camelCase js
+        characterId: u.character_id,
+        fullName: u.full_name,
+        trackerData: u.trackers ? u.trackers.data : null
+      }));
+
+    } catch (e) {
+      console.error("Fetch Users Failed", e);
+      return [];
+    }
   }
 
   async deleteUser(username: string): Promise<boolean> {
-    const users = this.getLocalUsers().filter(u => u.username !== username);
-    localStorage.setItem('nur_quest_users', JSON.stringify(users));
-    return true;
+    const { error } = await supabase.from('users').delete().eq('username', username);
+    return !error;
   }
-  
-  async saveAttendance(date: string, records: any): Promise<boolean> { return true; }
-  async fetchDatabase() { return { users: [], trackers: {}, groups: [], assets: {}, archives: [], attendance: {} }; }
-  async updateDatabase(db: any) { return true; }
-  async uploadGlobalAsset(id: string, data: string) { return true; } 
-  async deleteGlobalAsset(id: string) { return true; }
+
+  // --- PROFILE UPDATE ---
+  async updateUserProfile(user: User): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: user.fullName,
+          avatar_seed: user.avatarSeed,
+          character_id: user.characterId
+        })
+        .eq('username', user.username);
+      
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
 export const api = new ApiService();

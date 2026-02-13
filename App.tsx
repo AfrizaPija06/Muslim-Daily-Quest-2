@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } from './constants';
 import { THEMES } from './theme';
@@ -32,33 +31,22 @@ const App: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   
   const [error, setError] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(false); // Will likely remain false/local
+  const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
   
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // LOCKED THEME: RAMADHAN
   const currentTheme: AppTheme = 'ramadhan';
   const themeStyles = THEMES['ramadhan'];
 
-  // --- SYNC LOGIC (Local Only) ---
+  // --- SYNC LOGIC (DEBOUNCED) ---
   const performSync = useCallback(async () => {
-    if (isSyncing || isResetting) return;
+    if (isSyncing || isResetting || !currentUser) return;
     setIsSyncing(true);
     try {
-      // ApiService is now hardcoded to offline mode
-      const result = await api.sync(currentUser, data, groups);
-      
-      // In offline mode, we treat success=true as "Local Sync Complete"
-      if (result.success) {
-        setIsOnline(true); // Virtual online status
-        localStorage.setItem('nur_quest_users', JSON.stringify(result.users));
-        
-        if (result.trackers && currentUser && result.trackers[currentUser.username]) {
-           const myCloudData = result.trackers[currentUser.username];
-           // Simple overwrite for local-first approach
-           setData(myCloudData);
-        }
-      }
+      await api.sync(currentUser, data, groups);
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -70,40 +58,50 @@ const App: React.FC = () => {
     if (!currentUser) return;
     setCurrentUser(updatedUser);
     localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
-    // Save to user list immediately
-    const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-    const idx = users.findIndex((u:any) => u.username === updatedUser.username);
-    if (idx >= 0) {
-       users[idx] = updatedUser;
-       localStorage.setItem('nur_quest_users', JSON.stringify(users));
-    }
-    setTimeout(() => performSync(), 100); 
+    // Call API immediately for profile update
+    await api.updateUserProfile(updatedUser);
   };
 
+  // Restore Session
   useEffect(() => {
     if (isResetting) return;
     const savedUser = localStorage.getItem('nur_quest_session');
     if (savedUser) {
       let user = JSON.parse(savedUser);
-      // Ensure admin creds if matching
+      // Ensure admin creds if matching (optional check)
       if (user.username === ADMIN_CREDENTIALS.username) user = { ...user, ...ADMIN_CREDENTIALS };
+      
+      // Auto-login verify with DB could be added here, but for now trust LS then sync
       setCurrentUser(user);
       setView('tracker');
-      const savedData = localStorage.getItem(`ibadah_tracker_${user.username}`);
-      if (savedData) setData(JSON.parse(savedData));
+      
+      // Fetch fresh data from DB
+      api.login(user.username, user.password || '').then(res => {
+         if (res.success && res.data) {
+            setData(res.data);
+         }
+      });
     }
   }, [isResetting]);
 
+  // Debounce Auto-Sync when Data Changes
   useEffect(() => {
     if (isResetting || !currentUser) return;
-    performSync();
-  }, [performSync, isResetting, currentUser]);
 
-  useEffect(() => {
-    if (currentUser && !isResetting) {
-      localStorage.setItem(`ibadah_tracker_${currentUser.username}`, JSON.stringify(data));
+    if (syncTimeoutRef.current) {
+       clearTimeout(syncTimeoutRef.current);
     }
-  }, [data, currentUser, isResetting]);
+
+    // Sync 2 seconds after last change
+    syncTimeoutRef.current = setTimeout(() => {
+       performSync();
+    }, 2000);
+
+    return () => {
+       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    }
+  }, [data, performSync, isResetting, currentUser]);
+
 
   useEffect(() => {
     document.body.className = `theme-${currentTheme}`;
@@ -114,6 +112,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    // Sync one last time before logout
     if (currentUser) await api.sync(currentUser, data, groups);
     localStorage.removeItem('nur_quest_session');
     setCurrentUser(null);
@@ -156,7 +155,7 @@ const App: React.FC = () => {
     themeStyles,
     currentTheme,
     toggleTheme,
-    performSync,
+    performSync: async () => { performSync(); },
     networkLogs,
     globalAssets, 
     refreshAssets: (newAssets: GlobalAssets) => setGlobalAssets(newAssets)

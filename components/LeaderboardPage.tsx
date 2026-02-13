@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Target, Trophy, Download, Server, Trash2, Activity } from 'lucide-react';
+import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -47,76 +47,70 @@ interface LeaderboardData {
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
   currentUser, setView, handleLogout, themeStyles, currentTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, attendance = {}
 }) => {
-  // Only Leaderboard tab remains
   const [activeTab, setActiveTab] = useState<'leaderboard'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Attendance State (Kept but UI currently focused on Leaderboard)
-  const [attendanceDate, setAttendanceDate] = useState<string>(() => {
-    const d = new Date();
-    return d.toISOString().split('T')[0];
-  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadData = () => {
-    const usersStr = localStorage.getItem('nur_quest_users');
-    const allUsers: User[] = usersStr ? JSON.parse(usersStr) : [];
-    
-    const activeUsers = allUsers
-      .filter(u => (u.role === 'mentee' || u.role === 'mentor') && (u.status === 'active' || u.status === undefined))
-      .map(u => {
-        const isMe = currentUser && u.username === currentUser.username;
-        const displayUser = isMe ? currentUser : u;
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const allUsers = await api.getAllUsersWithPoints();
+      
+      const activeUsers = allUsers
+        .map(u => {
+          const trackerData: WeeklyData | null = u.trackerData;
+          
+          let points = 0;
+          let activeDays = 0;
 
-        const trackerStr = localStorage.getItem(`ibadah_tracker_${u.username}`);
-        const trackerData: WeeklyData | null = trackerStr ? JSON.parse(trackerStr) : null;
-        
-        let points = 0;
-        let activeDays = 0;
+          if (trackerData && trackerData.days) {
+            trackerData.days.forEach(day => {
+              const prayerPoints = Object.values(day.prayers as any).reduce<number>((acc: number, val: any) => {
+                if (val === 1) return acc + POINTS.HOME;
+                if (val === 2) return acc + POINTS.MOSQUE;
+                return acc;
+              }, 0);
+              points += prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
+              if (prayerPoints > 0 || day.tilawah > 0) activeDays++;
+            });
+          }
 
-        if (trackerData) {
-          trackerData.days.forEach(day => {
-            const prayerPoints = Object.values(day.prayers).reduce((acc: number, val: number) => {
-              if (val === 1) return acc + POINTS.HOME;
-              if (val === 2) return acc + POINTS.MOSQUE;
-              return acc;
-            }, 0);
-            points += prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
-            if (prayerPoints > 0 || day.tilawah > 0) activeDays++;
-          });
-        }
+          const monthlyPoints = points * 4;
+          const rankInfo = getRankInfo(monthlyPoints);
 
-        const monthlyPoints = points * 4;
-        const rankInfo = getRankInfo(monthlyPoints);
+          return {
+            fullName: u.fullName,
+            username: u.username,
+            avatarSeed: u.avatarSeed,
+            group: u.group,
+            points,
+            monthlyPoints,
+            rankName: rankInfo.name,
+            rankColor: rankInfo.color,
+            rankIcon: getRankIconUrl(rankInfo.assetKey),
+            activeDays,
+            lastUpdated: trackerData?.lastUpdated || 'No Data',
+            status: u.status,
+            role: u.role,
+            trackerData: trackerData || undefined
+          };
+        });
 
-        return {
-          fullName: displayUser.fullName,
-          username: displayUser.username,
-          avatarSeed: displayUser.avatarSeed,
-          group: displayUser.group,
-          points,
-          monthlyPoints,
-          rankName: rankInfo.name,
-          rankColor: rankInfo.color,
-          rankIcon: getRankIconUrl(rankInfo.assetKey),
-          activeDays,
-          lastUpdated: trackerData?.lastUpdated || 'No Data',
-          status: 'active',
-          role: displayUser.role,
-          trackerData: trackerData || undefined
-        };
-      });
-
-    setMenteesData(activeUsers);
+      setMenteesData(activeUsers);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, [currentUser, globalAssets]); 
+  }, []); 
 
   const handleDetailedExport = () => {
      const wb = XLSX.utils.book_new();
-     // Prepare data
      const data = menteesData.map(m => ({
         Nama: m.fullName,
         Username: m.username,
@@ -133,15 +127,17 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const handleKickUser = async (targetUsername: string, targetName: string) => {
-    if (!confirm(`PERINGATAN: Hapus permanen ${targetName}? Data ibadah mereka akan hilang.`)) return;
+    if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?`)) return;
+    setIsProcessing(true);
     try {
       const success = await api.deleteUser(targetUsername);
       if (success) {
-        localStorage.removeItem(`ibadah_tracker_${targetUsername}`);
-        await performSync();
-        loadData();
+        await loadData();
+      } else {
+        alert("Gagal menghapus user");
       }
     } catch (e: any) { alert(e.message); }
+    finally { setIsProcessing(false); }
   };
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
@@ -157,21 +153,20 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         activeView="leaderboard" 
         themeStyles={themeStyles} 
         currentTheme={currentTheme} 
-        toggleTheme={() => {}} // No-op
+        toggleTheme={() => {}} 
         handleUpdateProfile={handleUpdateProfile} 
         globalAssets={globalAssets} 
         refreshAssets={refreshAssets}
-        performSync={performSync}
+        performSync={async () => { await loadData(); }}
       />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24 animate-reveal">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
-              <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Local Admin
+              <Server className={`w-10 h-10 ${themeStyles.textAccent}`} /> Dashboard
             </h2>
-            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Offline Mode • Mentoring Legends</p>
+            <p className={`text-xs font-mono mt-1 opacity-50 uppercase tracking-widest`}>Database Connection: Online</p>
           </div>
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
@@ -193,58 +188,61 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           ))}
         </div>
 
-        {/* --- LEADERBOARD TAB --- */}
         {activeTab === 'leaderboard' && (
           <div className="animate-reveal">
              <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <SummaryCard label="Node Status" value="Local Only" icon={<Activity className="w-6 h-6 text-emerald-400" />} themeStyles={themeStyles} />
-              <SummaryCard label="Active Members" value={menteesData.length} icon={<Users className="w-6 h-6 text-blue-400" />} themeStyles={themeStyles} />
+              <SummaryCard label="Node Status" value="Online" icon={<Activity className="w-6 h-6 text-emerald-400" />} themeStyles={themeStyles} />
+              <SummaryCard label="Total Users" value={menteesData.length} icon={<Users className="w-6 h-6 text-blue-400" />} themeStyles={themeStyles} />
               <SummaryCard label="Avg. Score" value={menteesData.length ? Math.round(menteesData.reduce((a,b)=>a+b.points,0)/menteesData.length) : 0} icon={<Target className={`w-6 h-6 ${themeStyles.textGold}`} />} themeStyles={themeStyles} />
             </section>
             
             <div className={`${themeStyles.card} rounded-3xl overflow-hidden`}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className={`text-[10px] uppercase font-black tracking-widest ${themeStyles.textSecondary} border-b ${themeStyles.border}`}>
-                      <th className="px-6 py-4">User Details & Rank</th>
-                      <th className="px-6 py-4">Group</th>
-                      <th className="px-6 py-4 text-right">EXP</th>
-                      <th className="px-6 py-4 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y divide-white/5`}>
-                    {sortedWeekly.map((m, i) => (
-                      <tr key={m.username} className={`hover:bg-white/[0.02] transition-colors`}>
-                        <td className="px-6 py-4">
-                           <div className="flex items-start gap-4">
-                              <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10">
-                                <img src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} className="w-full h-full object-cover" />
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2 font-bold text-base">
-                                  {m.fullName}
-                                  {m.role === 'mentor' && <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black uppercase">MENTOR</span>}
-                                </div>
-                                <div className="text-[10px] opacity-40 font-mono mb-1">{m.username}</div>
-                                <div className="flex items-center gap-2">
-                                   <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
-                                </div>
-                              </div>
-                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
-                        <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
-                        <td className="px-6 py-4 text-center">
-                          {m.role !== 'mentor' && (
-                            <button onClick={() => handleKickUser(m.username, m.fullName)} className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" disabled={isProcessing}><Trash2 className="w-4 h-4" /></button>
-                          )}
-                        </td>
+              {isLoading ? (
+                 <div className="p-10 flex justify-center"><Loader2 className="animate-spin w-8 h-8 text-white/50" /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className={`text-[10px] uppercase font-black tracking-widest ${themeStyles.textSecondary} border-b ${themeStyles.border}`}>
+                        <th className="px-6 py-4">User Details & Rank</th>
+                        <th className="px-6 py-4">Group</th>
+                        <th className="px-6 py-4 text-right">EXP</th>
+                        <th className="px-6 py-4 text-center">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className={`divide-y divide-white/5`}>
+                      {sortedWeekly.map((m, i) => (
+                        <tr key={m.username} className={`hover:bg-white/[0.02] transition-colors`}>
+                          <td className="px-6 py-4">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10">
+                                  <img src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2 font-bold text-base">
+                                    {m.fullName}
+                                    {m.role === 'mentor' && <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black uppercase">MENTOR</span>}
+                                  </div>
+                                  <div className="text-[10px] opacity-40 font-mono mb-1">{m.username}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
+                                  </div>
+                                </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
+                          <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
+                          <td className="px-6 py-4 text-center">
+                            {m.role !== 'mentor' && (
+                              <button onClick={() => handleKickUser(m.username, m.fullName)} className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" disabled={isProcessing}><Trash2 className="w-4 h-4" /></button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,5 +1,6 @@
+import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerState, Character, UserStatus } from './types';
 
-import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, HIJRI_YEAR, GlobalAssets, DayData, PrayerState, Character, UserStatus } from './types';
+export { HIJRI_YEAR } from './types';
 
 export const GAME_LOGO_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/gamelogo.png";
 export const MENTOR_AVATAR_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/Mentor.png";

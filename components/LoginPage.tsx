@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { ArrowRight, ShieldAlert, Eye, EyeOff, Gamepad2, Moon } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Eye, EyeOff, Moon, Loader2 } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
-import { ADMIN_CREDENTIALS, GAME_LOGO_URL, INITIAL_DATA } from '../constants';
-import { AppTheme, HIJRI_YEAR } from '../types';
+import { GAME_LOGO_URL, HIJRI_YEAR } from '../constants';
+import { AppTheme } from '../types';
+import { api } from '../services/ApiService';
 
 interface LoginPageProps {
   setView: (view: any) => void;
@@ -20,57 +21,33 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // ADMIN LOGIN LOGIC
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-      // 1. Check if admin exists in local users data
-      const localUsers = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-      let adminUser = localUsers.find((u: any) => u.username === ADMIN_CREDENTIALS.username);
+    setIsLoading(true);
+    setError(null);
 
-      if (!adminUser) {
-        // 2. If not, register Admin to database so they appear in Leaderboard
-        adminUser = { ...ADMIN_CREDENTIALS };
-        localUsers.push(adminUser);
-        localStorage.setItem('nur_quest_users', JSON.stringify(localUsers));
-        
-        // 3. Initialize Admin Tracker Data if missing
-        if (!localStorage.getItem(`ibadah_tracker_${ADMIN_CREDENTIALS.username}`)) {
-           localStorage.setItem(`ibadah_tracker_${ADMIN_CREDENTIALS.username}`, JSON.stringify({
-             ...INITIAL_DATA,
-             lastUpdated: new Date().toISOString()
-           }));
-        }
-      }
-
-      setCurrentUser(adminUser);
-      localStorage.setItem('nur_quest_session', JSON.stringify(adminUser));
+    try {
+      const result = await api.login(username, password);
       
-      // Load Data
-      const savedData = localStorage.getItem(`ibadah_tracker_${ADMIN_CREDENTIALS.username}`);
-      if (savedData) setData(JSON.parse(savedData));
-      else setData(INITIAL_DATA);
-
-      setView('tracker');
-      setError(null);
-      return;
-    }
-
-    // REGULAR USER LOGIN
-    const users = JSON.parse(localStorage.getItem('nur_quest_users') || '[]');
-    const user = users.find((u: any) => u.username === username && u.password === password);
-    
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('nur_quest_session', JSON.stringify(user));
-      const savedData = localStorage.getItem(`ibadah_tracker_${user.username}`);
-      if (savedData) setData(JSON.parse(savedData));
-      setView('tracker');
-      setError(null);
-    } else {
-      setError('Username atau Password salah.');
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        // Simpan sesi dasar di LS agar tidak logout saat refresh, tapi data tetap dari DB
+        localStorage.setItem('nur_quest_session', JSON.stringify(result.user));
+        
+        if (result.data) {
+          setData(result.data);
+        }
+        
+        setView('tracker');
+      } else {
+        setError(result.error || 'Login gagal.');
+      }
+    } catch (err) {
+      setError('Gagal menghubungi server.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -108,16 +85,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-2 group">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 transition-colors ${themeStyles.textSecondary} group-focus-within:${themeStyles.textAccent}`}>Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} className={`w-full rounded-xl py-4 px-4 outline-none ${themeStyles.fontDisplay} border transition-all duration-300 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} focus:shadow-[0_0_20px_rgba(251,191,36,0.1)]`} placeholder="MENTOR_OR_MENTEE" />
+            <input value={username} onChange={e => setUsername(e.target.value)} className={`w-full rounded-xl py-4 px-4 outline-none ${themeStyles.fontDisplay} border transition-all duration-300 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} focus:shadow-[0_0_20px_rgba(251,191,36,0.1)]`} placeholder="MENTOR_OR_MENTEE" disabled={isLoading} />
           </div>
           <div className="space-y-2 group">
             <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 transition-colors ${themeStyles.textSecondary} group-focus-within:${themeStyles.textAccent}`}>Password</label>
             <div className="relative">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className={`w-full rounded-xl py-4 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border transition-all duration-300 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} focus:shadow-[0_0_20px_rgba(251,191,36,0.1)]`} placeholder="••••••••" />
+              <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} className={`w-full rounded-xl py-4 pl-4 pr-12 outline-none ${themeStyles.fontDisplay} border transition-all duration-300 ${themeStyles.inputBg} ${themeStyles.inputBorder} ${themeStyles.textPrimary} focus:shadow-[0_0_20px_rgba(251,191,36,0.1)]`} placeholder="••••••••" disabled={isLoading} />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute right-4 top-1/2 -translate-y-1/2 ${themeStyles.textSecondary} hover:text-white transition-colors`}>{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
             </div>
           </div>
-          <button className={`w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-8 flex items-center justify-center gap-2 ${themeStyles.buttonPrimary} uppercase tracking-wider transform transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]`}>Enter The Gates <ArrowRight className="w-5 h-5" /></button>
+          <button disabled={isLoading} className={`w-full ${themeStyles.fontDisplay} font-bold py-4 rounded-xl shadow-lg mt-8 flex items-center justify-center gap-2 ${themeStyles.buttonPrimary} uppercase tracking-wider transform transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed`}>
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Enter The Gates <ArrowRight className="w-5 h-5" /></>}
+          </button>
         </form>
         <p className={`mt-8 text-center text-xs ${themeStyles.textSecondary} animate-reveal`} style={{ animationDelay: '0.8s' }}>Belum terdaftar? <button onClick={() => setView('register')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Buat akun</button></p>
       </div>
