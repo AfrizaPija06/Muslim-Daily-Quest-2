@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } from './constants';
@@ -71,7 +72,6 @@ const App: React.FC = () => {
       // Ensure admin creds if matching (optional check)
       if (user.username === ADMIN_CREDENTIALS.username) user = { ...user, ...ADMIN_CREDENTIALS };
       
-      // Auto-login verify with DB could be added here, but for now trust LS then sync
       setCurrentUser(user);
       setView('tracker');
       
@@ -170,16 +170,12 @@ const App: React.FC = () => {
     );
   }
 
-  // Helper for Rank Calculation inside Component
   const currentRank = getRankInfo(totalPoints);
-  // Find next rank for progress
   const currentRankIndex = RANK_TIERS.findIndex(r => r.name === currentRank.name);
-  const nextRank = RANK_TIERS[currentRankIndex - 1]; // RANK_TIERS is sorted DESC (high to low)
-  // If nextRank undefined (already highest), use current max
+  const nextRank = RANK_TIERS[currentRankIndex - 1]; 
   const nextRankMin = nextRank ? nextRank.min : 10000;
   const prevRankMin = currentRank.min;
   const rankProgress = Math.min(100, Math.max(0, ((totalPoints - prevRankMin) / (nextRankMin - prevRankMin)) * 100));
-
 
   // --- RENDER LOGIC ---
 
@@ -208,131 +204,122 @@ const App: React.FC = () => {
         openProfile={() => setView('profile')}
       />
 
-      {/* DESKTOP LAYOUT WRAPPER: 3 COLUMNS */}
-      <div className="flex-grow flex justify-center w-full overflow-hidden">
+      {/* RESPONSIVE LAYOUT WRAPPER: SIDEBARS + FLUID CENTER */}
+      <div className="flex-grow flex w-full overflow-hidden">
         
         {/* LEFT COLUMN: LEADERBOARD (Visible on XL screens) */}
-        <div className="hidden xl:block w-80 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar">
+        <div className="hidden xl:block w-[300px] shrink-0 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar border-r border-white/5">
           <MiniLeaderboard currentUser={currentUser} themeStyles={themeStyles} />
         </div>
 
-        {/* MIDDLE COLUMN: MAIN APP (Mobile View) */}
-        <div className="flex-grow overflow-y-auto no-scrollbar pt-[80px] px-4 pb-[120px] w-full max-w-lg relative z-10">
+        {/* MIDDLE COLUMN: MAIN APP - NOW FLEXIBLE WIDTH */}
+        <div className="flex-grow overflow-y-auto no-scrollbar pt-[80px] px-4 pb-[120px] relative z-10 w-full">
           
-          {view === 'tracker' && (
-            <TrackerPage 
-              currentUser={currentUser!}
-              data={data}
-              setData={setData}
-              totalPoints={totalPoints}
-              {...commonProps}
-            />
-          )}
+          <div className="max-w-7xl mx-auto">
+            {view === 'tracker' && (
+              <TrackerPage 
+                currentUser={currentUser!}
+                data={data}
+                setData={setData}
+                totalPoints={totalPoints}
+                {...commonProps}
+              />
+            )}
 
-          {view === 'leaderboard' && (
-            <LeaderboardPage 
-              currentUser={currentUser} 
-              setView={setView} 
-              handleLogout={handleLogout} 
-              groups={groups} 
-              updateGroups={(g) => Promise.resolve()} // No-op, groups locked
-              handleUpdateProfile={handleUpdateProfile}
-              archives={archives} 
-              attendance={attendance}
-              {...commonProps} 
-            />
-          )}
+            {view === 'leaderboard' && (
+              <LeaderboardPage 
+                currentUser={currentUser} 
+                setView={setView} 
+                handleLogout={handleLogout} 
+                groups={groups} 
+                updateGroups={(g) => Promise.resolve()} 
+                handleUpdateProfile={handleUpdateProfile}
+                archives={archives} 
+                attendance={attendance}
+                {...commonProps} 
+              />
+            )}
 
-          {view === 'profile' && (
-            <div className="animate-reveal space-y-4">
-              <div className={`${themeStyles.card} p-6 rounded-3xl text-center relative overflow-hidden border-2 ${currentRank.bg}`}>
-                  
-                  {/* Decorative Glow */}
-                  <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b ${currentRank.color.replace('text-', 'from-').replace('400', '500')}/20 to-transparent pointer-events-none`}></div>
+            {view === 'profile' && (
+              <div className="animate-reveal space-y-4 max-w-lg mx-auto">
+                <div className={`${themeStyles.card} p-6 rounded-3xl text-center relative overflow-hidden border-2 ${currentRank.bg}`}>
+                    {/* Decorative Glow */}
+                    <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b ${currentRank.color.replace('text-', 'from-').replace('400', '500')}/20 to-transparent pointer-events-none`}></div>
 
-                  <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold mb-6 text-white drop-shadow-md`}>Commander Profile</h2>
-                  
-                  {/* Avatar & Info */}
-                  <div className="mb-8">
-                     <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-black/50 shadow-2xl mb-4 bg-black relative z-10">
-                        <img src={currentUser?.avatarSeed} className="w-full h-full object-cover"/>
-                     </div>
-                     <p className="text-2xl font-black text-white mb-1">{currentUser?.fullName}</p>
-                     <p className="text-sm opacity-60 font-mono">@{currentUser?.username}</p>
-                  </div>
-
-                  {/* RANK CARD SECTION */}
-                  <div className={`mb-8 p-4 rounded-2xl bg-black/40 border border-white/5 relative overflow-hidden`}>
-                     {/* Rank Icon Container (Wadah) */}
-                     <div className="flex justify-center mb-4 relative z-10">
-                        <div className="w-32 h-32 flex items-center justify-center drop-shadow-[0_0_25px_rgba(255,255,255,0.15)]">
-                           {/* Placeholder Icon Logic */}
-                           <img 
-                              src={getRankIconUrl(currentRank.assetKey)} 
-                              alt={currentRank.name}
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                 // Fallback visual if icon not uploaded yet
-                                 e.currentTarget.style.display = 'none';
-                                 e.currentTarget.parentElement?.classList.add('bg-white/5', 'rounded-full', 'border-2', 'border-dashed', 'border-white/20');
-                              }}
-                           />
-                           {/* Fallback Text if Image Fails (handled via onError hiding img) */}
-                           <div className="absolute inset-0 flex items-center justify-center -z-10 text-[10px] text-white/20 font-mono uppercase text-center p-2">
-                              {currentRank.assetKey}
-                           </div>
-                        </div>
-                     </div>
-
-                     <h3 className={`text-xl font-black uppercase tracking-widest ${currentRank.color} mb-1`}>
-                        {currentRank.name}
-                     </h3>
-                     <p className="text-[10px] text-white/50 uppercase tracking-widest mb-4">Current Season Rank</p>
-
-                     {/* Progress Bar */}
-                     <div className="relative w-full h-4 bg-black/50 rounded-full overflow-hidden border border-white/10 mb-1">
-                        <div 
-                           className={`h-full transition-all duration-1000 ${currentRank.color.replace('text-', 'bg-')}`} 
-                           style={{ width: `${rankProgress}%` }}
-                        />
-                     </div>
-                     <div className="flex justify-between text-[10px] font-bold opacity-70">
-                        <span>{totalPoints} XP</span>
-                        <span>{nextRankMin > 9000 ? 'MAX' : `${nextRankMin} XP`}</span>
-                     </div>
-                  </div>
-                  
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
-                        <Shield className="w-5 h-5 opacity-50" />
-                        <div>
-                           <p className="text-[10px] uppercase opacity-50">Role</p>
-                           <p className="font-bold capitalize">{currentUser?.role}</p>
-                        </div>
+                    <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold mb-6 text-white drop-shadow-md`}>Commander Profile</h2>
+                    
+                    {/* Avatar & Info */}
+                    <div className="mb-8">
+                      <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-black/50 shadow-2xl mb-4 bg-black relative z-10">
+                          <img src={currentUser?.avatarSeed} className="w-full h-full object-cover"/>
+                      </div>
+                      <p className="text-2xl font-black text-white mb-1">{currentUser?.fullName}</p>
+                      <p className="text-sm opacity-60 font-mono">@{currentUser?.username}</p>
                     </div>
-                    <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
-                        <div className="w-5 h-5 rounded-full border border-white/50" />
-                        <div>
-                           <p className="text-[10px] uppercase opacity-50">Group</p>
-                           <p className="font-bold text-xs truncate max-w-[100px]">{currentUser?.group.split('#')[0]}</p>
-                        </div>
-                    </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <button onClick={handleLogout} className="w-full py-4 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-bold text-xs uppercase hover:bg-red-500 hover:text-white transition-colors">
-                       Logout System
-                    </button>
-                  </div>
+                    {/* RANK CARD SECTION */}
+                    <div className={`mb-8 p-4 rounded-2xl bg-black/40 border border-white/5 relative overflow-hidden`}>
+                      <div className="flex justify-center mb-4 relative z-10">
+                          <div className="w-32 h-32 flex items-center justify-center drop-shadow-[0_0_25px_rgba(255,255,255,0.15)]">
+                            <img 
+                                src={getRankIconUrl(currentRank.assetKey)} 
+                                alt={currentRank.name}
+                                className="w-full h-full object-contain"
+                                onError={(e) => e.currentTarget.style.display = 'none'}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center -z-10 text-[10px] text-white/20 font-mono uppercase text-center p-2">
+                                {currentRank.assetKey}
+                            </div>
+                          </div>
+                      </div>
+
+                      <h3 className={`text-xl font-black uppercase tracking-widest ${currentRank.color} mb-1`}>
+                          {currentRank.name}
+                      </h3>
+                      <p className="text-[10px] text-white/50 uppercase tracking-widest mb-4">Current Season Rank</p>
+
+                      <div className="relative w-full h-4 bg-black/50 rounded-full overflow-hidden border border-white/10 mb-1">
+                          <div 
+                            className={`h-full transition-all duration-1000 ${currentRank.color.replace('text-', 'bg-')}`} 
+                            style={{ width: `${rankProgress}%` }}
+                          />
+                      </div>
+                      <div className="flex justify-between text-[10px] font-bold opacity-70">
+                          <span>{totalPoints} XP</span>
+                          <span>{nextRankMin > 9000 ? 'MAX' : `${nextRankMin} XP`}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
+                          <Shield className="w-5 h-5 opacity-50" />
+                          <div>
+                            <p className="text-[10px] uppercase opacity-50">Role</p>
+                            <p className="font-bold capitalize">{currentUser?.role}</p>
+                          </div>
+                      </div>
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
+                          <div className="w-5 h-5 rounded-full border border-white/50" />
+                          <div>
+                            <p className="text-[10px] uppercase opacity-50">Group</p>
+                            <p className="font-bold text-xs truncate max-w-[100px]">{currentUser?.group.split('#')[0]}</p>
+                          </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button onClick={handleLogout} className="w-full py-4 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-bold text-xs uppercase hover:bg-red-500 hover:text-white transition-colors">
+                        Logout System
+                      </button>
+                    </div>
+                </div>
               </div>
-            </div>
-          )}
-
+            )}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: DAILY TARGETS (Visible on XL screens) */}
-        <div className="hidden xl:block w-80 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar">
+        <div className="hidden xl:block w-[300px] shrink-0 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar border-l border-white/5">
           <DailyTargetPanel dayData={todayData} themeStyles={themeStyles} dayIndex={currentDayIndex} />
         </div>
 

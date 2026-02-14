@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/gamelogo.png" />
     <link rel="apple-touch-icon" href="https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/gamelogo.png" />
     
-    <title>Mentoring Leveling</title>
+    <title>Mentoring Leveling - Ramadhan Quest</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -112,6 +112,7 @@
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
@@ -127,7 +128,12 @@
 </script>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root" class="flex items-center justify-center h-screen bg-[#020617] text-white">
+      <div class="text-center animate-pulse">
+        <h1 class="text-2xl font-bold text-[#fbbf24] mb-2 font-game">LOADING QUEST...</h1>
+        <p class="text-xs text-white/50">Menyiapkan data ibadah</p>
+      </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

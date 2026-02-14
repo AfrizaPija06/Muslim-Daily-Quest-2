@@ -18,7 +18,8 @@ class ApiService {
         .single();
 
       if (error || !user) {
-        return { success: false, error: 'Username atau Password salah.' };
+        console.error("Login Error:", error);
+        return { success: false, error: 'Username atau Password salah (atau akun belum dibuat).' };
       }
 
       // 2. Fetch Tracker Data
@@ -35,18 +36,24 @@ class ApiService {
       };
 
     } catch (e: any) {
+      console.error("Login Exception:", e);
       return { success: false, error: e.message };
     }
   }
 
   async registerUserSafe(newUser: User): Promise<{ success: boolean; error?: string }> {
     try {
-      // 1. Check if user exists
-      const { data: existing } = await supabase
+      // 1. Check if user exists (Directly to Supabase)
+      const { data: existing, error: checkError } = await supabase
         .from('users')
         .select('username')
         .eq('username', newUser.username)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid error if not found
+
+      if (checkError) {
+         console.error("Check User Error:", checkError);
+         return { success: false, error: "Gagal mengecek ketersediaan username." };
+      }
 
       if (existing) {
         return { success: false, error: "Username sudah digunakan." };
@@ -66,18 +73,26 @@ class ApiService {
           character_id: newUser.characterId
         }]);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Insert User Error:", insertError);
+        throw insertError;
+      }
 
       // 3. Initialize Tracker
       const newTracker = { ...INITIAL_DATA, lastUpdated: new Date().toISOString() };
-      await supabase.from('trackers').insert([{
+      const { error: trackerError } = await supabase.from('trackers').insert([{
         username: newUser.username,
         data: newTracker
       }]);
 
+      if (trackerError) {
+         console.error("Tracker Init Error:", trackerError);
+         // Optional: Delete user if tracker fails to keep DB clean, but skipping for simplicity
+      }
+
       return { success: true };
     } catch (e: any) {
-      console.error(e);
+      console.error("Registration Exception:", e);
       return { success: false, error: e.message || "Gagal mendaftar ke server." };
     }
   }
@@ -89,8 +104,6 @@ class ApiService {
     if (!currentUser) return { success: false };
 
     try {
-      // Upsert Tracker Data (Save Game)
-      // We store the WHOLE JSON object. Supabase handles JSONB very efficiently.
       const { error } = await supabase
         .from('trackers')
         .upsert({
@@ -112,7 +125,6 @@ class ApiService {
 
   async getAllUsersWithPoints(): Promise<any[]> {
     try {
-      // Join users and trackers
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -122,10 +134,9 @@ class ApiService {
 
       if (error) throw error;
 
-      // Transform for frontend
       return data.map((u: any) => ({
         ...u,
-        avatarSeed: u.avatar_seed, // mapping snake_case db to camelCase js
+        avatarSeed: u.avatar_seed,
         characterId: u.character_id,
         fullName: u.full_name,
         trackerData: u.trackers ? u.trackers.data : null
