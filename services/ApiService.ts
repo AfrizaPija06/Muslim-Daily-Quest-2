@@ -9,9 +9,8 @@ class ApiService {
 
   async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
     try {
-      // 0. CEK ADMIN HARDCODED (Supaya Admin bisa login walau belum insert DB atau DB mati)
+      // 0. CEK ADMIN HARDCODED
       if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-        
         let trackerData = null;
         try {
           const { data: tracker } = await supabase
@@ -50,8 +49,12 @@ class ApiService {
 
       if (error) {
         console.error("Login Query Error:", error);
+        // Deteksi Project Lama yang Restricted
+        if (error.message?.includes('restricted') || error.message?.includes('violations')) {
+            return { success: false, error: '⛔ KRITIS: Kodingan masih connect ke Project Lama (Blocked). Ganti URL & Key di .env dengan Project Baru!' };
+        }
         if (error.code === '402') return { success: false, error: 'Server Penuh (Quota Exceeded).' };
-        if (error.code === '42P01') return { success: false, error: 'Tabel database hilang. Hubungi Admin.' }; // Table missing
+        if (error.code === '42P01') return { success: false, error: 'Tabel database belum dibuat. Jalankan SQL Script di Supabase.' };
         return { success: false, error: `Login Error: ${error.message}` };
       }
 
@@ -59,7 +62,7 @@ class ApiService {
         return { success: false, error: 'Username atau Password salah.' };
       }
 
-      // 2. Fetch Tracker Data (Safely)
+      // 2. Fetch Tracker Data
       const { data: tracker, error: trackerError } = await supabase
         .from('trackers')
         .select('data')
@@ -67,11 +70,9 @@ class ApiService {
         .maybeSingle();
 
       if (trackerError) {
-         if (trackerError.code === '402') return { success: false, error: 'Server Penuh (Quota Exceeded).' };
          console.warn("Tracker Error:", trackerError);
       }
 
-      // Mapping Database snake_case to App camelCase
       const appUser: User = {
         username: user.username,
         fullName: user.full_name,
@@ -105,8 +106,11 @@ class ApiService {
         .maybeSingle();
 
       if (checkError) {
+         // Deteksi Project Lama saat Register
+         if (checkError.message?.includes('restricted') || checkError.message?.includes('violations')) {
+            return { success: false, error: '⛔ ERROR: Masih terhubung ke Project LAMA. Ganti URL di .env!' };
+         }
          if (checkError.code === '402') return { success: false, error: "Server Penuh (Quota Exceeded)." };
-         // Error 42P01 = Table not found
          if (checkError.code === '42P01') return { success: false, error: "Tabel belum dibuat! Jalankan script SQL di Supabase." };
          
          console.error("Check User Error:", checkError);
@@ -117,7 +121,7 @@ class ApiService {
         return { success: false, error: "Username sudah digunakan." };
       }
 
-      // 2. Insert User (Strict Mapping)
+      // 2. Insert User
       const { error: insertError } = await supabase
         .from('users')
         .insert([{
@@ -132,6 +136,7 @@ class ApiService {
         }]);
 
       if (insertError) {
+        if (insertError.message?.includes('restricted')) return { success: false, error: "⛔ ERROR: Masih terhubung ke Project LAMA." };
         if (insertError.code === '402') return { success: false, error: "Gagal: Kuota Server Penuh." };
         if (insertError.code === '42P01') return { success: false, error: "Gagal: Tabel 'users' tidak ditemukan." };
         
@@ -146,18 +151,12 @@ class ApiService {
         data: newTracker
       }]);
 
-      if (trackerError) {
-         console.error("Tracker Init Error:", trackerError);
-      }
-
       return { success: true };
     } catch (e: any) {
       console.error("Registration Exception:", e);
       return { success: false, error: e.message || "Gagal mendaftar ke server." };
     }
   }
-
-  // --- SYNC / DATA MANAGEMENT ---
 
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
     if (!currentUser) return { success: false };
@@ -172,18 +171,15 @@ class ApiService {
         });
 
       if (error) {
-        if (error.code === '402') console.warn("Sync skipped: Quota Exceeded");
+        if (error.message?.includes('restricted')) console.error("SYNC FAILED: Project is restricted (Check .env)");
         throw error;
       }
 
       return { success: true };
     } catch (e) {
-      console.error("Sync Failed:", e);
       return { success: false };
     }
   }
-
-  // --- LEADERBOARD & ADMIN ---
 
   async getAllUsersWithPoints(): Promise<any[]> {
     try {
@@ -196,7 +192,7 @@ class ApiService {
 
       if (error) {
         if (error.code === '42P01') console.warn("Fetch users failed: Tables missing");
-        if (error.code === '402') console.warn("Fetch users skipped: Quota Exceeded");
+        if (error.message?.includes('restricted')) console.warn("Fetch users failed: Project Restricted");
         throw error;
       }
 
@@ -212,7 +208,6 @@ class ApiService {
       }));
 
     } catch (e) {
-      // Don't log full error on every fetch to avoid console spam, unless critical
       return [];
     }
   }
@@ -226,9 +221,7 @@ class ApiService {
     try {
       if (user.username === ADMIN_CREDENTIALS.username) {
          const { data: exists } = await supabase.from('users').select('username').eq('username', user.username).maybeSingle();
-         if (!exists) {
-            await this.registerUserSafe(user);
-         }
+         if (!exists) await this.registerUserSafe(user);
       }
 
       const { error } = await supabase
