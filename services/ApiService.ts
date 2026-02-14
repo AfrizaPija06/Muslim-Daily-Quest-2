@@ -74,14 +74,8 @@ class ApiService {
     if (!auth) return { success: false, error: "Firebase belum terhubung. Cek koneksi/konfigurasi." };
 
     try {
-      // 0. CEK ADMIN HARDCODED (Backdoor)
-      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-        return {
-          success: true,
-          user: { ...ADMIN_CREDENTIALS },
-          data: INITIAL_DATA 
-        };
-      }
+      // PENTING: Backdoor Admin dihapus agar Admin wajib pakai Firebase Auth.
+      // Ini memastikan Admin bisa baca/tulis ke Database dengan Rules yang benar.
 
       // 1. Firebase Auth Login
       const email = this.toEmail(username);
@@ -91,10 +85,10 @@ class ApiService {
       const profile = await this.getUserProfile(userCredential.user.uid);
       
       if (!profile) {
-        // Jika login auth sukses tapi data firestore tidak ada (misal deleted user)
-        // Kita logout kan saja
+        // Jika login auth sukses tapi data firestore tidak ada
+        // (Mungkin admin baru yang belum diregister lewat app?)
         await signOut(auth);
-        return { success: false, error: 'Data user tidak ditemukan di database.' };
+        return { success: false, error: 'Akun ditemukan tapi Data Profile kosong. Silakan Register ulang.' };
       }
 
       return { 
@@ -107,7 +101,7 @@ class ApiService {
       console.error("Login Exception:", e);
       let errMsg = `Login gagal: ${e.message || e}`;
       if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
-        errMsg = "Username atau Password salah.";
+        errMsg = "Username atau Password salah. Jika Admin, pastikan sudah Register.";
       } else if (e.code === 'auth/too-many-requests') {
         errMsg = "Terlalu banyak percobaan. Tunggu sebentar.";
       } else if (e.code === 'auth/network-request-failed') {
@@ -122,10 +116,12 @@ class ApiService {
 
     try {
       const email = this.toEmail(newUser.username);
-
-      // NOTE: Kita menghapus pengecekan manual Firestore di sini karena 
-      // bisa menyebabkan error 'Permission Denied' jika Rules Firestore memblokir unauthenticated read.
-      // Kita andalkan error 'auth/email-already-in-use' dari Firebase Auth saja.
+      
+      // Override Role jika username adalah Admin yang ditentukan di config
+      let finalRole = newUser.role;
+      if (newUser.username === ADMIN_CREDENTIALS.username) {
+        finalRole = 'mentor';
+      }
 
       // 1. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, email, newUser.password || '123456');
@@ -137,7 +133,7 @@ class ApiService {
         setDoc(doc(db, "users", firebaseUser.uid), {
           username: newUser.username,
           fullName: newUser.fullName,
-          role: newUser.role,
+          role: finalRole, // Simpan role yang sudah divalidasi
           group: newUser.group,
           status: newUser.status,
           avatarSeed: newUser.avatarSeed,
@@ -157,7 +153,7 @@ class ApiService {
       console.error("Registration Exception:", e);
       let errMsg = `Gagal mendaftar: ${e.message}`;
       
-      if (e.code === 'auth/email-already-in-use') errMsg = "Username sudah terdaftar. Coba yang lain.";
+      if (e.code === 'auth/email-already-in-use') errMsg = "Username sudah terdaftar. Silakan Login.";
       if (e.code === 'auth/weak-password') errMsg = "Password terlalu lemah (min 6 karakter).";
       if (e.code === 'auth/network-request-failed') errMsg = "Masalah koneksi internet.";
       
@@ -169,8 +165,8 @@ class ApiService {
     if (!currentUser) return { success: false };
     if (!db || !auth) return { success: false };
     
-    // Khusus Admin Backdoor, tidak sync ke DB
-    if (currentUser.username === ADMIN_CREDENTIALS.username) return { success: true };
+    // HAPUS PENGECUALIAN ADMIN. Admin juga harus sync data.
+    // if (currentUser.username === ADMIN_CREDENTIALS.username) return { success: true };
 
     try {
       const firebaseUser = auth.currentUser;
@@ -195,25 +191,35 @@ class ApiService {
   async getAllUsersWithPoints(): Promise<any[]> {
     if (!db) return [];
     try {
-      const usersSnap = await getDocs(collection(db, "users"));
-      const users = usersSnap.docs.map(d => ({ uid: d.id, ...(d.data() as any) } as any));
+      // Fetch users dan trackers secara paralel
+      const [usersSnap, trackersSnap] = await Promise.all([
+        getDocs(collection(db, "users")),
+        getDocs(collection(db, "trackers"))
+      ]);
 
-      const trackersSnap = await getDocs(collection(db, "trackers"));
       const trackersMap: Record<string, any> = {};
       trackersSnap.forEach(d => {
+        // d.id adalah UID
         trackersMap[d.id] = d.data();
       });
 
-      return users.map(u => ({
-        username: u.username,
-        fullName: u.fullName,
-        role: u.role,
-        group: u.group,
-        status: u.status,
-        avatarSeed: u.avatarSeed,
-        characterId: u.characterId,
-        trackerData: trackersMap[u.uid]?.data || null
-      }));
+      const users = usersSnap.docs.map(d => {
+        const userData = d.data();
+        return {
+          uid: d.id,
+          username: userData.username,
+          fullName: userData.fullName,
+          role: userData.role,
+          group: userData.group,
+          status: userData.status,
+          avatarSeed: userData.avatarSeed,
+          characterId: userData.characterId,
+          // Match data tracker berdasarkan UID
+          trackerData: trackersMap[d.id]?.data || null
+        };
+      });
+
+      return users;
 
     } catch (e) {
       console.error("Fetch Users Error:", e);

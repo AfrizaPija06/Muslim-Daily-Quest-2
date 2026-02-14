@@ -35,16 +35,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
     setError(null);
 
     try {
-      if (formData.username === ADMIN_CREDENTIALS.username) { 
-        setError("Username tidak diizinkan."); 
-        setIsRegistering(false);
-        return; 
-      }
-
+      // NOTE: Kita menghapus blokir username admin agar Anda bisa mendaftarkan akun Admin secara resmi ke Firebase.
+      
       const { confirmPassword, ...rest } = formData;
       const newUser: User = { 
         ...rest, 
-        role: 'mentee', 
+        role: 'mentee', // Default mentee, tapi akan di-override di ApiService jika username == mentor_admin
         status: 'active', 
         avatarSeed: selectedChar.imageUrl, 
         characterId: selectedChar.id 
