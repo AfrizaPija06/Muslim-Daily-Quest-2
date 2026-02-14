@@ -12,8 +12,6 @@ class ApiService {
       // 0. CEK ADMIN HARDCODED (Supaya Admin bisa login walau belum insert DB atau DB mati)
       if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
         
-        // Coba ambil data tracker admin dari DB (jika pernah save sebelumnya)
-        // Kita bungkus try-catch extra di sini karena jika Quota habis, ini akan throw error
         let trackerData = null;
         try {
           const { data: tracker } = await supabase
@@ -26,7 +24,6 @@ class ApiService {
           console.warn("Admin login: DB unreachable, using local data.");
         }
 
-        // Return user admin dari constants
         return {
           success: true,
           user: {
@@ -53,11 +50,9 @@ class ApiService {
 
       if (error) {
         console.error("Login Query Error:", error);
-        // Deteksi Error Quota Habis (402 Payment Required) atau Network Error
-        if (error.code === '402' || error.message?.includes('usage limit') || error.message?.includes('quota')) {
-           return { success: false, error: 'Server Penuh (Quota Exceeded). Hubungi Admin.' };
-        }
-        return { success: false, error: 'Koneksi database bermasalah.' };
+        if (error.code === '402') return { success: false, error: 'Server Penuh (Quota Exceeded).' };
+        if (error.code === '42P01') return { success: false, error: 'Tabel database hilang. Hubungi Admin.' }; // Table missing
+        return { success: false, error: `Login Error: ${error.message}` };
       }
 
       if (!user) {
@@ -71,14 +66,15 @@ class ApiService {
         .eq('username', username)
         .maybeSingle();
 
-      if (trackerError && trackerError.code === '402') {
-         return { success: false, error: 'Server Penuh (Quota Exceeded).' };
+      if (trackerError) {
+         if (trackerError.code === '402') return { success: false, error: 'Server Penuh (Quota Exceeded).' };
+         console.warn("Tracker Error:", trackerError);
       }
 
       // Mapping Database snake_case to App camelCase
       const appUser: User = {
         username: user.username,
-        fullName: user.full_name, // Map full_name -> fullName
+        fullName: user.full_name,
         password: user.password,
         role: user.role,
         group: user.group,
@@ -90,7 +86,6 @@ class ApiService {
       return { 
         success: true, 
         user: appUser, 
-        // If tracker is null (new user), use INITIAL_DATA
         data: tracker?.data || INITIAL_DATA 
       };
 
@@ -111,8 +106,11 @@ class ApiService {
 
       if (checkError) {
          if (checkError.code === '402') return { success: false, error: "Server Penuh (Quota Exceeded)." };
+         // Error 42P01 = Table not found
+         if (checkError.code === '42P01') return { success: false, error: "Tabel belum dibuat! Jalankan script SQL di Supabase." };
+         
          console.error("Check User Error:", checkError);
-         return { success: false, error: "Gagal mengecek username database." };
+         return { success: false, error: `DB Error: ${checkError.message}` };
       }
 
       if (existing) {
@@ -124,7 +122,7 @@ class ApiService {
         .from('users')
         .insert([{
           username: newUser.username,
-          full_name: newUser.fullName, // Ensure mapping matches DB column
+          full_name: newUser.fullName,
           password: newUser.password,
           role: newUser.role,
           group: newUser.group,
@@ -134,9 +132,11 @@ class ApiService {
         }]);
 
       if (insertError) {
-        if (insertError.code === '402') return { success: false, error: "Gagal mendaftar: Kuota Server Penuh." };
+        if (insertError.code === '402') return { success: false, error: "Gagal: Kuota Server Penuh." };
+        if (insertError.code === '42P01') return { success: false, error: "Gagal: Tabel 'users' tidak ditemukan." };
+        
         console.error("Insert User Error details:", insertError);
-        return { success: false, error: `Gagal membuat user: ${insertError.message}` };
+        return { success: false, error: `Gagal save user: ${insertError.message}` };
       }
 
       // 3. Initialize Tracker
@@ -148,7 +148,6 @@ class ApiService {
 
       if (trackerError) {
          console.error("Tracker Init Error:", trackerError);
-         // Not fatal, user can still login, tracker will be created on sync
       }
 
       return { success: true };
@@ -196,6 +195,7 @@ class ApiService {
         `);
 
       if (error) {
+        if (error.code === '42P01') console.warn("Fetch users failed: Tables missing");
         if (error.code === '402') console.warn("Fetch users skipped: Quota Exceeded");
         throw error;
       }
@@ -212,7 +212,7 @@ class ApiService {
       }));
 
     } catch (e) {
-      console.error("Fetch Users Failed", e);
+      // Don't log full error on every fetch to avoid console spam, unless critical
       return [];
     }
   }
@@ -222,14 +222,11 @@ class ApiService {
     return !error;
   }
 
-  // --- PROFILE UPDATE ---
   async updateUserProfile(user: User): Promise<boolean> {
     try {
-      // Jika admin yang update profile (dan admin belum di DB), kita insert dulu
       if (user.username === ADMIN_CREDENTIALS.username) {
          const { data: exists } = await supabase.from('users').select('username').eq('username', user.username).maybeSingle();
          if (!exists) {
-            // Register admin ke DB secara diam-diam agar bisa diupdate
             await this.registerUserSafe(user);
          }
       }
