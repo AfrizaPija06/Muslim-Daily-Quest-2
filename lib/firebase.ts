@@ -3,6 +3,9 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// DEBUG LOG: Pastikan file ini dimuat oleh browser
+console.log("🔥 [SYSTEM] Firebase Module Loading...");
+
 // Helper: Membersihkan tanda kutip jika user tidak sengaja memasukkannya di Cloudflare ENV
 const cleanEnv = (val: string | undefined) => {
   if (!val) return undefined;
@@ -19,6 +22,13 @@ const firebaseConfig = {
   appId: cleanEnv(import.meta.env.VITE_FIREBASE_APP_ID)
 };
 
+// Log Config Status (Tanpa menampilkan full key demi keamanan, tapi cukup untuk debug)
+const keyStatus = firebaseConfig.apiKey 
+  ? `Present (Starts with ${firebaseConfig.apiKey.substring(0, 4)}...)` 
+  : "MISSING / UNDEFINED";
+
+console.log(`🔑 [SYSTEM] API Key Status: ${keyStatus}`);
+
 // Initialize Firebase with error handling
 let app;
 let auth: any;
@@ -30,12 +40,15 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
-    console.log("Firebase initialized successfully");
+    // Menggunakan console.info agar lebih menonjol (warna biru/putih terang di chrome)
+    console.info("✅ [SYSTEM] Firebase initialized successfully");
   } else {
-    console.warn("Firebase config missing or invalid", firebaseConfig);
+    // Menggunakan console.error agar muncul merah jika gagal
+    console.error("❌ [SYSTEM] Firebase config missing or invalid. Check .env file.");
+    console.log("Debug Config Object:", firebaseConfig);
   }
 } catch (e) {
-  console.error("Firebase Initialization Error:", e);
+  console.error("❌ [SYSTEM] Firebase Initialization Error:", e);
 }
 
 export { auth, db };
