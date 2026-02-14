@@ -41,7 +41,10 @@ const App: React.FC = () => {
   const themeStyles = THEMES['ramadhan'];
 
   // --- CRITICAL CHECK: OLD PROJECT DETECTION ---
-  const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || '';
+  // FIXED: Safe access to env to prevent "Cannot read properties of undefined (reading 'VITE_SUPABASE_URL')"
+  const env = (import.meta as any).env || {};
+  const supabaseUrl = env.VITE_SUPABASE_URL || '';
+  
   // 'ebjhbldaslrrsmiecvzc' is the old blocked project ID
   if (supabaseUrl.includes('ebjhbldaslrrsmiecvzc')) {
      return (
