@@ -10,15 +10,17 @@ const cleanEnv = (val: string | undefined) => {
   return val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''); // Hapus kutip ganda atau tunggal di awal/akhir
 };
 
-const rawEnv = (import.meta as any).env;
+// Safe access to environment variables to prevent "Cannot read properties of undefined"
+// This handles cases where import.meta.env might be undefined at runtime.
+const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
 
 const firebaseConfig = {
-  apiKey: cleanEnv(rawEnv.VITE_FIREBASE_API_KEY),
-  authDomain: cleanEnv(rawEnv.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId: cleanEnv(rawEnv.VITE_FIREBASE_PROJECT_ID),
-  storageBucket: cleanEnv(rawEnv.VITE_FIREBASE_STORAGE_BUCKET),
-  messagingSenderId: cleanEnv(rawEnv.VITE_FIREBASE_MESSAGING_SENDER_ID),
-  appId: cleanEnv(rawEnv.VITE_FIREBASE_APP_ID)
+  apiKey: cleanEnv(env.VITE_FIREBASE_API_KEY),
+  authDomain: cleanEnv(env.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: cleanEnv(env.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: cleanEnv(env.VITE_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: cleanEnv(env.VITE_FIREBASE_MESSAGING_SENDER_ID),
+  appId: cleanEnv(env.VITE_FIREBASE_APP_ID)
 };
 
 // Initialize Firebase
@@ -30,5 +32,6 @@ export const db = getFirestore(app);
 
 export const isFirebaseConfigured = () => {
   const key = firebaseConfig.apiKey;
-  return key && key !== 'demo-key' && !key.includes('AIzaSyBhof_BW2uI8Ze0ywN'); // Basic validation
+  // Basic validation: Check if key exists and is not the demo placeholder
+  return key && key !== 'demo-key' && !key.includes('AIzaSyBhof_BW2uI8Ze0ywN');
 };
