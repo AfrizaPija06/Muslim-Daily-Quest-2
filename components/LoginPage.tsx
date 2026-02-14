@@ -130,7 +130,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
         </div>
       </div>
       
-      <div className="absolute bottom-4 text-[10px] text-white/20 font-mono">v8.2.0 • Serverless Edition</div>
+      <div className="absolute bottom-4 text-[10px] text-white/20 font-mono">v9.0.0 • Firebase Edition</div>
     </div>
   );
 };

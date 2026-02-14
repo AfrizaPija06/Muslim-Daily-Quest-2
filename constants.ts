@@ -1,9 +1,11 @@
+
 import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerState, Character, UserStatus } from './types';
 
 export { HIJRI_YEAR } from './types';
 
-export const GAME_LOGO_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/gamelogo.png";
-export const MENTOR_AVATAR_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets/Mentor.png";
+// Placeholder Assets (Supabase project lama sudah tidak aktif, gunakan ini agar tampilan tidak rusak)
+export const GAME_LOGO_URL = "https://ui-avatars.com/api/?name=MQ&background=1e1b4b&color=fbbf24&size=512&font-size=0.33&length=2&rounded=true&bold=true";
+export const MENTOR_AVATAR_URL = "https://ui-avatars.com/api/?name=Mentor&background=fbbf24&color=000&size=256";
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
 // Ubah tanggal ini jika ada penetapan sidang isbat berbeda.
@@ -23,9 +25,8 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // --- CHARACTER ROSTER ---
-// NOTE FOR USER: Upload images to your Supabase bucket 'assets' with these exact names.
-// Or change these URLs to wherever you host your images.
-const ASSET_BASE_URL = "https://fymoxcdhskimzxpljjgi.supabase.co/storage/v1/object/public/assets";
+// Menggunakan UI Avatars sebagai fallback agar tidak ada error 'ERR_NAME_NOT_RESOLVED'
+const ASSET_BASE_URL = ""; 
 
 export const AVAILABLE_CHARACTERS: Character[] = [
   {
@@ -34,7 +35,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'Vanguard',
     description: 'Pemimpin tangguh yang membuka jalan kemenangan dengan keteguhan hati.',
     abilities: ['Iron Will', 'Strategic Mind', 'Leader Aura'],
-    imageUrl: `${ASSET_BASE_URL}/hero_1.png`, 
+    imageUrl: `https://ui-avatars.com/api/?name=Al+Fatih&background=ef4444&color=fff&size=256`, 
     color: 'text-red-400'
   },
   {
@@ -43,7 +44,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'Explorer',
     description: 'Penjelajah ilmu yang tidak kenal lelah mencari hikmah di setiap langkah.',
     abilities: ['Swift Step', 'Map Reading', 'Endurance'],
-    imageUrl: `${ASSET_BASE_URL}/hero_2.png`,
+    imageUrl: `https://ui-avatars.com/api/?name=Ibnu+Batuta&background=10b981&color=fff&size=256`,
     color: 'text-emerald-400'
   },
   {
@@ -52,7 +53,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'Scribe',
     description: 'Penjaga wahyu yang teliti, menghafal dan mencatat kebaikan.',
     abilities: ['Focus', 'Memory Palace', 'Ink Flow'],
-    imageUrl: `${ASSET_BASE_URL}/hero_3.png`,
+    imageUrl: `https://ui-avatars.com/api/?name=Zaid+bin+Tsabit&background=3b82f6&color=fff&size=256`,
     color: 'text-blue-400'
   },
   {
@@ -61,7 +62,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'Warrior',
     description: 'Pedang Allah yang tak terkalahkan, maju paling depan dalam kebaikan.',
     abilities: ['Valor', 'Tactics', 'Speed'],
-    imageUrl: `${ASSET_BASE_URL}/hero_4.png`,
+    imageUrl: `https://ui-avatars.com/api/?name=Khalid&background=f59e0b&color=fff&size=256`,
     color: 'text-amber-400'
   },
   {
@@ -70,7 +71,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'Scholar',
     description: 'Cerdas dan berwawasan luas, menjadi rujukan bagi para pencari ilmu.',
     abilities: ['Wisdom', 'Teaching', 'Hadith Logic'],
-    imageUrl: `${ASSET_BASE_URL}/hero_5.png`,
+    imageUrl: `https://ui-avatars.com/api/?name=Aisyah&background=a855f7&color=fff&size=256`,
     color: 'text-purple-400'
   }
 ];
@@ -115,5 +116,6 @@ export const getAvatarSrc = (seedOrUrl?: string, assets?: any) => {
 export const getRankIconUrl = (assetKey: string | undefined) => {
   if (!assetKey) return "";
   if (assetKey.startsWith('http')) return assetKey;
-  return `${ASSET_BASE_URL}/${assetKey}`;
+  // Fallback if local asset is missing
+  return `https://ui-avatars.com/api/?name=${assetKey.replace('.png','')}&background=333&color=fbbf24&rounded=true`;
 };
