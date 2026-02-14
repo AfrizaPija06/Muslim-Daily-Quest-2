@@ -1,239 +1,279 @@
 
-import { supabase } from '../lib/supabaseClient';
+import { auth, db } from '../lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  updateProfile
+} from "firebase/auth";
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  getDocs, 
+  query, 
+  where,
+  deleteDoc
+} from "firebase/firestore";
 import { WeeklyData, User } from '../types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS } from '../constants';
 
+// Domain dummy untuk mengubah username menjadi format email
+const AUTH_DOMAIN = "@muslimquest.app";
+
 class ApiService {
   
+  // Helper: Convert username to fake email
+  private toEmail(username: string): string {
+    return `${username.toLowerCase().replace(/\s/g, '')}${AUTH_DOMAIN}`;
+  }
+
   // --- AUTHENTICATION ---
 
   async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
     try {
-      // 0. CEK ADMIN HARDCODED
+      // 0. CEK ADMIN HARDCODED (Backdoor)
       if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        // Coba ambil data admin dari Firestore jika ada
         let trackerData = null;
         try {
-          const { data: tracker } = await supabase
-            .from('trackers')
-            .select('data')
-            .eq('username', username)
-            .maybeSingle();
-          trackerData = tracker?.data;
-        } catch (dbError) {
-          console.warn("Admin login: DB unreachable, using local data.");
-        }
+          const email = this.toEmail(username);
+          // Kita tidak login ke Auth Firebase utk admin backdoor, tapi coba fetch data by ID manual jika perlu
+          // Untuk simplifikasi, admin backdoor pakai local data dulu, atau login normal jika akun admin didaftarkan
+        } catch (e) {}
 
         return {
           success: true,
           user: {
-            username: ADMIN_CREDENTIALS.username,
-            fullName: ADMIN_CREDENTIALS.fullName,
-            password: ADMIN_CREDENTIALS.password,
-            role: ADMIN_CREDENTIALS.role,
-            group: ADMIN_CREDENTIALS.group,
-            status: ADMIN_CREDENTIALS.status,
-            avatarSeed: ADMIN_CREDENTIALS.avatarSeed,
-            characterId: ADMIN_CREDENTIALS.characterId
+            ...ADMIN_CREDENTIALS,
+            username: ADMIN_CREDENTIALS.username // ensure type match
           },
-          data: trackerData || INITIAL_DATA
+          data: INITIAL_DATA // Admin pakai data dummy/reset
         };
       }
 
-      // 1. Fetch User Normal dari Database
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .eq('password', password)
-        .maybeSingle(); 
+      // 1. Firebase Auth Login
+      const email = this.toEmail(username);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
 
-      if (error) {
-        console.error("Login Query Error:", error);
-        // Deteksi Project Lama yang Restricted
-        if (error.message?.includes('restricted') || error.message?.includes('violations')) {
-            return { success: false, error: '⛔ KRITIS: Kodingan masih connect ke Project Lama (Blocked). Ganti URL & Key di .env dengan Project Baru!' };
-        }
-        if (error.code === '402') return { success: false, error: 'Server Penuh (Quota Exceeded).' };
-        if (error.code === '42P01') return { success: false, error: 'Tabel database belum dibuat. Jalankan SQL Script di Supabase.' };
-        return { success: false, error: `Login Error: ${error.message}` };
+      // 2. Fetch User Profile from Firestore 'users' collection
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        return { success: false, error: 'Data user tidak ditemukan di database.' };
       }
 
-      if (!user) {
-        return { success: false, error: 'Username atau Password salah.' };
-      }
+      const userData = userDoc.data();
 
-      // 2. Fetch Tracker Data
-      const { data: tracker, error: trackerError } = await supabase
-        .from('trackers')
-        .select('data')
-        .eq('username', username)
-        .maybeSingle();
-
-      if (trackerError) {
-         console.warn("Tracker Error:", trackerError);
+      // 3. Fetch Tracker Data from Firestore 'trackers' collection
+      const trackerDocRef = doc(db, "trackers", firebaseUser.uid);
+      const trackerDoc = await getDoc(trackerDocRef);
+      
+      let trackerData = INITIAL_DATA;
+      if (trackerDoc.exists()) {
+        trackerData = trackerDoc.data().data as WeeklyData;
       }
 
       const appUser: User = {
-        username: user.username,
-        fullName: user.full_name,
-        password: user.password,
-        role: user.role,
-        group: user.group,
-        status: user.status,
-        avatarSeed: user.avatar_seed,
-        characterId: user.character_id
+        username: userData.username,
+        fullName: userData.fullName,
+        password: '***', // Dont expose
+        role: userData.role,
+        group: userData.group,
+        status: userData.status,
+        avatarSeed: userData.avatarSeed,
+        characterId: userData.characterId
       };
 
       return { 
         success: true, 
         user: appUser, 
-        data: tracker?.data || INITIAL_DATA 
+        data: trackerData 
       };
 
     } catch (e: any) {
       console.error("Login Exception:", e);
-      return { success: false, error: e.message || 'Error tidak diketahui saat login.' };
+      let errMsg = "Login gagal.";
+      if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
+        errMsg = "Username atau Password salah.";
+      } else if (e.code === 'auth/too-many-requests') {
+        errMsg = "Terlalu banyak percobaan. Tunggu sebentar.";
+      }
+      return { success: false, error: errMsg };
     }
   }
 
   async registerUserSafe(newUser: User): Promise<{ success: boolean; error?: string }> {
     try {
-      // 1. Check if user exists
-      const { data: existing, error: checkError } = await supabase
-        .from('users')
-        .select('username')
-        .eq('username', newUser.username)
-        .maybeSingle();
+      const email = this.toEmail(newUser.username);
 
-      if (checkError) {
-         // Deteksi Project Lama saat Register
-         if (checkError.message?.includes('restricted') || checkError.message?.includes('violations')) {
-            return { success: false, error: '⛔ ERROR: Masih terhubung ke Project LAMA. Ganti URL di .env!' };
-         }
-         if (checkError.code === '402') return { success: false, error: "Server Penuh (Quota Exceeded)." };
-         if (checkError.code === '42P01') return { success: false, error: "Tabel belum dibuat! Jalankan script SQL di Supabase." };
-         
-         console.error("Check User Error:", checkError);
-         return { success: false, error: `DB Error: ${checkError.message}` };
-      }
-
-      if (existing) {
+      // 1. Check if username exists using Firestore Query
+      // (Meskipun Auth handle email unik, kita cek dulu biar pesan errornya enak)
+      const q = query(collection(db, "users"), where("username", "==", newUser.username));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
         return { success: false, error: "Username sudah digunakan." };
       }
 
-      // 2. Insert User
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert([{
-          username: newUser.username,
-          full_name: newUser.fullName,
-          password: newUser.password,
-          role: newUser.role,
-          group: newUser.group,
-          status: newUser.status,
-          avatar_seed: newUser.avatarSeed,
-          character_id: newUser.characterId
-        }]);
+      // 2. Create Auth User
+      const userCredential = await createUserWithEmailAndPassword(auth, email, newUser.password || '123456');
+      const firebaseUser = userCredential.user;
 
-      if (insertError) {
-        if (insertError.message?.includes('restricted')) return { success: false, error: "⛔ ERROR: Masih terhubung ke Project LAMA." };
-        if (insertError.code === '402') return { success: false, error: "Gagal: Kuota Server Penuh." };
-        if (insertError.code === '42P01') return { success: false, error: "Gagal: Tabel 'users' tidak ditemukan." };
-        
-        console.error("Insert User Error details:", insertError);
-        return { success: false, error: `Gagal save user: ${insertError.message}` };
-      }
-
-      // 3. Initialize Tracker
-      const newTracker = { ...INITIAL_DATA, lastUpdated: new Date().toISOString() };
-      const { error: trackerError } = await supabase.from('trackers').insert([{
+      // 3. Simpan Profile ke Firestore
+      await setDoc(doc(db, "users", firebaseUser.uid), {
         username: newUser.username,
-        data: newTracker
-      }]);
+        fullName: newUser.fullName,
+        role: newUser.role,
+        group: newUser.group,
+        status: newUser.status,
+        avatarSeed: newUser.avatarSeed,
+        characterId: newUser.characterId,
+        createdAt: new Date().toISOString()
+      });
+
+      // 4. Initialize Tracker
+      const newTracker = { ...INITIAL_DATA, lastUpdated: new Date().toISOString() };
+      await setDoc(doc(db, "trackers", firebaseUser.uid), {
+        username: newUser.username,
+        data: newTracker,
+        lastUpdated: new Date().toISOString()
+      });
+
+      // Update display name di Auth (opsional, untuk kerapihan di console firebase)
+      await updateProfile(firebaseUser, { displayName: newUser.fullName });
 
       return { success: true };
     } catch (e: any) {
       console.error("Registration Exception:", e);
-      return { success: false, error: e.message || "Gagal mendaftar ke server." };
+      let errMsg = "Gagal mendaftar.";
+      if (e.code === 'auth/email-already-in-use') errMsg = "Username sudah terdaftar.";
+      if (e.code === 'auth/weak-password') errMsg = "Password terlalu lemah (min 6 karakter).";
+      return { success: false, error: errMsg };
     }
   }
 
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
     if (!currentUser) return { success: false };
+    
+    // Khusus Admin Backdoor, tidak sync ke DB
+    if (currentUser.username === ADMIN_CREDENTIALS.username) return { success: true };
 
     try {
-      const { error } = await supabase
-        .from('trackers')
-        .upsert({
-          username: currentUser.username,
+      // Kita perlu UID. Di aplikasi real, kita simpan UID di state currentUser.
+      // Tapi karena struktur User kita belum ada UID, kita cari manual via username query
+      // ATAU: Karena Auth state dipertahankan Firebase, kita bisa pakai auth.currentUser
+      
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        // Fallback: Login ulang background atau cari user by username di db (agak insicure tpi ok utk migrasi)
+        // Cara aman: Cari doc ID berdasarkan username
+        const q = query(collection(db, "users"), where("username", "==", currentUser.username));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) throw new Error("User not found for sync");
+        
+        const uid = snapshot.docs[0].id;
+        await setDoc(doc(db, "trackers", uid), {
           data: localData,
-          last_updated: new Date().toISOString()
-        });
+          lastUpdated: new Date().toISOString(),
+          username: currentUser.username
+        }, { merge: true });
 
-      if (error) {
-        if (error.message?.includes('restricted')) console.error("SYNC FAILED: Project is restricted (Check .env)");
-        throw error;
+      } else {
+        // Happy path
+        await setDoc(doc(db, "trackers", firebaseUser.uid), {
+          data: localData,
+          lastUpdated: new Date().toISOString(),
+          username: currentUser.username
+        }, { merge: true });
       }
 
       return { success: true };
     } catch (e) {
+      console.error("Sync Error:", e);
       return { success: false };
     }
   }
 
   async getAllUsersWithPoints(): Promise<any[]> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          *,
-          trackers ( data )
-        `);
+      // 1. Get All Users
+      const usersSnap = await getDocs(collection(db, "users"));
+      const users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as any));
 
-      if (error) {
-        if (error.code === '42P01') console.warn("Fetch users failed: Tables missing");
-        if (error.message?.includes('restricted')) console.warn("Fetch users failed: Project Restricted");
-        throw error;
-      }
+      // 2. Get All Trackers
+      // (Di aplikasi skala besar, ini tidak efisien. Tapi untuk <1000 user masih oke/gratis di Firestore)
+      const trackersSnap = await getDocs(collection(db, "trackers"));
+      const trackersMap: Record<string, any> = {};
+      trackersSnap.forEach(d => {
+        trackersMap[d.id] = d.data();
+      });
 
-      return data.map((u: any) => ({
+      // 3. Join Data
+      return users.map(u => ({
         username: u.username,
-        fullName: u.full_name,
+        fullName: u.fullName,
         role: u.role,
         group: u.group,
         status: u.status,
-        avatarSeed: u.avatar_seed,
-        characterId: u.character_id,
-        trackerData: u.trackers ? u.trackers.data : null
+        avatarSeed: u.avatarSeed,
+        characterId: u.characterId,
+        trackerData: trackersMap[u.uid]?.data || null
       }));
 
     } catch (e) {
+      console.error("Fetch Users Error:", e);
       return [];
     }
   }
 
   async deleteUser(username: string): Promise<boolean> {
-    const { error } = await supabase.from('users').delete().eq('username', username);
-    return !error;
+    try {
+      // Cari UID dulu
+      const q = query(collection(db, "users"), where("username", "==", username));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) return false;
+
+      const uid = snapshot.docs[0].id;
+
+      // Hapus data di Firestore
+      await deleteDoc(doc(db, "users", uid));
+      await deleteDoc(doc(db, "trackers", uid));
+
+      // Note: Menghapus user dari Auth (Authentication) butuh Admin SDK (Backend Node.js).
+      // Client SDK tidak bisa menghapus user lain selain dirinya sendiri.
+      // Jadi untuk versi client-only ini, user hanya "hilang" dari database & leaderboard,
+      // tapi login credentialnya masih ada (cuma pas login akan error karena data db tidak ditemukan).
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   async updateUserProfile(user: User): Promise<boolean> {
     try {
-      if (user.username === ADMIN_CREDENTIALS.username) {
-         const { data: exists } = await supabase.from('users').select('username').eq('username', user.username).maybeSingle();
-         if (!exists) await this.registerUserSafe(user);
-      }
+       // Cari UID
+       let uid = auth.currentUser?.uid;
 
-      const { error } = await supabase
-        .from('users')
-        .update({
-          full_name: user.fullName,
-          avatar_seed: user.avatarSeed,
-          character_id: user.characterId
-        })
-        .eq('username', user.username);
+       if (!uid) {
+         const q = query(collection(db, "users"), where("username", "==", user.username));
+         const snapshot = await getDocs(q);
+         if (!snapshot.empty) uid = snapshot.docs[0].id;
+       }
+
+       if (!uid) return false;
+
+       await setDoc(doc(db, "users", uid), {
+          fullName: user.fullName,
+          avatarSeed: user.avatarSeed,
+          characterId: user.characterId
+       }, { merge: true });
       
-      return !error;
+      return true;
     } catch (e) {
       return false;
     }

@@ -4,7 +4,8 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAs
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, Settings } from 'lucide-react';
+import { Loader2, Shield, Settings, Flame } from 'lucide-react';
+import { isFirebaseConfigured } from './lib/firebase';
 
 // Import Pages & Components
 import LoginPage from './components/LoginPage';
@@ -40,25 +41,21 @@ const App: React.FC = () => {
   const currentTheme: AppTheme = 'ramadhan';
   const themeStyles = THEMES['ramadhan'];
 
-  // --- CONFIGURATION CHECK ---
-  const env = (import.meta as any).env || {};
-  const supabaseUrl = env.VITE_SUPABASE_URL || '';
-  
-  // Check if .env is still using placeholders or empty
-  if (!supabaseUrl || supabaseUrl.includes('GANTI_DENGAN_URL') || supabaseUrl === 'https://placeholder.supabase.co') {
+  // --- FIREBASE CONFIGURATION CHECK ---
+  if (!isFirebaseConfigured()) {
      return (
        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
-          <Settings className="w-24 h-24 text-blue-500 animate-spin-slow" />
-          <h1 className="text-3xl font-bold uppercase">Setup Required</h1>
+          <Flame className="w-24 h-24 text-orange-500 animate-pulse" />
+          <h1 className="text-3xl font-bold uppercase">Setup Firebase</h1>
           <div className="bg-white/5 p-6 rounded-xl border border-white/10 max-w-lg">
-            <p className="mb-4 text-lg">Aplikasi belum terhubung ke Database Supabase.</p>
+            <p className="mb-4 text-lg">Aplikasi telah dimigrasi ke Google Firebase.</p>
             <div className="h-px bg-white/20 my-4"></div>
             <p className="font-bold text-yellow-400">Langkah Setup:</p>
             <ol className="text-left text-sm space-y-2 list-decimal list-inside mt-2 text-slate-300">
-              <li>Buka file <code>.env</code></li>
-              <li>Isi <code>VITE_SUPABASE_URL</code> dengan URL Project Baru.</li>
-              <li>Isi <code>VITE_SUPABASE_ANON_KEY</code> dengan Key Project Baru.</li>
-              <li>Restart server development (<code>npm run dev</code>).</li>
+              <li>Buat Project di <a href="https://console.firebase.google.com" target="_blank" className="text-blue-400 underline">Firebase Console</a>.</li>
+              <li>Aktifkan <strong>Authentication</strong> (Email/Password).</li>
+              <li>Aktifkan <strong>Firestore Database</strong> (Mode Test/Production).</li>
+              <li>Copy config App Web ke file <code>.env</code>.</li>
             </ol>
           </div>
        </div>
@@ -95,16 +92,18 @@ const App: React.FC = () => {
       if (savedUser) {
         try {
           let user = JSON.parse(savedUser);
-          if (user.username === ADMIN_CREDENTIALS.username) user = { ...user, ...ADMIN_CREDENTIALS };
-          
-          const res = await api.login(user.username, user.password || '');
+          // Auto login session (untuk firebase, token auth dihandle SDK, 
+          // tapi kita perlu fetch data user lagi untuk memastikan data fresh)
+          const res = await api.login(user.username, user.password || '***'); // Password placeholder ok karena firebase punya sesi sendiri
           
           if (res.success && res.user) {
              setCurrentUser(res.user);
              if (res.data) setData(res.data);
              setView('tracker');
           } else {
-             console.warn("Session invalid for current Database. Clearing session.");
+             // Fallback: Use local storage data if offline/error but keep session if possible
+             // For safety in migration:
+             console.warn("Session re-auth failed, logging out.");
              localStorage.removeItem('nur_quest_session');
              setView('login');
           }

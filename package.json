@@ -2,16 +2,16 @@
 {
   "name": "muslim-daily-quest",
   "private": true,
-  "version": "8.1.0",
+  "version": "9.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "echo 'Deploy skipped - handled by Cloudflare Pages auto-upload'"
+    "deploy": "echo 'Deploy handled by Cloudflare Pages'"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
+    "firebase": "^10.7.1",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
