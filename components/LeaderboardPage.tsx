@@ -1,11 +1,13 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2 } from 'lucide-react';
+import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
-import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord } from '../types';
+import AdminCharts from './AdminCharts'; // Import Komponen Grafik Baru
+import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord, PRAYER_KEYS } from '../types';
 import { getAvatarSrc, getRankIconUrl } from '../constants';
 import { api } from '../services/ApiService';
 
@@ -76,7 +78,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             });
           }
 
-          const monthlyPoints = points * 4;
+          const monthlyPoints = points * 4; // Estimasi poin bulanan
           const rankInfo = getRankInfo(monthlyPoints);
 
           return {
@@ -109,21 +111,73 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     loadData();
   }, []); 
 
+  // --- LOGIC EXPORT EXCEL YANG DIPERBAHARUI ---
   const handleDetailedExport = () => {
      const wb = XLSX.utils.book_new();
-     const data = menteesData.map(m => ({
+     
+     // SHEET 1: RINGKASAN (LEADERBOARD)
+     const summaryData = menteesData.map(m => ({
         Nama: m.fullName,
         Username: m.username,
         Kelompok: m.group,
-        Poin_Mingguan: m.points,
-        Poin_Bulanan: m.monthlyPoints,
+        Total_Poin: m.points,
         Rank: m.rankName,
         Hari_Aktif: m.activeDays,
         Role: m.role
      }));
-     const ws = XLSX.utils.json_to_sheet(data);
-     XLSX.utils.book_append_sheet(wb, ws, "Laporan");
-     XLSX.writeFile(wb, "Laporan_Mentoring.xlsx");
+     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+     XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan");
+
+     // SHEET 2: LOG HARIAN DETIL
+     // Format: Tanggal | Nama | Subuh | Dzuhur | Ashar | Maghrib | Isya | Quran (Baris) | Puasa | Tarawih
+     const detailedLog: any[] = [];
+     
+     menteesData.forEach(user => {
+        if (user.trackerData && user.trackerData.days) {
+           user.trackerData.days.forEach((day: any) => {
+              // Helper convert code to text
+              const getPrayerStatus = (code: number) => {
+                 if (code === 2) return "Masjid";
+                 if (code === 1) return "Rumah";
+                 return "Kosong";
+              };
+
+              detailedLog.push({
+                 Hari: day.dayName, // e.g. "1 Ramadhan"
+                 Nama: user.fullName,
+                 Subuh: getPrayerStatus(day.prayers.subuh),
+                 Dzuhur: getPrayerStatus(day.prayers.zuhur),
+                 Ashar: getPrayerStatus(day.prayers.asar),
+                 Maghrib: getPrayerStatus(day.prayers.magrib),
+                 Isya: getPrayerStatus(day.prayers.isya),
+                 Quran_Baris: day.tilawah || 0,
+                 Puasa: day.shaum ? "Ya" : "-",
+                 Tarawih: day.tarawih ? "Ya" : "-"
+              });
+           });
+        }
+     });
+
+     const wsDetails = XLSX.utils.json_to_sheet(detailedLog);
+     
+     // Mengatur lebar kolom agar rapi (Opsional, tapi Excel JS standar tidak support style penuh tanpa versi Pro, tapi kita coba set width basic)
+     wsDetails['!cols'] = [
+        { wch: 15 }, // Hari
+        { wch: 25 }, // Nama
+        { wch: 10 }, // Subuh
+        { wch: 10 }, // Dzuhur
+        { wch: 10 }, // Ashar
+        { wch: 10 }, // Maghrib
+        { wch: 10 }, // Isya
+        { wch: 10 }, // Quran
+        { wch: 8 },  // Puasa
+        { wch: 8 }   // Tarawih
+     ];
+
+     XLSX.utils.book_append_sheet(wb, wsDetails, "Log Harian");
+
+     // Download File
+     XLSX.writeFile(wb, `Laporan_Mutabaah_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
   const handleKickUser = async (targetUsername: string, targetName: string) => {
@@ -171,16 +225,21 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
                 <button onClick={handleDetailedExport} className={`flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all hover:text-white text-white/70`}>
-                  <Download className="w-4 h-4" /> Reports
+                  <Download className="w-4 h-4" /> Export Excel
                 </button>
              </div>
           </div>
         </div>
 
+        {/* STATS & CHARTS SECTION */}
+        {activeTab === 'leaderboard' && !isLoading && (
+          <AdminCharts menteesData={menteesData} themeStyles={themeStyles} />
+        )}
+
         {/* Tab Navigation */}
         <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
           {[
-            { id: 'leaderboard', label: 'Members', icon: <Trophy className="w-4 h-4" /> },
+            { id: 'leaderboard', label: 'Members & Data', icon: <Trophy className="w-4 h-4" /> },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? `${themeStyles.textAccent} border-current` : 'opacity-40 border-transparent hover:opacity-100'}`}>
               {tab.icon} {tab.label}
