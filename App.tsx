@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAs
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield } from 'lucide-react';
+import { Loader2, Shield, AlertTriangle } from 'lucide-react';
 
 // Import Pages & Components
 import LoginPage from './components/LoginPage';
@@ -18,16 +18,14 @@ import DailyTargetPanel from './components/DailyTargetPanel';
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
-  const [isSessionLoading, setIsSessionLoading] = useState(true); // New Loading State for Session Check
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
 
   // VIEW STATE
   const [view, setView] = useState<string>('login');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [data, setData] = useState<WeeklyData>(INITIAL_DATA);
   
-  // GROUPS ARE NOW STATIC/LOCKED
   const groups = MENTORING_GROUPS;
-  
   const [globalAssets, setGlobalAssets] = useState<GlobalAssets>({});
   const [archives, setArchives] = useState<ArchivedData[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
@@ -39,9 +37,34 @@ const App: React.FC = () => {
   
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // LOCKED THEME: RAMADHAN
   const currentTheme: AppTheme = 'ramadhan';
   const themeStyles = THEMES['ramadhan'];
+
+  // --- CRITICAL CHECK: OLD PROJECT DETECTION ---
+  const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || '';
+  // 'ebjhbldaslrrsmiecvzc' is the old blocked project ID
+  if (supabaseUrl.includes('ebjhbldaslrrsmiecvzc')) {
+     return (
+       <div className="min-h-screen bg-red-950 text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
+          <AlertTriangle className="w-24 h-24 text-red-500 animate-bounce" />
+          <h1 className="text-3xl font-bold uppercase">Salah Sambung!</h1>
+          <div className="bg-black/50 p-6 rounded-xl border border-red-500 max-w-lg">
+            <p className="mb-4 text-lg">Aplikasi masih terhubung ke Project Lama yang sudah <strong>DIBLOKIR</strong>.</p>
+            <p className="text-sm font-mono text-red-300 mb-2">URL Terdeteksi: {supabaseUrl}</p>
+            <div className="h-px bg-white/20 my-4"></div>
+            <p className="font-bold text-yellow-400">SOLUSI:</p>
+            <ol className="text-left text-sm space-y-2 list-decimal list-inside mt-2">
+              <li>Buka Dashboard Supabase.</li>
+              <li>Pastikan Anda membuka Project yang <strong>BARU</strong> (Bukan yang lama).</li>
+              <li>Copy URL dan Anon Key dari Project Baru tersebut.</li>
+              <li>Ganti isi file <code>.env</code> di laptop.</li>
+              <li>Ganti <strong>Environment Variables</strong> di Dashboard Cloudflare Pages.</li>
+              <li>Redeploy.</li>
+            </ol>
+          </div>
+       </div>
+     )
+  }
 
   // --- SYNC LOGIC (DEBOUNCED) ---
   const performSync = useCallback(async () => {
@@ -60,11 +83,9 @@ const App: React.FC = () => {
     if (!currentUser) return;
     setCurrentUser(updatedUser);
     localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
-    // Call API immediately for profile update
     await api.updateUserProfile(updatedUser);
   };
 
-  // Restore Session with Validation
   useEffect(() => {
     if (isResetting) return;
     
@@ -75,20 +96,15 @@ const App: React.FC = () => {
       if (savedUser) {
         try {
           let user = JSON.parse(savedUser);
-          // Ensure admin creds if matching (optional check)
           if (user.username === ADMIN_CREDENTIALS.username) user = { ...user, ...ADMIN_CREDENTIALS };
           
-          // CRITICAL: Don't just trust LocalStorage. Verify with DB Login.
-          // This prevents "Ghost Sessions" when switching Database projects.
           const res = await api.login(user.username, user.password || '');
           
           if (res.success && res.user) {
-             // Session Valid on Current DB
              setCurrentUser(res.user);
              if (res.data) setData(res.data);
              setView('tracker');
           } else {
-             // Session Invalid (User doesn't exist in new DB), clear it.
              console.warn("Session invalid for current Database. Clearing session.");
              localStorage.removeItem('nur_quest_session');
              setView('login');
@@ -107,7 +123,6 @@ const App: React.FC = () => {
     restoreSession();
   }, [isResetting]);
 
-  // Debounce Auto-Sync when Data Changes
   useEffect(() => {
     if (isResetting || !currentUser) return;
 
@@ -115,7 +130,6 @@ const App: React.FC = () => {
        clearTimeout(syncTimeoutRef.current);
     }
 
-    // Sync 2 seconds after last change
     syncTimeoutRef.current = setTimeout(() => {
        performSync();
     }, 2000);
@@ -135,7 +149,6 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // Sync one last time before logout
     if (currentUser) await api.sync(currentUser, data, groups);
     localStorage.removeItem('nur_quest_session');
     setCurrentUser(null);
@@ -144,7 +157,6 @@ const App: React.FC = () => {
     setError(null);
   };
 
-  // Point Calculation for Ramadhan
   const totalPoints = useMemo(() => {
     return data.days.reduce((acc: number, day: DayData) => {
       const prayerPoints = (Object.values(day.prayers) as number[]).reduce((pAcc: number, val: number) => {
@@ -162,7 +174,6 @@ const App: React.FC = () => {
     }, 0);
   }, [data]);
 
-  // Determine Today's Data for Side Panel
   const currentDayIndex = useMemo(() => {
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -200,8 +211,6 @@ const App: React.FC = () => {
   const prevRankMin = currentRank.min;
   const rankProgress = Math.min(100, Math.max(0, ((totalPoints - prevRankMin) / (nextRankMin - prevRankMin)) * 100));
 
-  // --- RENDER LOGIC ---
-
   if (view === 'login' || view === 'register') {
     return (
       <>
@@ -211,11 +220,9 @@ const App: React.FC = () => {
     );
   }
 
-  // PROTECTED GAME SHELL
   return (
     <div className={`relative h-full w-full overflow-hidden flex flex-col ${themeStyles.bg}`}>
       
-      {/* HUD */}
       <GameHUD 
         currentUser={currentUser!}
         totalPoints={totalPoints}
@@ -227,15 +234,12 @@ const App: React.FC = () => {
         openProfile={() => setView('profile')}
       />
 
-      {/* RESPONSIVE LAYOUT WRAPPER: SIDEBARS + FLUID CENTER */}
       <div className="flex-grow flex w-full overflow-hidden">
         
-        {/* LEFT COLUMN: LEADERBOARD (Visible on XL screens) */}
         <div className="hidden xl:block w-[300px] shrink-0 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar border-r border-white/5">
           <MiniLeaderboard currentUser={currentUser} themeStyles={themeStyles} />
         </div>
 
-        {/* MIDDLE COLUMN: MAIN APP - NOW FLEXIBLE WIDTH */}
         <div className="flex-grow overflow-y-auto no-scrollbar pt-[80px] px-4 pb-[120px] relative z-10 w-full">
           
           <div className="max-w-7xl mx-auto">
@@ -266,12 +270,10 @@ const App: React.FC = () => {
             {view === 'profile' && (
               <div className="animate-reveal space-y-4 max-w-lg mx-auto">
                 <div className={`${themeStyles.card} p-6 rounded-3xl text-center relative overflow-hidden border-2 ${currentRank.bg}`}>
-                    {/* Decorative Glow */}
                     <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b ${currentRank.color.replace('text-', 'from-').replace('400', '500')}/20 to-transparent pointer-events-none`}></div>
 
                     <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold mb-6 text-white drop-shadow-md`}>Commander Profile</h2>
                     
-                    {/* Avatar & Info */}
                     <div className="mb-8">
                       <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-black/50 shadow-2xl mb-4 bg-black relative z-10">
                           <img src={currentUser?.avatarSeed} className="w-full h-full object-cover"/>
@@ -280,7 +282,6 @@ const App: React.FC = () => {
                       <p className="text-sm opacity-60 font-mono">@{currentUser?.username}</p>
                     </div>
 
-                    {/* RANK CARD SECTION */}
                     <div className={`mb-8 p-4 rounded-2xl bg-black/40 border border-white/5 relative overflow-hidden`}>
                       <div className="flex justify-center mb-4 relative z-10">
                           <div className="w-32 h-32 flex items-center justify-center drop-shadow-[0_0_25px_rgba(255,255,255,0.15)]">
@@ -341,14 +342,12 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: DAILY TARGETS (Visible on XL screens) */}
         <div className="hidden xl:block w-[300px] shrink-0 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar border-l border-white/5">
           <DailyTargetPanel dayData={todayData} themeStyles={themeStyles} dayIndex={currentDayIndex} />
         </div>
 
       </div>
 
-      {/* DOCK */}
       <GameDock 
         activeView={view} 
         setView={setView} 
