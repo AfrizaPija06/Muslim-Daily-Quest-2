@@ -4,34 +4,42 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // Helper: Membersihkan tanda kutip jika user tidak sengaja memasukkannya di Cloudflare ENV
-// Contoh: '"AIzaSy..."' menjadi 'AIzaSy...'
 const cleanEnv = (val: string | undefined) => {
   if (!val) return undefined;
-  return val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''); // Hapus kutip ganda atau tunggal di awal/akhir
+  return val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''); 
 };
 
-// Safe access to environment variables to prevent "Cannot read properties of undefined"
-// This handles cases where import.meta.env might be undefined at runtime.
-const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
-
+// NOTE: We must access import.meta.env.VITE_XXX explicitly for Vite to perform static replacement.
 const firebaseConfig = {
-  apiKey: cleanEnv(env.VITE_FIREBASE_API_KEY),
-  authDomain: cleanEnv(env.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId: cleanEnv(env.VITE_FIREBASE_PROJECT_ID),
-  storageBucket: cleanEnv(env.VITE_FIREBASE_STORAGE_BUCKET),
-  messagingSenderId: cleanEnv(env.VITE_FIREBASE_MESSAGING_SENDER_ID),
-  appId: cleanEnv(env.VITE_FIREBASE_APP_ID)
+  apiKey: cleanEnv(import.meta.env.VITE_FIREBASE_API_KEY),
+  authDomain: cleanEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: cleanEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: cleanEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: cleanEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
+  appId: cleanEnv(import.meta.env.VITE_FIREBASE_APP_ID)
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase with error handling
+let app;
+let auth: any;
+let db: any;
 
-// Export services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+try {
+  // Check if critical config is present
+  if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'demo-key') {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    console.log("Firebase initialized successfully");
+  } else {
+    console.warn("Firebase config missing or invalid", firebaseConfig);
+  }
+} catch (e) {
+  console.error("Firebase Initialization Error:", e);
+}
+
+export { auth, db };
 
 export const isFirebaseConfigured = () => {
-  const key = firebaseConfig.apiKey;
-  // Basic validation: Check if key exists and is not the demo placeholder
-  return key && key !== 'demo-key' && !key.includes('AIzaSyBhof_BW2uI8Ze0ywN');
+  return !!app && !!auth && !!db;
 };

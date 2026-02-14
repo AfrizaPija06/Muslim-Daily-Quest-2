@@ -31,6 +31,7 @@ class ApiService {
 
   // --- HELPER FETCH USER ---
   async getUserProfile(uid: string): Promise<{ user: User; data: WeeklyData } | null> {
+    if (!db) return null;
     try {
       // 1. Fetch User Profile
       const userDocRef = doc(db, "users", uid);
@@ -70,6 +71,8 @@ class ApiService {
   // --- AUTHENTICATION ---
 
   async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
+    if (!auth) return { success: false, error: "Firebase belum terhubung. Cek koneksi/konfigurasi." };
+
     try {
       // 0. CEK ADMIN HARDCODED (Backdoor)
       if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
@@ -88,6 +91,9 @@ class ApiService {
       const profile = await this.getUserProfile(userCredential.user.uid);
       
       if (!profile) {
+        // Jika login auth sukses tapi data firestore tidak ada (misal deleted user)
+        // Kita logout kan saja
+        await signOut(auth);
         return { success: false, error: 'Data user tidak ditemukan di database.' };
       }
 
@@ -99,65 +105,69 @@ class ApiService {
 
     } catch (e: any) {
       console.error("Login Exception:", e);
-      let errMsg = "Login gagal.";
+      let errMsg = `Login gagal: ${e.message || e}`;
       if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
         errMsg = "Username atau Password salah.";
       } else if (e.code === 'auth/too-many-requests') {
         errMsg = "Terlalu banyak percobaan. Tunggu sebentar.";
+      } else if (e.code === 'auth/network-request-failed') {
+        errMsg = "Gagal menghubungi server. Cek koneksi internet.";
       }
       return { success: false, error: errMsg };
     }
   }
 
   async registerUserSafe(newUser: User): Promise<{ success: boolean; error?: string }> {
+    if (!auth || !db) return { success: false, error: "Firebase belum terhubung. Cek koneksi/konfigurasi." };
+
     try {
       const email = this.toEmail(newUser.username);
 
-      // 1. Check if username exists using Firestore Query
-      const q = query(collection(db, "users"), where("username", "==", newUser.username));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        return { success: false, error: "Username sudah digunakan." };
-      }
+      // NOTE: Kita menghapus pengecekan manual Firestore di sini karena 
+      // bisa menyebabkan error 'Permission Denied' jika Rules Firestore memblokir unauthenticated read.
+      // Kita andalkan error 'auth/email-already-in-use' dari Firebase Auth saja.
 
-      // 2. Create Auth User
+      // 1. Create Auth User
       const userCredential = await createUserWithEmailAndPassword(auth, email, newUser.password || '123456');
       const firebaseUser = userCredential.user;
 
-      // 3. Simpan Profile ke Firestore
-      await setDoc(doc(db, "users", firebaseUser.uid), {
-        username: newUser.username,
-        fullName: newUser.fullName,
-        role: newUser.role,
-        group: newUser.group,
-        status: newUser.status,
-        avatarSeed: newUser.avatarSeed,
-        characterId: newUser.characterId,
-        createdAt: new Date().toISOString()
-      });
-
-      // 4. Initialize Tracker
-      const newTracker = { ...INITIAL_DATA, lastUpdated: new Date().toISOString() };
-      await setDoc(doc(db, "trackers", firebaseUser.uid), {
-        username: newUser.username,
-        data: newTracker,
-        lastUpdated: new Date().toISOString()
-      });
-
-      await updateProfile(firebaseUser, { displayName: newUser.fullName });
+      // 2. Simpan Profile ke Firestore
+      // Kita menggunakan Promise.all untuk mempercepat
+      await Promise.all([
+        setDoc(doc(db, "users", firebaseUser.uid), {
+          username: newUser.username,
+          fullName: newUser.fullName,
+          role: newUser.role,
+          group: newUser.group,
+          status: newUser.status,
+          avatarSeed: newUser.avatarSeed,
+          characterId: newUser.characterId,
+          createdAt: new Date().toISOString()
+        }),
+        setDoc(doc(db, "trackers", firebaseUser.uid), {
+          username: newUser.username,
+          data: { ...INITIAL_DATA, lastUpdated: new Date().toISOString() },
+          lastUpdated: new Date().toISOString()
+        }),
+        updateProfile(firebaseUser, { displayName: newUser.fullName })
+      ]);
 
       return { success: true };
     } catch (e: any) {
       console.error("Registration Exception:", e);
-      let errMsg = "Gagal mendaftar.";
-      if (e.code === 'auth/email-already-in-use') errMsg = "Username sudah terdaftar.";
+      let errMsg = `Gagal mendaftar: ${e.message}`;
+      
+      if (e.code === 'auth/email-already-in-use') errMsg = "Username sudah terdaftar. Coba yang lain.";
       if (e.code === 'auth/weak-password') errMsg = "Password terlalu lemah (min 6 karakter).";
+      if (e.code === 'auth/network-request-failed') errMsg = "Masalah koneksi internet.";
+      
       return { success: false, error: errMsg };
     }
   }
 
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
     if (!currentUser) return { success: false };
+    if (!db || !auth) return { success: false };
     
     // Khusus Admin Backdoor, tidak sync ke DB
     if (currentUser.username === ADMIN_CREDENTIALS.username) return { success: true };
@@ -165,7 +175,6 @@ class ApiService {
     try {
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) {
-         // Jika session auth hilang tapi app masih jalan, coba restore atau fail silently
          console.warn("Sync skipped: No Auth Session");
          return { success: false };
       }
@@ -184,6 +193,7 @@ class ApiService {
   }
 
   async getAllUsersWithPoints(): Promise<any[]> {
+    if (!db) return [];
     try {
       const usersSnap = await getDocs(collection(db, "users"));
       const users = usersSnap.docs.map(d => ({ uid: d.id, ...(d.data() as any) } as any));
@@ -212,6 +222,7 @@ class ApiService {
   }
 
   async deleteUser(username: string): Promise<boolean> {
+    if (!db) return false;
     try {
       const q = query(collection(db, "users"), where("username", "==", username));
       const snapshot = await getDocs(q);
@@ -228,6 +239,7 @@ class ApiService {
   }
 
   async updateUserProfile(user: User): Promise<boolean> {
+    if (!db || !auth) return false;
     try {
        let uid = auth.currentUser?.uid;
        if (!uid) return false;
