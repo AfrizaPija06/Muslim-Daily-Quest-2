@@ -5,7 +5,8 @@ import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } 
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
 import { Loader2, Shield, Settings, Flame } from 'lucide-react';
-import { isFirebaseConfigured } from './lib/firebase';
+import { isFirebaseConfigured, auth } from './lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Import Pages & Components
 import LoginPage from './components/LoginPage';
@@ -78,48 +79,62 @@ const App: React.FC = () => {
   const handleUpdateProfile = async (updatedUser: User) => {
     if (!currentUser) return;
     setCurrentUser(updatedUser);
+    // Kita tetap update localStorage sebagai cache cepat, tapi session asli dipegang Firebase
     localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
     await api.updateUserProfile(updatedUser);
   };
 
+  // --- SESSION RESTORATION (FIREBASE WAY) ---
   useEffect(() => {
     if (isResetting) return;
-    
-    const restoreSession = async () => {
-      setIsSessionLoading(true);
-      const savedUser = localStorage.getItem('nur_quest_session');
-      
-      if (savedUser) {
+
+    // Listener untuk status login Firebase (Persistent)
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User logged in via Firebase
         try {
-          let user = JSON.parse(savedUser);
-          // Auto login session (untuk firebase, token auth dihandle SDK, 
-          // tapi kita perlu fetch data user lagi untuk memastikan data fresh)
-          const res = await api.login(user.username, user.password || '***'); // Password placeholder ok karena firebase punya sesi sendiri
-          
-          if (res.success && res.user) {
-             setCurrentUser(res.user);
-             if (res.data) setData(res.data);
-             setView('tracker');
+          // Fetch data terbaru dari Firestore
+          const profile = await api.getUserProfile(user.uid);
+          if (profile) {
+            setCurrentUser(profile.user);
+            setData(profile.data);
+            setView('tracker');
           } else {
-             // Fallback: Use local storage data if offline/error but keep session if possible
-             // For safety in migration:
-             console.warn("Session re-auth failed, logging out.");
-             localStorage.removeItem('nur_quest_session');
+             // User ada di Auth tapi data hilang di DB?
+             console.error("Auth exists but DB data missing");
              setView('login');
           }
         } catch (e) {
-          console.error("Session restore failed", e);
-          localStorage.removeItem('nur_quest_session');
+          console.error("Restoration error", e);
           setView('login');
         }
       } else {
-        setView('login');
+        // User not logged in via Firebase
+        // Cek apakah ini Admin Backdoor (via LocalStorage)
+        const savedUser = localStorage.getItem('nur_quest_session');
+        if (savedUser) {
+           try {
+             const parsed = JSON.parse(savedUser);
+             if (parsed.username === ADMIN_CREDENTIALS.username) {
+                // Restore Admin Session secara manual karena admin tidak pakai Firebase Auth
+                setCurrentUser({ ...ADMIN_CREDENTIALS });
+                setData(INITIAL_DATA);
+                setView('tracker');
+             } else {
+                // User biasa tapi session firebase habis -> Logout
+                setView('login');
+             }
+           } catch { setView('login'); }
+        } else {
+           setView('login');
+        }
       }
       setIsSessionLoading(false);
-    };
+    });
 
-    restoreSession();
+    return () => unsubscribe();
   }, [isResetting]);
+
 
   useEffect(() => {
     if (isResetting || !currentUser) return;
@@ -148,6 +163,12 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (currentUser) await api.sync(currentUser, data, groups);
+    
+    // Logout dari Firebase
+    try {
+      await signOut(auth);
+    } catch (e) { console.error(e); }
+
     localStorage.removeItem('nur_quest_session');
     setCurrentUser(null);
     setView('login');

@@ -3,69 +3,62 @@
 
 Aplikasi web Single Page Application (SPA) dengan gaya **Mobile RPG** (terinspirasi dari *Solo Leveling* / *Mobile Legends*) untuk memantau ibadah harian (Sholat & Tilawah) dalam kelompok mentoring.
 
-Aplikasi ini menggunakan arsitektur **Serverless** untuk mencegah overload server:
-- **Frontend**: React + Vite (Dideploy ke Cloudflare Pages / Vercel / Netlify).
-- **Backend**: Supabase (PostgreSQL).
+Aplikasi ini menggunakan arsitektur **Serverless**:
+- **Frontend**: React + Vite (Dideploy ke Cloudflare Pages).
+- **Backend**: Google Firebase (Firestore & Authentication).
 
 ---
 
 ## 🚀 Panduan Deployment (Cara Online)
 
-Ikuti langkah ini untuk meng-online-kan aplikasi agar bisa diakses semua mentee.
+### 1. Setup Firebase
+Kita menggunakan Firebase sebagai pengganti Supabase.
 
-### 1. Setup Database (Supabase)
-Kita menggunakan Supabase sebagai database karena gratis, cepat, dan real-time.
+1. Buka [console.firebase.google.com](https://console.firebase.google.com) dan buat Project baru.
+2. Masuk ke menu **Authentication**:
+   - Klik "Get Started".
+   - Aktifkan **Email/Password**.
+3. Masuk ke menu **Firestore Database**:
+   - Klik "Create Database".
+   - Pilih Lokasi (rekomendasi: `asia-southeast2` atau default `nam5`).
+   - Pilih mode **Start in test mode**.
+   - Pergi ke tab **Rules**, ganti dengan rules berikut untuk keamanan:
+     ```javascript
+     rules_version = '2';
+     service cloud.firestore {
+       match /databases/{database}/documents {
+         match /users/{userId} {
+           allow read: if request.auth != null;
+           allow write: if request.auth != null && request.auth.uid == userId;
+         }
+         match /trackers/{userId} {
+           allow read: if request.auth != null;
+           allow write: if request.auth != null && request.auth.uid == userId;
+         }
+       }
+     }
+     ```
+4. Pergi ke **Project Settings (ikon gear) > General**:
+   - Scroll ke bawah, klik icon `</>` (Web).
+   - Register app (beri nama bebas).
+   - Salin konfigurasi `firebaseConfig`.
 
-1. Buka [supabase.com](https://supabase.com) dan buat Project baru.
-2. Masuk ke menu **SQL Editor**.
-3. Jalankan Script berikut untuk membuat tabel:
+### 2. Deploy ke Cloudflare Pages
+Domain aplikasi Anda tetap menggunakan Cloudflare Pages (`*.pages.dev`).
 
-```sql
--- 1. Tabel Users
-create table users (
-  username text primary key,
-  full_name text not null,
-  password text not null,
-  role text default 'mentee',
-  "group" text,
-  status text default 'active',
-  avatar_seed text,
-  character_id text,
-  created_at timestamp with time zone default timezone('utc'::text, now())
-);
-
--- 2. Tabel Trackers (Save Data Game)
-create table trackers (
-  username text primary key references users(username) on delete cascade,
-  data jsonb not null,
-  last_updated timestamp with time zone default timezone('utc'::text, now())
-);
-
--- 3. Buka Akses Publik (Game Style Auth)
-alter table users enable row level security;
-alter table trackers enable row level security;
-
-create policy "Public Access Users" on users for all using (true) with check (true);
-create policy "Public Access Trackers" on trackers for all using (true) with check (true);
-```
-
-4. Pergi ke **Project Settings > API**.
-5. Catat **Project URL** dan **anon public key**.
-
-### 2. Deploy ke Cloudflare Pages (Rekomendasi)
-Cloudflare Pages sangat cepat dan memiliki fitur SPA Fallback yang sudah kita siapkan di `vite.config.ts`.
-
-1. Upload kode ini ke **GitHub**.
+1. Push kode terbaru ke **GitHub**.
 2. Buka dashboard **Cloudflare Pages**.
-3. Buat Project baru -> Connect to Git -> Pilih Repo ini.
-4. Setting Build:
-   - **Framework preset**: `Vite`
-   - **Build command**: `npm run build`
-   - **Output directory**: `dist`
-5. **Environment Variables** (Wajib Diisi di Dashboard Cloudflare):
-   - `VITE_SUPABASE_URL`: (URL dari langkah 1)
-   - `VITE_SUPABASE_ANON_KEY`: (Key dari langkah 1)
-6. Klik **Deploy**.
+3. Pilih Project Anda -> **Settings** -> **Environment Variables**.
+4. Masukkan variabel berikut (Ambil nilainya dari Config Firebase langkah 1):
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_ADMIN_USERNAME` (Isi: mentor_admin)
+   - `VITE_ADMIN_PASSWORD` (Isi: istiqamah2026)
+5. Redeploy (Retry Deployment).
 
 ---
 
@@ -76,7 +69,7 @@ Cloudflare Pages sangat cepat dan memiliki fitur SPA Fallback yang sudah kita si
    npm install
    ```
 
-2. Buat file `.env` (copy dari `.env.example`) dan isi dengan kredensial Supabase Anda.
+2. Buat file `.env` dan isi dengan kredensial Firebase Anda.
 
 3. Jalankan server lokal:
    ```bash
@@ -85,10 +78,12 @@ Cloudflare Pages sangat cepat dan memiliki fitur SPA Fallback yang sudah kita si
 
 ## 🎮 Akun Admin Default
 
-Setelah deploy, sistem database kosong. Anda harus mendaftar atau membuat user manual di Database Supabase jika ingin langsung jadi admin, ATAU edit file `constants.ts` jika ingin mengubah kredensial backdoor admin.
+Karena database baru masih kosong, Anda perlu mendaftar ulang akun admin melalui halaman Register aplikasi.
 
-Default Admin (Untuk Login Pertama):
-- **Username**: `mentor_admin`
-- **Password**: `istiqamah2026`
-
-*Note: Pastikan username ini terdaftar di database Supabase atau gunakan fitur Register di aplikasi lalu ubah role-nya menjadi 'mentor' lewat SQL Editor Supabase.*
+1. Buka Aplikasi (Localhost atau Link Cloudflare).
+2. Klik **Register**.
+3. Gunakan data berikut (Wajib sama dengan Environment Variables):
+   - **Username**: `mentor_admin`
+   - **Password**: `istiqamah2026`
+   - **Nama**: Bebas (Misal: Kak Mentor)
+4. Sistem akan mendeteksi ini sebagai admin dan membuka fitur dashboard.

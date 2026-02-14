@@ -3,15 +3,22 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Mengambil config dari .env
-// Gunakan fallback string kosong agar tidak crash saat build/dev awal
+// Helper: Membersihkan tanda kutip jika user tidak sengaja memasukkannya di Cloudflare ENV
+// Contoh: '"AIzaSy..."' menjadi 'AIzaSy...'
+const cleanEnv = (val: string | undefined) => {
+  if (!val) return undefined;
+  return val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''); // Hapus kutip ganda atau tunggal di awal/akhir
+};
+
+const rawEnv = (import.meta as any).env;
+
 const firebaseConfig = {
-  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || "demo-key",
-  authDomain: (import.meta as any).env.VITE_FIREBASE_AUTH_DOMAIN || "demo.firebaseapp.com",
-  projectId: (import.meta as any).env.VITE_FIREBASE_PROJECT_ID || "demo-project",
-  storageBucket: (import.meta as any).env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: (import.meta as any).env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: (import.meta as any).env.VITE_FIREBASE_APP_ID
+  apiKey: cleanEnv(rawEnv.VITE_FIREBASE_API_KEY),
+  authDomain: cleanEnv(rawEnv.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: cleanEnv(rawEnv.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: cleanEnv(rawEnv.VITE_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: cleanEnv(rawEnv.VITE_FIREBASE_MESSAGING_SENDER_ID),
+  appId: cleanEnv(rawEnv.VITE_FIREBASE_APP_ID)
 };
 
 // Initialize Firebase
@@ -22,6 +29,6 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 export const isFirebaseConfigured = () => {
-  return (import.meta as any).env.VITE_FIREBASE_API_KEY && 
-         (import.meta as any).env.VITE_FIREBASE_API_KEY !== 'AIzaSy...';
+  const key = firebaseConfig.apiKey;
+  return key && key !== 'demo-key' && !key.includes('AIzaSyBhof_BW2uI8Ze0ywN'); // Basic validation
 };

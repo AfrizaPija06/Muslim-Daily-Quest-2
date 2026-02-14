@@ -29,58 +29,30 @@ class ApiService {
     return `${username.toLowerCase().replace(/\s/g, '')}${AUTH_DOMAIN}`;
   }
 
-  // --- AUTHENTICATION ---
-
-  async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
+  // --- HELPER FETCH USER ---
+  async getUserProfile(uid: string): Promise<{ user: User; data: WeeklyData } | null> {
     try {
-      // 0. CEK ADMIN HARDCODED (Backdoor)
-      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-        // Coba ambil data admin dari Firestore jika ada
-        let trackerData = null;
-        try {
-          const email = this.toEmail(username);
-          // Kita tidak login ke Auth Firebase utk admin backdoor, tapi coba fetch data by ID manual jika perlu
-          // Untuk simplifikasi, admin backdoor pakai local data dulu, atau login normal jika akun admin didaftarkan
-        } catch (e) {}
-
-        return {
-          success: true,
-          user: {
-            ...ADMIN_CREDENTIALS,
-            username: ADMIN_CREDENTIALS.username // ensure type match
-          },
-          data: INITIAL_DATA // Admin pakai data dummy/reset
-        };
-      }
-
-      // 1. Firebase Auth Login
-      const email = this.toEmail(username);
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-
-      // 2. Fetch User Profile from Firestore 'users' collection
-      const userDocRef = doc(db, "users", firebaseUser.uid);
+      // 1. Fetch User Profile
+      const userDocRef = doc(db, "users", uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists()) {
-        return { success: false, error: 'Data user tidak ditemukan di database.' };
-      }
+      if (!userDoc.exists()) return null;
+      const userData = userDoc.data() as any;
 
-      const userData = userDoc.data();
-
-      // 3. Fetch Tracker Data from Firestore 'trackers' collection
-      const trackerDocRef = doc(db, "trackers", firebaseUser.uid);
+      // 2. Fetch Tracker Data
+      const trackerDocRef = doc(db, "trackers", uid);
       const trackerDoc = await getDoc(trackerDocRef);
       
       let trackerData = INITIAL_DATA;
       if (trackerDoc.exists()) {
-        trackerData = trackerDoc.data().data as WeeklyData;
+        const tData = trackerDoc.data() as any;
+        trackerData = tData.data as WeeklyData;
       }
 
       const appUser: User = {
         username: userData.username,
         fullName: userData.fullName,
-        password: '***', // Dont expose
+        password: '***', // Password tidak disimpan di client state demi keamanan
         role: userData.role,
         group: userData.group,
         status: userData.status,
@@ -88,10 +60,41 @@ class ApiService {
         characterId: userData.characterId
       };
 
+      return { user: appUser, data: trackerData };
+    } catch (e) {
+      console.error("Get Profile Error:", e);
+      return null;
+    }
+  }
+
+  // --- AUTHENTICATION ---
+
+  async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
+    try {
+      // 0. CEK ADMIN HARDCODED (Backdoor)
+      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        return {
+          success: true,
+          user: { ...ADMIN_CREDENTIALS },
+          data: INITIAL_DATA 
+        };
+      }
+
+      // 1. Firebase Auth Login
+      const email = this.toEmail(username);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // 2. Fetch Data via Helper
+      const profile = await this.getUserProfile(userCredential.user.uid);
+      
+      if (!profile) {
+        return { success: false, error: 'Data user tidak ditemukan di database.' };
+      }
+
       return { 
         success: true, 
-        user: appUser, 
-        data: trackerData 
+        user: profile.user, 
+        data: profile.data 
       };
 
     } catch (e: any) {
@@ -111,7 +114,6 @@ class ApiService {
       const email = this.toEmail(newUser.username);
 
       // 1. Check if username exists using Firestore Query
-      // (Meskipun Auth handle email unik, kita cek dulu biar pesan errornya enak)
       const q = query(collection(db, "users"), where("username", "==", newUser.username));
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
@@ -142,7 +144,6 @@ class ApiService {
         lastUpdated: new Date().toISOString()
       });
 
-      // Update display name di Auth (opsional, untuk kerapihan di console firebase)
       await updateProfile(firebaseUser, { displayName: newUser.fullName });
 
       return { success: true };
@@ -162,33 +163,18 @@ class ApiService {
     if (currentUser.username === ADMIN_CREDENTIALS.username) return { success: true };
 
     try {
-      // Kita perlu UID. Di aplikasi real, kita simpan UID di state currentUser.
-      // Tapi karena struktur User kita belum ada UID, kita cari manual via username query
-      // ATAU: Karena Auth state dipertahankan Firebase, kita bisa pakai auth.currentUser
-      
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) {
-        // Fallback: Login ulang background atau cari user by username di db (agak insicure tpi ok utk migrasi)
-        // Cara aman: Cari doc ID berdasarkan username
-        const q = query(collection(db, "users"), where("username", "==", currentUser.username));
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) throw new Error("User not found for sync");
-        
-        const uid = snapshot.docs[0].id;
-        await setDoc(doc(db, "trackers", uid), {
-          data: localData,
-          lastUpdated: new Date().toISOString(),
-          username: currentUser.username
-        }, { merge: true });
-
-      } else {
-        // Happy path
-        await setDoc(doc(db, "trackers", firebaseUser.uid), {
-          data: localData,
-          lastUpdated: new Date().toISOString(),
-          username: currentUser.username
-        }, { merge: true });
+         // Jika session auth hilang tapi app masih jalan, coba restore atau fail silently
+         console.warn("Sync skipped: No Auth Session");
+         return { success: false };
       }
+
+      await setDoc(doc(db, "trackers", firebaseUser.uid), {
+          data: localData,
+          lastUpdated: new Date().toISOString(),
+          username: currentUser.username
+      }, { merge: true });
 
       return { success: true };
     } catch (e) {
@@ -199,19 +185,15 @@ class ApiService {
 
   async getAllUsersWithPoints(): Promise<any[]> {
     try {
-      // 1. Get All Users
       const usersSnap = await getDocs(collection(db, "users"));
-      const users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as any));
+      const users = usersSnap.docs.map(d => ({ uid: d.id, ...(d.data() as any) } as any));
 
-      // 2. Get All Trackers
-      // (Di aplikasi skala besar, ini tidak efisien. Tapi untuk <1000 user masih oke/gratis di Firestore)
       const trackersSnap = await getDocs(collection(db, "trackers"));
       const trackersMap: Record<string, any> = {};
       trackersSnap.forEach(d => {
         trackersMap[d.id] = d.data();
       });
 
-      // 3. Join Data
       return users.map(u => ({
         username: u.username,
         fullName: u.fullName,
@@ -231,23 +213,14 @@ class ApiService {
 
   async deleteUser(username: string): Promise<boolean> {
     try {
-      // Cari UID dulu
       const q = query(collection(db, "users"), where("username", "==", username));
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) return false;
-
       const uid = snapshot.docs[0].id;
 
-      // Hapus data di Firestore
       await deleteDoc(doc(db, "users", uid));
       await deleteDoc(doc(db, "trackers", uid));
-
-      // Note: Menghapus user dari Auth (Authentication) butuh Admin SDK (Backend Node.js).
-      // Client SDK tidak bisa menghapus user lain selain dirinya sendiri.
-      // Jadi untuk versi client-only ini, user hanya "hilang" dari database & leaderboard,
-      // tapi login credentialnya masih ada (cuma pas login akan error karena data db tidak ditemukan).
-      
       return true;
     } catch (e) {
       return false;
@@ -256,15 +229,7 @@ class ApiService {
 
   async updateUserProfile(user: User): Promise<boolean> {
     try {
-       // Cari UID
        let uid = auth.currentUser?.uid;
-
-       if (!uid) {
-         const q = query(collection(db, "users"), where("username", "==", user.username));
-         const snapshot = await getDocs(q);
-         if (!snapshot.empty) uid = snapshot.docs[0].id;
-       }
-
        if (!uid) return false;
 
        await setDoc(doc(db, "users", uid), {
