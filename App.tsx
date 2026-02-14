@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAs
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, AlertTriangle } from 'lucide-react';
+import { Loader2, Shield, Settings } from 'lucide-react';
 
 // Import Pages & Components
 import LoginPage from './components/LoginPage';
@@ -40,29 +40,25 @@ const App: React.FC = () => {
   const currentTheme: AppTheme = 'ramadhan';
   const themeStyles = THEMES['ramadhan'];
 
-  // --- CRITICAL CHECK: OLD PROJECT DETECTION ---
-  // FIXED: Safe access to env to prevent "Cannot read properties of undefined (reading 'VITE_SUPABASE_URL')"
+  // --- CONFIGURATION CHECK ---
   const env = (import.meta as any).env || {};
   const supabaseUrl = env.VITE_SUPABASE_URL || '';
   
-  // 'ebjhbldaslrrsmiecvzc' is the old blocked project ID
-  if (supabaseUrl.includes('ebjhbldaslrrsmiecvzc')) {
+  // Check if .env is still using placeholders or empty
+  if (!supabaseUrl || supabaseUrl.includes('GANTI_DENGAN_URL') || supabaseUrl === 'https://placeholder.supabase.co') {
      return (
-       <div className="min-h-screen bg-red-950 text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
-          <AlertTriangle className="w-24 h-24 text-red-500 animate-bounce" />
-          <h1 className="text-3xl font-bold uppercase">Salah Sambung!</h1>
-          <div className="bg-black/50 p-6 rounded-xl border border-red-500 max-w-lg">
-            <p className="mb-4 text-lg">Aplikasi masih terhubung ke Project Lama yang sudah <strong>DIBLOKIR</strong>.</p>
-            <p className="text-sm font-mono text-red-300 mb-2">URL Terdeteksi: {supabaseUrl}</p>
+       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
+          <Settings className="w-24 h-24 text-blue-500 animate-spin-slow" />
+          <h1 className="text-3xl font-bold uppercase">Setup Required</h1>
+          <div className="bg-white/5 p-6 rounded-xl border border-white/10 max-w-lg">
+            <p className="mb-4 text-lg">Aplikasi belum terhubung ke Database Supabase.</p>
             <div className="h-px bg-white/20 my-4"></div>
-            <p className="font-bold text-yellow-400">SOLUSI:</p>
-            <ol className="text-left text-sm space-y-2 list-decimal list-inside mt-2">
-              <li>Buka Dashboard Supabase.</li>
-              <li>Pastikan Anda membuka Project yang <strong>BARU</strong> (Bukan yang lama).</li>
-              <li>Copy URL dan Anon Key dari Project Baru tersebut.</li>
-              <li>Ganti isi file <code>.env</code> di laptop.</li>
-              <li>Ganti <strong>Environment Variables</strong> di Dashboard Cloudflare Pages.</li>
-              <li>Redeploy.</li>
+            <p className="font-bold text-yellow-400">Langkah Setup:</p>
+            <ol className="text-left text-sm space-y-2 list-decimal list-inside mt-2 text-slate-300">
+              <li>Buka file <code>.env</code></li>
+              <li>Isi <code>VITE_SUPABASE_URL</code> dengan URL Project Baru.</li>
+              <li>Isi <code>VITE_SUPABASE_ANON_KEY</code> dengan Key Project Baru.</li>
+              <li>Restart server development (<code>npm run dev</code>).</li>
             </ol>
           </div>
        </div>

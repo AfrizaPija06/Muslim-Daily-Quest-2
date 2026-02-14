@@ -6,7 +6,7 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({ themeStyles }) => {
-  // Debugging: Get Project Ref from URL (e.g., 'ebjhbldaslrrsmiecvzc' from 'https://ebjhbldaslrrsmiecvzc.supabase.co')
+  // Debugging: Get Project Ref from URL
   const env = (import.meta as any).env || {};
   const supabaseUrl = env.VITE_SUPABASE_URL || '';
   const projectRef = supabaseUrl.split('.')[0]?.replace('https://', '') || 'Unknown';
