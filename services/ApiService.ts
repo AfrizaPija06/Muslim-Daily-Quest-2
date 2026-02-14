@@ -1,7 +1,7 @@
 
 import { supabase } from '../lib/supabaseClient';
 import { WeeklyData, User } from '../types';
-import { INITIAL_DATA } from '../constants';
+import { INITIAL_DATA, ADMIN_CREDENTIALS } from '../constants';
 
 class ApiService {
   
@@ -9,17 +9,55 @@ class ApiService {
 
   async login(username: string, password: string): Promise<{ success: boolean; user?: User; data?: WeeklyData; error?: string }> {
     try {
-      // 1. Fetch User
+      // 0. CEK ADMIN HARDCODED (Supaya Admin bisa login walau belum insert DB atau DB mati)
+      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        
+        // Coba ambil data tracker admin dari DB (jika pernah save sebelumnya)
+        // Kita bungkus try-catch extra di sini karena jika Quota habis, ini akan throw error
+        let trackerData = null;
+        try {
+          const { data: tracker } = await supabase
+            .from('trackers')
+            .select('data')
+            .eq('username', username)
+            .maybeSingle();
+          trackerData = tracker?.data;
+        } catch (dbError) {
+          console.warn("Admin login: DB unreachable, using local data.");
+        }
+
+        // Return user admin dari constants
+        return {
+          success: true,
+          user: {
+            username: ADMIN_CREDENTIALS.username,
+            fullName: ADMIN_CREDENTIALS.fullName,
+            password: ADMIN_CREDENTIALS.password,
+            role: ADMIN_CREDENTIALS.role,
+            group: ADMIN_CREDENTIALS.group,
+            status: ADMIN_CREDENTIALS.status,
+            avatarSeed: ADMIN_CREDENTIALS.avatarSeed,
+            characterId: ADMIN_CREDENTIALS.characterId
+          },
+          data: trackerData || INITIAL_DATA
+        };
+      }
+
+      // 1. Fetch User Normal dari Database
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
         .eq('username', username)
         .eq('password', password)
-        .maybeSingle(); // Use maybeSingle to prevent error on no rows
+        .maybeSingle(); 
 
       if (error) {
         console.error("Login Query Error:", error);
-        return { success: false, error: 'Terjadi kesalahan koneksi database.' };
+        // Deteksi Error Quota Habis (402 Payment Required) atau Network Error
+        if (error.code === '402' || error.message?.includes('usage limit') || error.message?.includes('quota')) {
+           return { success: false, error: 'Server Penuh (Quota Exceeded). Hubungi Admin.' };
+        }
+        return { success: false, error: 'Koneksi database bermasalah.' };
       }
 
       if (!user) {
@@ -32,6 +70,10 @@ class ApiService {
         .select('data')
         .eq('username', username)
         .maybeSingle();
+
+      if (trackerError && trackerError.code === '402') {
+         return { success: false, error: 'Server Penuh (Quota Exceeded).' };
+      }
 
       // Mapping Database snake_case to App camelCase
       const appUser: User = {
@@ -68,6 +110,7 @@ class ApiService {
         .maybeSingle();
 
       if (checkError) {
+         if (checkError.code === '402') return { success: false, error: "Server Penuh (Quota Exceeded)." };
          console.error("Check User Error:", checkError);
          return { success: false, error: "Gagal mengecek username database." };
       }
@@ -91,6 +134,7 @@ class ApiService {
         }]);
 
       if (insertError) {
+        if (insertError.code === '402') return { success: false, error: "Gagal mendaftar: Kuota Server Penuh." };
         console.error("Insert User Error details:", insertError);
         return { success: false, error: `Gagal membuat user: ${insertError.message}` };
       }
@@ -128,7 +172,10 @@ class ApiService {
           last_updated: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '402') console.warn("Sync skipped: Quota Exceeded");
+        throw error;
+      }
 
       return { success: true };
     } catch (e) {
@@ -148,7 +195,10 @@ class ApiService {
           trackers ( data )
         `);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '402') console.warn("Fetch users skipped: Quota Exceeded");
+        throw error;
+      }
 
       return data.map((u: any) => ({
         username: u.username,
@@ -175,6 +225,15 @@ class ApiService {
   // --- PROFILE UPDATE ---
   async updateUserProfile(user: User): Promise<boolean> {
     try {
+      // Jika admin yang update profile (dan admin belum di DB), kita insert dulu
+      if (user.username === ADMIN_CREDENTIALS.username) {
+         const { data: exists } = await supabase.from('users').select('username').eq('username', user.username).maybeSingle();
+         if (!exists) {
+            // Register admin ke DB secara diam-diam agar bisa diupdate
+            await this.registerUserSafe(user);
+         }
+      }
+
       const { error } = await supabase
         .from('users')
         .update({

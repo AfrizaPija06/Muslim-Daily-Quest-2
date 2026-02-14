@@ -18,6 +18,7 @@ import DailyTargetPanel from './components/DailyTargetPanel';
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(true); // New Loading State for Session Check
 
   // VIEW STATE
   const [view, setView] = useState<string>('login');
@@ -63,25 +64,47 @@ const App: React.FC = () => {
     await api.updateUserProfile(updatedUser);
   };
 
-  // Restore Session
+  // Restore Session with Validation
   useEffect(() => {
     if (isResetting) return;
-    const savedUser = localStorage.getItem('nur_quest_session');
-    if (savedUser) {
-      let user = JSON.parse(savedUser);
-      // Ensure admin creds if matching (optional check)
-      if (user.username === ADMIN_CREDENTIALS.username) user = { ...user, ...ADMIN_CREDENTIALS };
+    
+    const restoreSession = async () => {
+      setIsSessionLoading(true);
+      const savedUser = localStorage.getItem('nur_quest_session');
       
-      setCurrentUser(user);
-      setView('tracker');
-      
-      // Fetch fresh data from DB
-      api.login(user.username, user.password || '').then(res => {
-         if (res.success && res.data) {
-            setData(res.data);
-         }
-      });
-    }
+      if (savedUser) {
+        try {
+          let user = JSON.parse(savedUser);
+          // Ensure admin creds if matching (optional check)
+          if (user.username === ADMIN_CREDENTIALS.username) user = { ...user, ...ADMIN_CREDENTIALS };
+          
+          // CRITICAL: Don't just trust LocalStorage. Verify with DB Login.
+          // This prevents "Ghost Sessions" when switching Database projects.
+          const res = await api.login(user.username, user.password || '');
+          
+          if (res.success && res.user) {
+             // Session Valid on Current DB
+             setCurrentUser(res.user);
+             if (res.data) setData(res.data);
+             setView('tracker');
+          } else {
+             // Session Invalid (User doesn't exist in new DB), clear it.
+             console.warn("Session invalid for current Database. Clearing session.");
+             localStorage.removeItem('nur_quest_session');
+             setView('login');
+          }
+        } catch (e) {
+          console.error("Session restore failed", e);
+          localStorage.removeItem('nur_quest_session');
+          setView('login');
+        }
+      } else {
+        setView('login');
+      }
+      setIsSessionLoading(false);
+    };
+
+    restoreSession();
   }, [isResetting]);
 
   // Debounce Auto-Sync when Data Changes
@@ -161,11 +184,11 @@ const App: React.FC = () => {
     refreshAssets: (newAssets: GlobalAssets) => setGlobalAssets(newAssets)
   };
 
-  if (isResetting) {
+  if (isResetting || isSessionLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
         <Loader2 className="w-10 h-10 animate-spin mb-4" />
-        <p className="text-xs text-white/50 mt-2">Loading Ramadhan Event...</p>
+        <p className="text-xs text-white/50 mt-2">Connecting to Server Node...</p>
       </div>
     );
   }

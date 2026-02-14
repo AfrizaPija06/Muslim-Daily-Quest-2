@@ -1,3 +1,4 @@
+
 import React, { useMemo, useEffect, useState } from 'react';
 import { Trophy, Crown, Medal, Loader2 } from 'lucide-react';
 import { User, POINTS } from '../types';
@@ -43,8 +44,8 @@ const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeSty
     };
 
     fetchData();
-    // Refresh every 2 minutes loosely to avoid overload
-    const interval = setInterval(fetchData, 120000);
+    // OPTIMIZATION: Refresh every 10 minutes (600000ms) instead of 2 minutes to save bandwidth (Egress)
+    const interval = setInterval(fetchData, 600000);
     return () => clearInterval(interval);
   }, []);
 
