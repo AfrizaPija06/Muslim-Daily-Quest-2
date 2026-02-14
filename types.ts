@@ -72,79 +72,77 @@ export const POINTS = {
   TARAWIH: 50
 };
 
-// RANK SYSTEM (Updated to MLBB Style)
-// MASUKKAN LINK ICON MANUAL DI SINI (Property: assetKey)
-// Bisa menggunakan link gambar full (https://...) atau nama file di Supabase Storage
+// RANK SYSTEM (Updated to MLBB Style with Local Assets)
 export const RANK_TIERS = [
   { 
     name: 'Mythical Immortal', 
     min: 9000, 
     color: 'text-red-500', 
     bg: 'bg-red-500/20 border-red-500', 
-    assetKey: 'rank_immortal.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/mythic_immortal.png'
   },
   { 
     name: 'Mythical Glory', 
     min: 8200, 
     color: 'text-rose-400', 
     bg: 'bg-rose-500/20 border-rose-500', 
-    assetKey: 'rank_glory.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/mythic_glory.png'
   },
   { 
     name: 'Mythical Honor', 
     min: 7500, 
     color: 'text-blue-400', 
     bg: 'bg-blue-500/20 border-blue-500', 
-    assetKey: 'rank_honor.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/mythic_honor.png'
   },
   { 
     name: 'Mythic', 
     min: 6000, 
     color: 'text-purple-400', 
     bg: 'bg-purple-500/20 border-purple-500', 
-    assetKey: 'rank_mythic.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/mythic.png'
   },
   { 
     name: 'Legend', 
     min: 4500, 
     color: 'text-amber-400', 
     bg: 'bg-amber-500/20 border-amber-500', 
-    assetKey: 'rank_legend.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/legend.png'
   },
   { 
     name: 'Epic', 
     min: 3000, 
     color: 'text-emerald-400', 
     bg: 'bg-emerald-500/20 border-emerald-500', 
-    assetKey: 'rank_epic.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/epic.png'
   },
   { 
     name: 'Grandmaster', 
     min: 2000, 
     color: 'text-red-400', 
     bg: 'bg-red-500/20 border-red-500', 
-    assetKey: 'rank_gm.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/grandmaster.png'
   },
   { 
     name: 'Master', 
     min: 1200, 
     color: 'text-yellow-400', 
     bg: 'bg-yellow-500/20 border-yellow-500', 
-    assetKey: 'rank_master.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/master.png'
   },
   { 
     name: 'Elite', 
     min: 500, 
     color: 'text-slate-300', 
     bg: 'bg-slate-500/20 border-slate-500', 
-    assetKey: 'rank_elite.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/elite.png'
   },
   { 
     name: 'Warrior', 
     min: 0, 
     color: 'text-slate-500', 
     bg: 'bg-slate-700/20 border-slate-700', 
-    assetKey: 'rank_warrior.png' // GANTI DENGAN LINK ICON ANDA
+    assetKey: '/images/ranks/warrior.png'
   },
 ];
 

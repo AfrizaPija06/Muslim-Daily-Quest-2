@@ -25,8 +25,7 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // --- CHARACTER ROSTER (7 HEROES) ---
-const ASSET_BASE_URL = ""; 
-
+// Menggunakan path lokal dari folder public/images/heroes/
 export const AVAILABLE_CHARACTERS: Character[] = [
   {
     id: 'char_fatih',
@@ -34,8 +33,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Conqueror Leader',
     description: 'Visioner, strategis, berani ambil risiko. Fokus pada misi, bukan gengsi. Menyiapkan kemenangan dengan perencanaan matang.',
     abilities: ['Visionary Command', 'Strategic Strike', 'Iron Will'],
-    // MASUKKAN LINK ICON DI SINI (Ganti string kosong atau URL default di bawah)
-    imageUrl: `https://ui-avatars.com/api/?name=Al+Fatih&background=ef4444&color=fff&size=256`, 
+    imageUrl: '/images/heroes/alfatih.png', 
     color: 'text-red-500'
   },
   {
@@ -44,8 +42,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Noble Warrior',
     description: 'Ksatria, sabar, berintegritas tinggi. Menang tanpa kehilangan akhlak. Kuat tapi tetap rendah hati.',
     abilities: ['Noble Heart', 'Integrity', 'Resilience'],
-    // MASUKKAN LINK ICON DI SINI
-    imageUrl: `https://ui-avatars.com/api/?name=Salahuddin&background=f59e0b&color=fff&size=256`,
+    imageUrl: '/images/heroes/salahuddin.png',
     color: 'text-amber-500'
   },
   {
@@ -54,8 +51,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Justice Commander',
     description: 'Tegas, adil, berani terhadap kebenaran. Anti kompromi terhadap kezaliman. Kepemimpinan berbasis keadilan.',
     abilities: ['Absolute Justice', 'Unwavering Force', 'Discipline'],
-    // MASUKKAN LINK ICON DI SINI
-    imageUrl: `https://ui-avatars.com/api/?name=Umar&background=10b981&color=fff&size=256`,
+    imageUrl: '/images/heroes/umar.png',
     color: 'text-emerald-500'
   },
   {
@@ -64,8 +60,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Wise Knight',
     description: 'Cerdas, dalam ilmunya, berani di medan ujian. Ilmu sebelum aksi. Ketegasan dibarengi hikmah.',
     abilities: ['Blade of Wisdom', 'Knowledge Shield', 'Valor'],
-    // MASUKKAN LINK ICON DI SINI
-    imageUrl: `https://ui-avatars.com/api/?name=Ali&background=3b82f6&color=fff&size=256`,
+    imageUrl: '/images/heroes/ali.png',
     color: 'text-blue-500'
   },
   {
@@ -74,8 +69,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Master Scholar',
     description: 'Tajam berpikir, sistematis, rendah hati. Kuat dalam dasar ilmu. Berpikir logis dan terstruktur.',
     abilities: ['Logical Flow', 'Scholar Mind', 'Argumentation'],
-    // MASUKKAN LINK ICON DI SINI
-    imageUrl: `https://ui-avatars.com/api/?name=Imam+Syafii&background=06b6d4&color=fff&size=256`,
+    imageUrl: '/images/heroes/syafii.png',
     color: 'text-cyan-500'
   },
   {
@@ -84,8 +78,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Spiritual Sage',
     description: 'Zuhud, reflektif, lembut namun tegas. Kekuatan lahir dari hati yang bersih. Dunia bukan tujuan akhir.',
     abilities: ['Inner Peace', 'Heart Purification', 'Reflection'],
-    // MASUKKAN LINK ICON DI SINI
-    imageUrl: `https://ui-avatars.com/api/?name=Hasan+Basri&background=8b5cf6&color=fff&size=256`,
+    imageUrl: '/images/heroes/hasanbasri.png',
     color: 'text-violet-400'
   },
   {
@@ -94,8 +87,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Innovation Architect',
     description: 'Analitis, solutif, pencipta sistem. Mengubah masalah jadi formula. Meninggalkan legacy keilmuan.',
     abilities: ['Algorithm', 'Problem Solving', 'System Design'],
-    // MASUKKAN LINK ICON DI SINI
-    imageUrl: `https://ui-avatars.com/api/?name=Al+Khwarizmi&background=6366f1&color=fff&size=256`,
+    imageUrl: '/images/heroes/alkhwarizmi.png',
     color: 'text-indigo-500'
   }
 ];
@@ -127,19 +119,26 @@ export const INITIAL_DATA: WeeklyData = {
 
 const DEFAULT_AVATAR_BASE = "https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128&name=";
 
+// Helper Avatar
 export const getAvatarSrc = (seedOrUrl?: string, assets?: any) => {
   if (!seedOrUrl) return `${DEFAULT_AVATAR_BASE}User`;
-  if (seedOrUrl.startsWith('http')) {
+  
+  // Jika path dimulai dengan '/' (lokal public) atau 'http' (link luar), gunakan langsung
+  if (seedOrUrl.startsWith('/') || seedOrUrl.startsWith('http')) {
     return seedOrUrl;
   }
   return `${DEFAULT_AVATAR_BASE}${seedOrUrl}`;
 };
 
-// Helper to get Rank Icon
-// Supports full URLs (http...) or keys relative to ASSET_BASE_URL
+// Helper Rank Icon
 export const getRankIconUrl = (assetKey: string | undefined) => {
   if (!assetKey) return "";
-  if (assetKey.startsWith('http')) return assetKey;
-  // Fallback if local asset is missing
-  return `https://ui-avatars.com/api/?name=${assetKey.replace('.png','')}&background=333&color=fbbf24&rounded=true`;
+  
+  // Jika path dimulai dengan '/' (lokal public) atau 'http' (link luar), gunakan langsung
+  if (assetKey.startsWith('/') || assetKey.startsWith('http')) {
+    return assetKey;
+  }
+  
+  // Fallback ke UI Avatar jika file tidak ditemukan atau format salah
+  return `https://ui-avatars.com/api/?name=${assetKey}&background=333&color=fbbf24&rounded=true`;
 };
