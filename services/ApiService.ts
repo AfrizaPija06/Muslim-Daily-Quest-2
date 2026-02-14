@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { WeeklyData, User, MENTORING_GROUPS } from '../types';
+import { WeeklyData, User } from '../types';
 import { INITIAL_DATA } from '../constants';
 
 class ApiService {
@@ -14,57 +14,74 @@ class ApiService {
         .from('users')
         .select('*')
         .eq('username', username)
-        .eq('password', password) // Simple auth for Game Style
-        .single();
+        .eq('password', password)
+        .maybeSingle(); // Use maybeSingle to prevent error on no rows
 
-      if (error || !user) {
-        console.error("Login Error:", error);
-        return { success: false, error: 'Username atau Password salah (atau akun belum dibuat).' };
+      if (error) {
+        console.error("Login Query Error:", error);
+        return { success: false, error: 'Terjadi kesalahan koneksi database.' };
       }
 
-      // 2. Fetch Tracker Data
-      const { data: tracker } = await supabase
+      if (!user) {
+        return { success: false, error: 'Username atau Password salah.' };
+      }
+
+      // 2. Fetch Tracker Data (Safely)
+      const { data: tracker, error: trackerError } = await supabase
         .from('trackers')
         .select('data')
         .eq('username', username)
-        .single();
+        .maybeSingle();
+
+      // Mapping Database snake_case to App camelCase
+      const appUser: User = {
+        username: user.username,
+        fullName: user.full_name, // Map full_name -> fullName
+        password: user.password,
+        role: user.role,
+        group: user.group,
+        status: user.status,
+        avatarSeed: user.avatar_seed,
+        characterId: user.character_id
+      };
 
       return { 
         success: true, 
-        user: user as User, 
-        data: tracker ? tracker.data : INITIAL_DATA 
+        user: appUser, 
+        // If tracker is null (new user), use INITIAL_DATA
+        data: tracker?.data || INITIAL_DATA 
       };
 
     } catch (e: any) {
       console.error("Login Exception:", e);
-      return { success: false, error: e.message };
+      return { success: false, error: e.message || 'Error tidak diketahui saat login.' };
     }
   }
 
   async registerUserSafe(newUser: User): Promise<{ success: boolean; error?: string }> {
     try {
-      // 1. Check if user exists (Directly to Supabase)
+      // 1. Check if user exists
       const { data: existing, error: checkError } = await supabase
         .from('users')
         .select('username')
         .eq('username', newUser.username)
-        .maybeSingle(); // Use maybeSingle to avoid error if not found
+        .maybeSingle();
 
       if (checkError) {
          console.error("Check User Error:", checkError);
-         return { success: false, error: "Gagal mengecek ketersediaan username." };
+         return { success: false, error: "Gagal mengecek username database." };
       }
 
       if (existing) {
         return { success: false, error: "Username sudah digunakan." };
       }
 
-      // 2. Insert User
+      // 2. Insert User (Strict Mapping)
       const { error: insertError } = await supabase
         .from('users')
         .insert([{
           username: newUser.username,
-          full_name: newUser.fullName,
+          full_name: newUser.fullName, // Ensure mapping matches DB column
           password: newUser.password,
           role: newUser.role,
           group: newUser.group,
@@ -74,8 +91,8 @@ class ApiService {
         }]);
 
       if (insertError) {
-        console.error("Insert User Error:", insertError);
-        throw insertError;
+        console.error("Insert User Error details:", insertError);
+        return { success: false, error: `Gagal membuat user: ${insertError.message}` };
       }
 
       // 3. Initialize Tracker
@@ -87,7 +104,7 @@ class ApiService {
 
       if (trackerError) {
          console.error("Tracker Init Error:", trackerError);
-         // Optional: Delete user if tracker fails to keep DB clean, but skipping for simplicity
+         // Not fatal, user can still login, tracker will be created on sync
       }
 
       return { success: true };
@@ -99,7 +116,6 @@ class ApiService {
 
   // --- SYNC / DATA MANAGEMENT ---
 
-  // Debounce sync to prevent server spamming
   async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
     if (!currentUser) return { success: false };
 
@@ -135,10 +151,13 @@ class ApiService {
       if (error) throw error;
 
       return data.map((u: any) => ({
-        ...u,
+        username: u.username,
+        fullName: u.full_name,
+        role: u.role,
+        group: u.group,
+        status: u.status,
         avatarSeed: u.avatar_seed,
         characterId: u.character_id,
-        fullName: u.full_name,
         trackerData: u.trackers ? u.trackers.data : null
       }));
 

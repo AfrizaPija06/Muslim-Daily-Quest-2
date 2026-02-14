@@ -35,8 +35,6 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
     setError(null);
 
     try {
-      // REMOVED LEGACY LOCAL STORAGE CHECK CAUSING CRASH
-      
       if (formData.username === ADMIN_CREDENTIALS.username) { 
         setError("Username tidak diizinkan."); 
         setIsRegistering(false);
@@ -96,24 +94,24 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 relative transition-colors duration-500 ${themeStyles.bg} overflow-hidden`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 md:p-8 relative transition-colors duration-500 ${themeStyles.bg} overflow-x-hidden`}>
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
       
-      {/* Container adapts width based on step, wider on desktop */}
-      <div className={`w-full ${step === 1 ? 'max-w-5xl' : 'max-w-xl'} ${themeStyles.card} rounded-3xl p-6 md:p-10 ${themeStyles.glow} relative z-10 transition-all duration-500`}>
+      {/* Container adapts width based on step. WIDER on Desktop for Step 1 */}
+      <div className={`w-full ${step === 1 ? 'max-w-7xl' : 'max-w-xl'} ${themeStyles.card} rounded-3xl p-6 md:p-10 ${themeStyles.glow} relative z-10 transition-all duration-500`}>
         
         {/* Header Title */}
         <div className="text-center mb-8">
-          <h2 className={`text-3xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
-            {step === 1 ? 'Choose Your Hero' : 'Identify Yourself'}
+          <h2 className={`text-3xl md:text-4xl ${themeStyles.fontDisplay} font-bold ${themeStyles.textPrimary} tracking-widest uppercase`}>
+            {step === 1 ? 'Choose Your Destiny' : 'Identity Verification'}
           </h2>
-          <div className="flex justify-center gap-2 mt-3">
-            <div className={`h-1.5 w-12 rounded-full transition-colors ${step >= 1 ? 'bg-[#fbbf24]' : 'bg-white/10'}`} />
-            <div className={`h-1.5 w-12 rounded-full transition-colors ${step >= 2 ? 'bg-[#fbbf24]' : 'bg-white/10'}`} />
+          <div className="flex justify-center gap-2 mt-4">
+            <div className={`h-1.5 w-16 rounded-full transition-colors ${step >= 1 ? 'bg-[#fbbf24]' : 'bg-white/10'}`} />
+            <div className={`h-1.5 w-16 rounded-full transition-colors ${step >= 2 ? 'bg-[#fbbf24]' : 'bg-white/10'}`} />
           </div>
         </div>
         
-        {error && <div className="mb-6 p-4 bg-red-950/40 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-sm"><ShieldCheck className="w-5 h-5" />{error}</div>}
+        {error && <div className="mb-6 p-4 bg-red-950/40 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-sm"><ShieldCheck className="w-5 h-5 shrink-0" />{error}</div>}
 
         {/* STEP 1: CHARACTER SELECTION */}
         {step === 1 && (
@@ -123,12 +121,13 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
                onSelect={setSelectedChar} 
                themeStyles={themeStyles} 
              />
-             <div className="mt-10 flex justify-center w-full">
+             <div className="mt-12 flex flex-col md:flex-row items-center justify-center w-full gap-4">
+                <p className={`text-sm ${themeStyles.textSecondary}`}>Character: <span className="font-bold text-white uppercase">{selectedChar.name}</span></p>
                 <button 
                   onClick={() => setStep(2)}
-                  className={`w-full md:w-auto px-12 py-4 rounded-xl ${themeStyles.buttonPrimary} font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl`}
+                  className={`w-full md:w-auto px-16 py-5 rounded-xl ${themeStyles.buttonPrimary} font-bold text-lg uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-xl`}
                 >
-                  Select {selectedChar.name} <ArrowRight className="w-5 h-5" />
+                  Select Hero <ArrowRight className="w-6 h-6" />
                 </button>
              </div>
              <p className={`mt-6 text-center text-sm ${themeStyles.textSecondary}`}>Sudah punya akun? <button onClick={() => setView('login')} className={`font-bold hover:underline ${themeStyles.textAccent}`}>Login</button></p>
@@ -139,12 +138,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, t
         {step === 2 && (
           <form onSubmit={handleRegister} className="grid grid-cols-1 gap-5 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 mb-2">
-                <div className="w-16 h-16 rounded-xl bg-black overflow-hidden border border-[#fbbf24] shadow-lg shrink-0">
+                <div className="w-20 h-20 rounded-xl bg-black overflow-hidden border border-[#fbbf24] shadow-lg shrink-0">
                    <img src={selectedChar.imageUrl} className="w-full h-full object-cover" onError={(e) => (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${selectedChar.name}`} />
                 </div>
                 <div>
                    <p className="text-[10px] uppercase opacity-50 tracking-widest">Selected Role</p>
-                   <p className="font-bold text-lg text-[#fbbf24]">{selectedChar.name}</p>
+                   <p className="font-bold text-xl text-[#fbbf24]">{selectedChar.name}</p>
                 </div>
                 <button type="button" onClick={() => setStep(1)} className="ml-auto px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold uppercase transition-colors">Change</button>
             </div>
