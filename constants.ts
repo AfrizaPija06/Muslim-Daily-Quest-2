@@ -4,7 +4,7 @@ import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerSta
 export { HIJRI_YEAR } from './types';
 
 // Placeholder Assets (Supabase project lama sudah tidak aktif, gunakan ini agar tampilan tidak rusak)
-export const GAME_LOGO_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771126254/ChatGPT_Image_Feb_13_2026_06_01_59_PM_euchno.png";
+export const GAME_LOGO_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771129900/gamelogo_spesial_ramadhan_njoju3.png";
 export const MENTOR_AVATAR_URL = "https://ui-avatars.com/api/?name=Mentor&background=fbbf24&color=000&size=256";
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
