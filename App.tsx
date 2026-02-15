@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAs
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, Settings, Flame } from 'lucide-react';
+import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
@@ -17,6 +17,7 @@ import GameHUD from './components/GameHUD';
 import GameDock from './components/GameDock';
 import MiniLeaderboard from './components/MiniLeaderboard';
 import DailyTargetPanel from './components/DailyTargetPanel';
+import LevelUpModal from './components/LevelUpModal';
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -25,6 +26,11 @@ const App: React.FC = () => {
   // VIEW STATE
   const [view, setView] = useState<string>('login');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // State untuk Melihat Profil Orang Lain
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [viewingStats, setViewingStats] = useState<{points: number, rank: any} | null>(null);
+
   const [data, setData] = useState<WeeklyData>(INITIAL_DATA);
   
   const groups = MENTORING_GROUPS;
@@ -37,6 +43,10 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
   
+  // LEVEL UP STATE
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const prevRankRef = useRef<string>(""); 
+
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentTheme: AppTheme = 'ramadhan';
@@ -79,7 +89,6 @@ const App: React.FC = () => {
   const handleUpdateProfile = async (updatedUser: User) => {
     if (!currentUser) return;
     setCurrentUser(updatedUser);
-    // Kita tetap update localStorage sebagai cache cepat, tapi session asli dipegang Firebase
     localStorage.setItem('nur_quest_session', JSON.stringify(updatedUser));
     await api.updateUserProfile(updatedUser);
   };
@@ -88,25 +97,18 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
 
-    // Listener untuk status login Firebase (Persistent)
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User logged in via Firebase
         try {
-          // Fetch data terbaru dari Firestore
           const profile = await api.getUserProfile(user.uid);
           if (profile) {
-            // FIX: Force update avatar jika user adalah admin agar sesuai constants.ts
             if (profile.user.username === ADMIN_CREDENTIALS.username) {
                profile.user.avatarSeed = MENTOR_AVATAR_URL;
             }
-
             setCurrentUser(profile.user);
             setData(profile.data);
             setView('tracker');
           } else {
-             // User ada di Auth tapi data hilang di DB?
-             console.error("Auth exists but DB data missing");
              setView('login');
           }
         } catch (e) {
@@ -114,20 +116,15 @@ const App: React.FC = () => {
           setView('login');
         }
       } else {
-        // User not logged in via Firebase
-        // Cek apakah ini Admin Backdoor (via LocalStorage)
         const savedUser = localStorage.getItem('nur_quest_session');
         if (savedUser) {
            try {
              const parsed = JSON.parse(savedUser);
              if (parsed.username === ADMIN_CREDENTIALS.username) {
-                // Restore Admin Session secara manual karena admin tidak pakai Firebase Auth
-                // FIX: Force use latest Avatar URL
                 setCurrentUser({ ...ADMIN_CREDENTIALS, avatarSeed: MENTOR_AVATAR_URL });
                 setData(INITIAL_DATA);
                 setView('tracker');
              } else {
-                // User biasa tapi session firebase habis -> Logout
                 setView('login');
              }
            } catch { setView('login'); }
@@ -169,12 +166,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (currentUser) await api.sync(currentUser, data, groups);
-    
-    // Logout dari Firebase
-    try {
-      await signOut(auth);
-    } catch (e) { console.error(e); }
-
+    try { await signOut(auth); } catch (e) { console.error(e); }
     localStorage.removeItem('nur_quest_session');
     setCurrentUser(null);
     setView('login');
@@ -199,6 +191,30 @@ const App: React.FC = () => {
     }, 0);
   }, [data]);
 
+  // --- RANK UP DETECTION LOGIC ---
+  const currentRank = getRankInfo(totalPoints);
+  
+  useEffect(() => {
+    if (isSessionLoading || !currentUser) return;
+    
+    // Initialize ref on first load
+    if (prevRankRef.current === "") {
+        prevRankRef.current = currentRank.name;
+        return;
+    }
+
+    // Check if rank name changed AND points increased (to avoid demotion alert)
+    if (currentRank.name !== prevRankRef.current && totalPoints > 0) {
+        // Simple check: compare min points required
+        const prevRankObj = RANK_TIERS.find(r => r.name === prevRankRef.current);
+        if (prevRankObj && currentRank.min > prevRankObj.min) {
+            setShowLevelUp(true);
+        }
+        prevRankRef.current = currentRank.name;
+    }
+  }, [totalPoints, currentRank.name, isSessionLoading, currentUser]);
+
+
   const currentDayIndex = useMemo(() => {
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -220,6 +236,34 @@ const App: React.FC = () => {
     refreshAssets: (newAssets: GlobalAssets) => setGlobalAssets(newAssets)
   };
 
+  // --- HANDLE VIEW OTHER USER PROFILE ---
+  const handleViewUserProfile = (user: any) => {
+     setViewingUser(user);
+     setViewingStats({
+        points: user.points,
+        rank: getRankInfo(user.monthlyPoints || user.points)
+     });
+     setView('profile');
+  };
+
+  const handleBackToMyProfile = () => {
+    setViewingUser(null);
+    setViewingStats(null);
+  }
+
+  // Determine Profile Data to Show (Mine vs Others)
+  const profileUser = viewingUser || currentUser;
+  const profilePoints = viewingStats ? viewingStats.points : totalPoints;
+  const profileRank = viewingStats ? viewingStats.rank : currentRank;
+
+  // Rank Progress Calculation for Profile View
+  const profileRankIndex = RANK_TIERS.findIndex(r => r.name === profileRank.name);
+  const nextRank = RANK_TIERS[profileRankIndex - 1]; 
+  const nextRankMin = nextRank ? nextRank.min : 10000;
+  const prevRankMin = profileRank.min;
+  const profileProgress = Math.min(100, Math.max(0, ((profilePoints - prevRankMin) / (nextRankMin - prevRankMin)) * 100));
+
+
   if (isResetting || isSessionLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center flex-col text-emerald-500">
@@ -228,13 +272,6 @@ const App: React.FC = () => {
       </div>
     );
   }
-
-  const currentRank = getRankInfo(totalPoints);
-  const currentRankIndex = RANK_TIERS.findIndex(r => r.name === currentRank.name);
-  const nextRank = RANK_TIERS[currentRankIndex - 1]; 
-  const nextRankMin = nextRank ? nextRank.min : 10000;
-  const prevRankMin = currentRank.min;
-  const rankProgress = Math.min(100, Math.max(0, ((totalPoints - prevRankMin) / (nextRankMin - prevRankMin)) * 100));
 
   if (view === 'login' || view === 'register') {
     return (
@@ -248,6 +285,15 @@ const App: React.FC = () => {
   return (
     <div className={`relative h-full w-full overflow-hidden flex flex-col ${themeStyles.bg}`}>
       
+      {/* LEVEL UP MODAL */}
+      {showLevelUp && (
+         <LevelUpModal 
+            newRank={currentRank} 
+            themeStyles={themeStyles} 
+            onClose={() => setShowLevelUp(false)} 
+         />
+      )}
+
       <GameHUD 
         currentUser={currentUser!}
         totalPoints={totalPoints}
@@ -256,7 +302,7 @@ const App: React.FC = () => {
         isOnline={isOnline}
         isSyncing={isSyncing}
         performSync={performSync}
-        openProfile={() => setView('profile')}
+        openProfile={() => { handleBackToMyProfile(); setView('profile'); }}
       />
 
       <div className="flex-grow flex w-full overflow-hidden">
@@ -288,77 +334,106 @@ const App: React.FC = () => {
                 handleUpdateProfile={handleUpdateProfile}
                 archives={archives} 
                 attendance={attendance}
+                onUserClick={handleViewUserProfile} 
                 {...commonProps} 
               />
             )}
 
             {view === 'profile' && (
-              <div className="animate-reveal space-y-4 max-w-lg mx-auto">
-                <div className={`${themeStyles.card} p-6 rounded-3xl text-center relative overflow-hidden border-2 ${currentRank.bg}`}>
-                    <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b ${currentRank.color.replace('text-', 'from-').replace('400', '500')}/20 to-transparent pointer-events-none`}></div>
+              <div className="animate-reveal space-y-4 max-w-lg mx-auto pb-8">
+                
+                {/* Back Button if viewing others */}
+                {viewingUser && (
+                   <button onClick={() => { setView('leaderboard'); setViewingUser(null); }} className="flex items-center gap-2 text-sm font-bold text-white/50 hover:text-white mb-2 transition-colors">
+                      <ArrowLeft className="w-4 h-4" /> Back to Leaderboard
+                   </button>
+                )}
 
-                    <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold mb-6 text-white drop-shadow-md`}>Commander Profile</h2>
+                <div className={`${themeStyles.card} p-6 rounded-[2.5rem] text-center relative overflow-hidden border-2 ${profileRank.bg} shadow-2xl`}>
                     
-                    <div className="mb-8">
-                      <div className="w-28 h-28 mx-auto rounded-full overflow-hidden border-4 border-black/50 shadow-2xl mb-4 bg-black relative z-10">
-                          <img src={currentUser?.avatarSeed} className="w-full h-full object-cover"/>
+                    {/* Background Gradient */}
+                    <div className={`absolute top-0 inset-x-0 h-64 bg-gradient-to-b ${profileRank.color.replace('text-', 'from-').replace('400', '500')}/20 to-transparent pointer-events-none`}></div>
+
+                    <h2 className={`text-2xl ${themeStyles.fontDisplay} font-bold mb-6 text-white drop-shadow-md relative z-10 uppercase tracking-widest`}>
+                      {viewingUser ? 'Trooper Profile' : 'Commander Profile'}
+                    </h2>
+                    
+                    {/* --- PROFILE IMAGE (4:5 RATIO) --- */}
+                    <div className="mb-6 relative z-10 group perspective-1000">
+                      <div className="w-48 aspect-[4/5] mx-auto rounded-2xl overflow-hidden border-4 border-[#fbbf24] shadow-[0_0_30px_rgba(0,0,0,0.5)] bg-black relative transform transition-transform duration-500 hover:scale-[1.02]">
+                          {/* Inner Vignette */}
+                          <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] z-20 pointer-events-none"></div>
+                          
+                          {/* Rank Badge on Corner */}
+                          <div className="absolute top-2 right-2 z-30 w-10 h-10 bg-black/80 backdrop-blur rounded-lg border border-white/20 flex items-center justify-center shadow-lg">
+                             <Trophy className={`w-5 h-5 ${profileRank.color}`} />
+                          </div>
+
+                          <img 
+                             src={profileUser?.avatarSeed} 
+                             className="w-full h-full object-cover"
+                             alt="Avatar"
+                          />
                       </div>
-                      <p className="text-2xl font-black text-white mb-1">{currentUser?.fullName}</p>
-                      <p className="text-sm opacity-60 font-mono">@{currentUser?.username}</p>
                     </div>
 
-                    <div className={`mb-8 p-4 rounded-2xl bg-black/40 border border-white/5 relative overflow-hidden`}>
-                      <div className="flex justify-center mb-4 relative z-10">
-                          <div className="w-32 h-32 flex items-center justify-center drop-shadow-[0_0_25px_rgba(255,255,255,0.15)]">
+                    <div className="relative z-10 mb-8">
+                      <p className="text-3xl font-black text-white mb-1 uppercase tracking-tight">{profileUser?.fullName}</p>
+                      <p className="text-sm opacity-60 font-mono tracking-widest">@{profileUser?.username}</p>
+                    </div>
+
+                    <div className={`mb-8 p-6 rounded-3xl bg-black/40 border border-white/5 relative overflow-hidden backdrop-blur-md`}>
+                      <div className="flex justify-center mb-6 relative z-10">
+                          <div className="w-24 h-24 flex items-center justify-center drop-shadow-[0_0_25px_rgba(255,255,255,0.15)] animate-float">
                             <img 
-                                src={getRankIconUrl(currentRank.assetKey)} 
-                                alt={currentRank.name}
+                                src={getRankIconUrl(profileRank.assetKey)} 
+                                alt={profileRank.name}
                                 className="w-full h-full object-contain"
-                                onError={(e) => e.currentTarget.style.display = 'none'}
                             />
-                            {/* REMOVED: The distracting text overlay block that was here */}
                           </div>
                       </div>
 
-                      <h3 className={`text-xl font-black uppercase tracking-widest ${currentRank.color} mb-1`}>
-                          {currentRank.name}
+                      <h3 className={`text-2xl font-black uppercase tracking-widest ${profileRank.color} mb-1 drop-shadow-sm`}>
+                          {profileRank.name}
                       </h3>
-                      <p className="text-[10px] text-white/50 uppercase tracking-widest mb-4">Current Season Rank</p>
+                      <p className="text-[10px] text-white/50 uppercase tracking-widest mb-6">Current Season Rank</p>
 
-                      <div className="relative w-full h-4 bg-black/50 rounded-full overflow-hidden border border-white/10 mb-1">
+                      <div className="relative w-full h-5 bg-black/50 rounded-full overflow-hidden border border-white/10 mb-2">
                           <div 
-                            className={`h-full transition-all duration-1000 ${currentRank.color.replace('text-', 'bg-')}`} 
-                            style={{ width: `${rankProgress}%` }}
+                            className={`h-full transition-all duration-1000 ${profileRank.color.replace('text-', 'bg-')}`} 
+                            style={{ width: `${profileProgress}%` }}
                           />
                       </div>
                       <div className="flex justify-between text-[10px] font-bold opacity-70">
-                          <span>{totalPoints} XP</span>
+                          <span>{profilePoints} XP</span>
                           <span>{nextRankMin > 9000 ? 'MAX' : `${nextRankMin} XP`}</span>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
+                    <div className="grid grid-cols-2 gap-3 mb-6 relative z-10">
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2 hover:bg-white/10 transition-colors">
                           <Shield className="w-5 h-5 opacity-50" />
                           <div>
                             <p className="text-[10px] uppercase opacity-50">Role</p>
-                            <p className="font-bold capitalize">{currentUser?.role}</p>
+                            <p className="font-bold capitalize">{profileUser?.role}</p>
                           </div>
                       </div>
-                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2 hover:bg-white/10 transition-colors">
                           <div className="w-5 h-5 rounded-full border border-white/50" />
                           <div>
                             <p className="text-[10px] uppercase opacity-50">Group</p>
-                            <p className="font-bold text-xs truncate max-w-[100px]">{currentUser?.group.split('#')[0]}</p>
+                            <p className="font-bold text-xs truncate max-w-[100px]">{profileUser?.group.split('#')[0]}</p>
                           </div>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <button onClick={handleLogout} className="w-full py-4 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-bold text-xs uppercase hover:bg-red-500 hover:text-white transition-colors">
-                        Logout System
-                      </button>
-                    </div>
+                    {!viewingUser && (
+                      <div className="space-y-3 relative z-10">
+                        <button onClick={handleLogout} className="w-full py-4 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-bold text-xs uppercase hover:bg-red-500 hover:text-white transition-colors">
+                          Logout System
+                        </button>
+                      </div>
+                    )}
                 </div>
               </div>
             )}

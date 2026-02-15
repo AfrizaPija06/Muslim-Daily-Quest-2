@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, BarChart3 } from 'lucide-react';
+import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, BarChart3, ExternalLink } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -27,6 +27,7 @@ interface LeaderboardPageProps {
   refreshAssets?: (assets: GlobalAssets) => void;
   archives?: ArchivedData[]; 
   attendance?: AttendanceRecord;
+  onUserClick?: (user: any) => void; // New prop for click handling
 }
 
 interface LeaderboardData {
@@ -47,7 +48,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, attendance = {}
+  currentUser, setView, handleLogout, themeStyles, currentTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, attendance = {}, onUserClick
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -271,36 +272,48 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                     </thead>
                     <tbody className={`divide-y divide-white/5`}>
                       {sortedWeekly.map((m, i) => (
-                        <tr key={m.username} className={`hover:bg-white/[0.02] transition-colors`}>
+                        <tr 
+                          key={m.username} 
+                          className={`group hover:bg-white/[0.05] transition-colors cursor-pointer border-l-4 border-transparent hover:border-[#fbbf24]`}
+                          onClick={() => onUserClick && onUserClick(m)}
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-full bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10">
+                                {/* Small Avatar in Table */}
+                                <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10 group-hover:scale-110 transition-transform">
                                   <img src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2 font-bold text-base">
+                                  <div className="flex items-center gap-2 font-bold text-base group-hover:text-[#fbbf24] transition-colors">
                                     {m.fullName}
                                     {m.role === 'mentor' && <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black uppercase">MENTOR</span>}
                                   </div>
                                   <div className="text-[10px] opacity-40 font-mono mb-1">{m.username}</div>
                                   
-                                  {/* MODIFIED: Display Rank Icon Image if available */}
-                                  <div className="flex items-center gap-2">
+                                  {/* Rank Icon + Name Display */}
+                                  <div className="flex items-center gap-2 mt-1">
                                     {m.rankAssetKey && (
-                                       <img src={getRankIconUrl(m.rankAssetKey)} className="w-6 h-6 object-contain" alt="Rank" />
+                                       <div className="w-6 h-6 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)]">
+                                          <img src={getRankIconUrl(m.rankAssetKey)} className="w-full h-full object-contain" alt="Rank" />
+                                       </div>
                                     )}
-                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
                                   </div>
 
                                 </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-xs opacity-50 uppercase tracking-widest">{m.group}</td>
-                          <td className="px-6 py-4 text-right font-black text-emerald-500">{m.points}</td>
-                          <td className="px-6 py-4 text-center">
-                            {m.role !== 'mentor' && (
-                              <button onClick={() => handleKickUser(m.username, m.fullName)} className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" disabled={isProcessing}><Trash2 className="w-4 h-4" /></button>
-                            )}
+                          <td className="px-6 py-4 text-right font-black text-emerald-500 text-lg">{m.points}</td>
+                          <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                             <div className="flex items-center justify-center gap-2">
+                                <button className="p-2 text-white/20 hover:text-[#fbbf24]" title="View Profile">
+                                   <ExternalLink className="w-4 h-4" />
+                                </button>
+                                {m.role !== 'mentor' && currentUser?.role === 'mentor' && (
+                                  <button onClick={() => handleKickUser(m.username, m.fullName)} className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" disabled={isProcessing} title="Kick User"><Trash2 className="w-4 h-4" /></button>
+                                )}
+                             </div>
                           </td>
                         </tr>
                       ))}
