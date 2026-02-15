@@ -87,16 +87,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
 
         {/* RIGHT SIDE: Form */}
         <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-black/20">
-            {/* Mobile Logo Only */}
+            {/* Mobile Logo Only - ENLARGED */}
             <div className="md:hidden text-center mb-8">
-              <div className="w-24 h-24 mx-auto mb-4 relative">
-                <img src={GAME_LOGO_URL} className="w-full h-full object-contain" onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} />
+              <div className="w-48 h-48 mx-auto mb-6 relative animate-float">
+                <img 
+                  src={GAME_LOGO_URL} 
+                  className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]" 
+                  onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} 
+                />
               </div>
-              <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2`}>Login</h2>
+              <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2`}>LOGIN</h2>
             </div>
             
             <div className="hidden md:block mb-8">
-               <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2`}>Welcome Back</h2>
+               <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2`}>Are You Ready?</h2>
                <div className="flex items-center gap-3">
                   <div className={`h-[1px] w-8 bg-[#fbbf24]`}></div>
                   <p className={`text-[10px] uppercase font-bold tracking-[0.3em] ${themeStyles.textSecondary}`}>{HIJRI_YEAR} Season</p>

@@ -1,21 +1,4 @@
-
 import { auth, db } from '../lib/firebase';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut,
-  updateProfile
-} from "firebase/auth";
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  getDocs, 
-  query, 
-  where,
-  deleteDoc
-} from "firebase/firestore";
 import { WeeklyData, User } from '../types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, MENTOR_AVATAR_URL } from '../constants';
 
@@ -34,18 +17,17 @@ class ApiService {
     if (!db) return null;
     try {
       // 1. Fetch User Profile
-      const userDocRef = doc(db, "users", uid);
-      const userDoc = await getDoc(userDocRef);
+      // v8: db.collection("users").doc(uid).get()
+      const userDoc = await db.collection("users").doc(uid).get();
 
-      if (!userDoc.exists()) return null;
+      if (!userDoc.exists) return null;
       const userData = userDoc.data() as any;
 
       // 2. Fetch Tracker Data
-      const trackerDocRef = doc(db, "trackers", uid);
-      const trackerDoc = await getDoc(trackerDocRef);
+      const trackerDoc = await db.collection("trackers").doc(uid).get();
       
       let trackerData = INITIAL_DATA;
-      if (trackerDoc.exists()) {
+      if (trackerDoc.exists) {
         const tData = trackerDoc.data() as any;
         trackerData = tData.data as WeeklyData;
       }
@@ -80,20 +62,17 @@ class ApiService {
     if (!auth) return { success: false, error: "Firebase belum terhubung. Cek koneksi/konfigurasi." };
 
     try {
-      // PENTING: Backdoor Admin dihapus agar Admin wajib pakai Firebase Auth.
-      // Ini memastikan Admin bisa baca/tulis ke Database dengan Rules yang benar.
-
-      // 1. Firebase Auth Login
+      // 1. Firebase Auth Login (v8 style)
       const email = this.toEmail(username);
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth.signInWithEmailAndPassword(email, password);
       
       // 2. Fetch Data via Helper
-      const profile = await this.getUserProfile(userCredential.user.uid);
+      const profile = await this.getUserProfile(userCredential.user!.uid);
       
       if (!profile) {
         // Jika login auth sukses tapi data firestore tidak ada
         // (Mungkin admin baru yang belum diregister lewat app?)
-        await signOut(auth);
+        await auth.signOut();
         return { success: false, error: 'Akun ditemukan tapi Data Profile kosong. Silakan Register ulang.' };
       }
 
@@ -132,14 +111,14 @@ class ApiService {
         finalAvatar = MENTOR_AVATAR_URL;
       }
 
-      // 1. Create Auth User
-      const userCredential = await createUserWithEmailAndPassword(auth, email, newUser.password || '123456');
-      const firebaseUser = userCredential.user;
+      // 1. Create Auth User (v8 style)
+      const userCredential = await auth.createUserWithEmailAndPassword(email, newUser.password || '123456');
+      const firebaseUser = userCredential.user!;
 
       // 2. Simpan Profile ke Firestore
       // Kita menggunakan Promise.all untuk mempercepat
       await Promise.all([
-        setDoc(doc(db, "users", firebaseUser.uid), {
+        db.collection("users").doc(firebaseUser.uid).set({
           username: newUser.username,
           fullName: newUser.fullName,
           role: finalRole, // Simpan role yang sudah divalidasi
@@ -149,12 +128,12 @@ class ApiService {
           characterId: newUser.characterId,
           createdAt: new Date().toISOString()
         }),
-        setDoc(doc(db, "trackers", firebaseUser.uid), {
+        db.collection("trackers").doc(firebaseUser.uid).set({
           username: newUser.username,
           data: { ...INITIAL_DATA, lastUpdated: new Date().toISOString() },
           lastUpdated: new Date().toISOString()
         }),
-        updateProfile(firebaseUser, { displayName: newUser.fullName })
+        firebaseUser.updateProfile({ displayName: newUser.fullName })
       ]);
 
       return { success: true };
@@ -181,7 +160,7 @@ class ApiService {
          return { success: false };
       }
 
-      await setDoc(doc(db, "trackers", firebaseUser.uid), {
+      await db.collection("trackers").doc(firebaseUser.uid).set({
           data: localData,
           lastUpdated: new Date().toISOString(),
           username: currentUser.username
@@ -199,17 +178,17 @@ class ApiService {
     try {
       // Fetch users dan trackers secara paralel
       const [usersSnap, trackersSnap] = await Promise.all([
-        getDocs(collection(db, "users")),
-        getDocs(collection(db, "trackers"))
+        db.collection("users").get(),
+        db.collection("trackers").get()
       ]);
 
       const trackersMap: Record<string, any> = {};
-      trackersSnap.forEach(d => {
+      trackersSnap.forEach((d: any) => {
         // d.id adalah UID
         trackersMap[d.id] = d.data();
       });
 
-      const users = usersSnap.docs.map(d => {
+      const users = usersSnap.docs.map((d: any) => {
         const userData = d.data();
         
         // Force override avatar admin in list
@@ -243,14 +222,14 @@ class ApiService {
   async deleteUser(username: string): Promise<boolean> {
     if (!db) return false;
     try {
-      const q = query(collection(db, "users"), where("username", "==", username));
-      const snapshot = await getDocs(q);
+      // v8: collection.where().get()
+      const snapshot = await db.collection("users").where("username", "==", username).get();
       
       if (snapshot.empty) return false;
       const uid = snapshot.docs[0].id;
 
-      await deleteDoc(doc(db, "users", uid));
-      await deleteDoc(doc(db, "trackers", uid));
+      await db.collection("users").doc(uid).delete();
+      await db.collection("trackers").doc(uid).delete();
       return true;
     } catch (e) {
       return false;
@@ -263,7 +242,7 @@ class ApiService {
        let uid = auth.currentUser?.uid;
        if (!uid) return false;
 
-       await setDoc(doc(db, "users", uid), {
+       await db.collection("users").doc(uid).set({
           fullName: user.fullName,
           avatarSeed: user.avatarSeed,
           characterId: user.characterId

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL } from './constants';
@@ -6,7 +5,6 @@ import { THEMES } from './theme';
 import { api } from './services/ApiService';
 import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Import Pages & Components
 import LoginPage from './components/LoginPage';
@@ -101,7 +99,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isResetting) return;
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (!auth) return;
+
+    const unsubscribe = auth.onAuthStateChanged(async (user: any) => {
       if (user) {
         try {
           const profile = await api.getUserProfile(user.uid);
@@ -170,7 +170,9 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (currentUser) await api.sync(currentUser, data, groups);
-    try { await signOut(auth); } catch (e) { console.error(e); }
+    try { 
+      if (auth) await auth.signOut(); 
+    } catch (e) { console.error(e); }
     localStorage.removeItem('nur_quest_session');
     setCurrentUser(null);
     setView('login');

@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import firebase from "firebase/app";
+import "firebase/auth";
+import "firebase/firestore";
 
 // DEBUG LOG: Pastikan file ini dimuat oleh browser
 console.log("🔥 [SYSTEM] Firebase Module Loading...");
@@ -30,15 +30,19 @@ console.log(`🔑 [SYSTEM] API Key Status: ${keyStatus}`);
 
 // Initialize Firebase with error handling
 let app;
-let auth: any;
-let db: any;
+let auth: firebase.auth.Auth;
+let db: firebase.firestore.Firestore;
 
 try {
   // Check if critical config is present
   if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'demo-key') {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
+    if (!firebase.apps.length) {
+      app = firebase.initializeApp(firebaseConfig);
+    } else {
+      app = firebase.app();
+    }
+    auth = firebase.auth();
+    db = firebase.firestore();
     // Menggunakan console.info agar lebih menonjol (warna biru/putih terang di chrome)
     console.info("✅ [SYSTEM] Firebase initialized successfully");
   } else {
