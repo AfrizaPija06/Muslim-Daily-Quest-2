@@ -72,77 +72,77 @@ export const POINTS = {
   TARAWIH: 50
 };
 
-// RANK SYSTEM (Updated to MLBB Style with Local Assets)
+// RANK SYSTEM - GANTI 'assetKey' DENGAN LINK CLOUDINARY ANDA
 export const RANK_TIERS = [
   { 
     name: 'Mythical Immortal', 
     min: 9000, 
     color: 'text-red-500', 
     bg: 'bg-red-500/20 border-red-500', 
-    assetKey: '/images/ranks/mythic_immortal.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Im&background=ef4444&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Mythical Glory', 
     min: 8200, 
     color: 'text-rose-400', 
     bg: 'bg-rose-500/20 border-rose-500', 
-    assetKey: '/images/ranks/mythic_glory.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Gl&background=f43f5e&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Mythical Honor', 
     min: 7500, 
     color: 'text-blue-400', 
     bg: 'bg-blue-500/20 border-blue-500', 
-    assetKey: '/images/ranks/mythic_honor.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Ho&background=3b82f6&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Mythic', 
     min: 6000, 
     color: 'text-purple-400', 
     bg: 'bg-purple-500/20 border-purple-500', 
-    assetKey: '/images/ranks/mythic.png'
+    assetKey: 'https://ui-avatars.com/api/?name=My&background=a855f7&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Legend', 
     min: 4500, 
     color: 'text-amber-400', 
     bg: 'bg-amber-500/20 border-amber-500', 
-    assetKey: '/images/ranks/legend.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Lg&background=f59e0b&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Epic', 
     min: 3000, 
     color: 'text-emerald-400', 
     bg: 'bg-emerald-500/20 border-emerald-500', 
-    assetKey: '/images/ranks/epic.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Ep&background=10b981&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Grandmaster', 
     min: 2000, 
     color: 'text-red-400', 
     bg: 'bg-red-500/20 border-red-500', 
-    assetKey: '/images/ranks/grandmaster.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Gm&background=ef4444&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Master', 
     min: 1200, 
     color: 'text-yellow-400', 
     bg: 'bg-yellow-500/20 border-yellow-500', 
-    assetKey: '/images/ranks/master.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Ms&background=eab308&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Elite', 
     min: 500, 
     color: 'text-slate-300', 
     bg: 'bg-slate-500/20 border-slate-500', 
-    assetKey: '/images/ranks/elite.png'
+    assetKey: 'https://ui-avatars.com/api/?name=El&background=64748b&color=fff&size=128&rounded=true'
   },
   { 
     name: 'Warrior', 
     min: 0, 
     color: 'text-slate-500', 
     bg: 'bg-slate-700/20 border-slate-700', 
-    assetKey: '/images/ranks/warrior.png'
+    assetKey: 'https://ui-avatars.com/api/?name=Wr&background=334155&color=fff&size=128&rounded=true'
   },
 ];
 

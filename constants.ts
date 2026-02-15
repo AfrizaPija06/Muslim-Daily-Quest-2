@@ -3,12 +3,14 @@ import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerSta
 
 export { HIJRI_YEAR } from './types';
 
-// Placeholder Assets (Supabase project lama sudah tidak aktif, gunakan ini agar tampilan tidak rusak)
+// --- CONFIGURATION FOR EXTERNAL IMAGES ---
+// Ganti URL di bawah ini dengan URL gambar asli yang sudah Anda upload ke Cloudinary / ImageKit.
+// Contoh: "https://res.cloudinary.com/username/image/upload/v12345/heroes/alfatih.jpg"
+
 export const GAME_LOGO_URL = "https://ui-avatars.com/api/?name=MQ&background=1e1b4b&color=fbbf24&size=512&font-size=0.33&length=2&rounded=true&bold=true";
 export const MENTOR_AVATAR_URL = "https://ui-avatars.com/api/?name=Mentor&background=fbbf24&color=000&size=256";
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
-// Ubah tanggal ini jika ada penetapan sidang isbat berbeda.
 export const RAMADHAN_START_DATE = new Date('2026-02-18T00:00:00'); 
 
 export const TARGET_TILAWAH_DAILY = 75; // Target Tilawah harian
@@ -21,19 +23,19 @@ export const ADMIN_CREDENTIALS = {
   role: 'mentor' as Role,
   avatarSeed: MENTOR_AVATAR_URL,
   characterId: 'mentor_prime',
-  status: 'active' as UserStatus // Ensure admin is active for leaderboard
+  status: 'active' as UserStatus
 };
 
 // --- CHARACTER ROSTER (7 HEROES) ---
-// Menggunakan path lokal dari folder public/images/heroes/
 export const AVAILABLE_CHARACTERS: Character[] = [
   {
     id: 'char_fatih',
     name: 'Muhammad Al-Fatih',
-    role: 'The Conqueror Leader',
+    role: 'The Conqueror',
     description: 'Visioner, strategis, berani ambil risiko. Fokus pada misi, bukan gengsi. Menyiapkan kemenangan dengan perencanaan matang.',
     abilities: ['Visionary Command', 'Strategic Strike', 'Iron Will'],
-    imageUrl: '/images/heroes/alfatih.png', 
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Al+Fatih&background=ef4444&color=fff&size=512&font-size=0.3`, 
     color: 'text-red-500'
   },
   {
@@ -42,7 +44,8 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Noble Warrior',
     description: 'Ksatria, sabar, berintegritas tinggi. Menang tanpa kehilangan akhlak. Kuat tapi tetap rendah hati.',
     abilities: ['Noble Heart', 'Integrity', 'Resilience'],
-    imageUrl: '/images/heroes/salahuddin.png',
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Salahuddin&background=f59e0b&color=fff&size=512&font-size=0.3`,
     color: 'text-amber-500'
   },
   {
@@ -51,7 +54,8 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Justice Commander',
     description: 'Tegas, adil, berani terhadap kebenaran. Anti kompromi terhadap kezaliman. Kepemimpinan berbasis keadilan.',
     abilities: ['Absolute Justice', 'Unwavering Force', 'Discipline'],
-    imageUrl: '/images/heroes/umar.png',
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Umar&background=10b981&color=fff&size=512&font-size=0.3`,
     color: 'text-emerald-500'
   },
   {
@@ -60,7 +64,8 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Wise Knight',
     description: 'Cerdas, dalam ilmunya, berani di medan ujian. Ilmu sebelum aksi. Ketegasan dibarengi hikmah.',
     abilities: ['Blade of Wisdom', 'Knowledge Shield', 'Valor'],
-    imageUrl: '/images/heroes/ali.png',
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Ali&background=3b82f6&color=fff&size=512&font-size=0.3`,
     color: 'text-blue-500'
   },
   {
@@ -69,7 +74,8 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Master Scholar',
     description: 'Tajam berpikir, sistematis, rendah hati. Kuat dalam dasar ilmu. Berpikir logis dan terstruktur.',
     abilities: ['Logical Flow', 'Scholar Mind', 'Argumentation'],
-    imageUrl: '/images/heroes/syafii.png',
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Imam+Syafii&background=06b6d4&color=fff&size=512&font-size=0.3`,
     color: 'text-cyan-500'
   },
   {
@@ -78,7 +84,8 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Spiritual Sage',
     description: 'Zuhud, reflektif, lembut namun tegas. Kekuatan lahir dari hati yang bersih. Dunia bukan tujuan akhir.',
     abilities: ['Inner Peace', 'Heart Purification', 'Reflection'],
-    imageUrl: '/images/heroes/hasanbasri.png',
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Hasan+Basri&background=8b5cf6&color=fff&size=512&font-size=0.3`,
     color: 'text-violet-400'
   },
   {
@@ -87,7 +94,8 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Innovation Architect',
     description: 'Analitis, solutif, pencipta sistem. Mengubah masalah jadi formula. Meninggalkan legacy keilmuan.',
     abilities: ['Algorithm', 'Problem Solving', 'System Design'],
-    imageUrl: '/images/heroes/alkhwarizmi.png',
+    // GANTI URL INI DENGAN LINK CLOUDINARY ANDA
+    imageUrl: `https://ui-avatars.com/api/?name=Al+Khwarizmi&background=6366f1&color=fff&size=512&font-size=0.3`,
     color: 'text-indigo-500'
   }
 ];
@@ -97,7 +105,7 @@ const generateRamadhanDays = (): DayData[] => {
   return Array.from({ length: TOTAL_RAMADHAN_DAYS }, (_, i) => {
     return {
       id: i,
-      dayName: `${i + 1} Ramadhan`, // Generic name, styling handled in component
+      dayName: `${i + 1} Ramadhan`, 
       prayers: { 
         subuh: 0 as PrayerState, 
         zuhur: 0 as PrayerState, 
@@ -123,8 +131,8 @@ const DEFAULT_AVATAR_BASE = "https://ui-avatars.com/api/?background=0D8ABC&color
 export const getAvatarSrc = (seedOrUrl?: string, assets?: any) => {
   if (!seedOrUrl) return `${DEFAULT_AVATAR_BASE}User`;
   
-  // Jika path dimulai dengan '/' (lokal public) atau 'http' (link luar), gunakan langsung
-  if (seedOrUrl.startsWith('/') || seedOrUrl.startsWith('http')) {
+  // Support Link External (Cloudinary/ImageKit) atau Local
+  if (seedOrUrl.startsWith('http') || seedOrUrl.startsWith('/')) {
     return seedOrUrl;
   }
   return `${DEFAULT_AVATAR_BASE}${seedOrUrl}`;
@@ -134,11 +142,9 @@ export const getAvatarSrc = (seedOrUrl?: string, assets?: any) => {
 export const getRankIconUrl = (assetKey: string | undefined) => {
   if (!assetKey) return "";
   
-  // Jika path dimulai dengan '/' (lokal public) atau 'http' (link luar), gunakan langsung
-  if (assetKey.startsWith('/') || assetKey.startsWith('http')) {
+  if (assetKey.startsWith('http') || assetKey.startsWith('/')) {
     return assetKey;
   }
   
-  // Fallback ke UI Avatar jika file tidak ditemukan atau format salah
   return `https://ui-avatars.com/api/?name=${assetKey}&background=333&color=fbbf24&rounded=true`;
 };
