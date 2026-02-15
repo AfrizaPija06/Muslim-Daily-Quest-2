@@ -4,7 +4,7 @@ import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAs
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy } from 'lucide-react';
+import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
@@ -31,6 +31,9 @@ const App: React.FC = () => {
   // State untuk Melihat Profil Orang Lain
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [viewingStats, setViewingStats] = useState<{points: number, rank: any} | null>(null);
+
+  // State untuk Mobile Leaderboard Modal
+  const [showMobileLeaderboard, setShowMobileLeaderboard] = useState(false);
 
   const [data, setData] = useState<WeeklyData>(INITIAL_DATA);
   
@@ -293,6 +296,36 @@ const App: React.FC = () => {
     <div className={`relative h-full w-full overflow-hidden flex flex-col ${themeStyles.bg}`}>
       
       {BackgroundMusicComponent}
+      
+      {/* MOBILE LEADERBOARD FAB */}
+      <button 
+        onClick={() => setShowMobileLeaderboard(true)}
+        className="xl:hidden fixed bottom-6 right-6 z-[60] w-12 h-12 rounded-full bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] text-black shadow-[0_0_20px_rgba(251,191,36,0.4)] flex items-center justify-center hover:scale-110 transition-transform active:scale-95 border-2 border-white/20 animate-reveal"
+      >
+        <Trophy className="w-6 h-6" />
+      </button>
+
+      {/* MOBILE LEADERBOARD MODAL */}
+      {showMobileLeaderboard && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+           <div className="relative w-full max-w-md h-[75vh] animate-in zoom-in-95">
+              <button 
+                onClick={() => setShowMobileLeaderboard(false)} 
+                className="absolute -top-12 right-0 p-2 text-white/50 hover:text-white"
+              >
+                 <X className="w-8 h-8" />
+              </button>
+              <MiniLeaderboard 
+                 currentUser={currentUser}
+                 themeStyles={themeStyles}
+                 onUserClick={(u) => {
+                    setShowMobileLeaderboard(false);
+                    handleViewUserProfile(u);
+                 }}
+              />
+           </div>
+        </div>
+      )}
 
       {/* LEVEL UP MODAL */}
       {showLevelUp && (
