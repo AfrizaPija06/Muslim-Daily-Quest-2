@@ -182,16 +182,19 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const handleKickUser = async (targetUsername: string, targetName: string) => {
-    if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?`)) return;
+    if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?\n\nData yang dihapus tidak bisa dikembalikan.`)) return;
     setIsProcessing(true);
     try {
-      const success = await api.deleteUser(targetUsername);
-      if (success) {
+      const result = await api.deleteUser(targetUsername);
+      if (result.success) {
+        alert("✅ User berhasil dihapus dari database.");
         await loadData();
       } else {
-        alert("Gagal menghapus user");
+        alert(`❌ Gagal menghapus user: ${result.error}`);
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { 
+      alert("System Error: " + e.message); 
+    }
     finally { setIsProcessing(false); }
   };
 
@@ -310,13 +313,22 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                                 {/* FIX: Added explicit onClick handler here even though row click exists, because e.stopPropagation prevents row click */}
                                 <button 
                                   className="p-2 text-white/20 hover:text-[#fbbf24]" 
+                                  type="button"
                                   title="View Profile"
                                   onClick={() => onUserClick && onUserClick(m)}
                                 >
                                    <ExternalLink className="w-4 h-4" />
                                 </button>
                                 {m.role !== 'mentor' && currentUser?.role === 'mentor' && (
-                                  <button onClick={() => handleKickUser(m.username, m.fullName)} className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" disabled={isProcessing} title="Kick User"><Trash2 className="w-4 h-4" /></button>
+                                  <button 
+                                    onClick={() => handleKickUser(m.username, m.fullName)} 
+                                    type="button"
+                                    className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" 
+                                    disabled={isProcessing} 
+                                    title="Kick User"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 )}
                              </div>
                           </td>

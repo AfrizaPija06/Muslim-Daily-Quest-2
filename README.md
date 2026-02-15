@@ -22,18 +22,25 @@ Kita menggunakan Firebase sebagai pengganti Supabase.
    - Klik "Create Database".
    - Pilih Lokasi (rekomendasi: `asia-southeast2` atau default `nam5`).
    - Pilih mode **Start in test mode**.
-   - Pergi ke tab **Rules**, ganti dengan rules berikut untuk keamanan:
+   - Pergi ke tab **Rules**, ganti dengan rules berikut agar fitur Admin (Delete User) berjalan:
      ```javascript
      rules_version = '2';
      service cloud.firestore {
        match /databases/{database}/documents {
+         
+         // Fungsi cek apakah requestor adalah mentor/admin
+         function isMentor() {
+           return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'mentor';
+         }
+
          match /users/{userId} {
            allow read: if request.auth != null;
-           allow write: if request.auth != null && request.auth.uid == userId;
+           // Izinkan edit jika milik sendiri ATAU requestor adalah mentor
+           allow write: if request.auth != null && (request.auth.uid == userId || isMentor());
          }
          match /trackers/{userId} {
            allow read: if request.auth != null;
-           allow write: if request.auth != null && request.auth.uid == userId;
+           allow write: if request.auth != null && (request.auth.uid == userId || isMentor());
          }
        }
      }

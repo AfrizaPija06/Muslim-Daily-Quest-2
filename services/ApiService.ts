@@ -227,20 +227,34 @@ class ApiService {
     }
   }
 
-  async deleteUser(username: string): Promise<boolean> {
-    if (!db) return false;
+  async deleteUser(username: string): Promise<{ success: boolean; error?: string }> {
+    if (!db) return { success: false, error: "Database not initialized" };
     try {
-      // v8: collection.where().get()
+      // 1. Find User by Username
       const snapshot = await db.collection("users").where("username", "==", username).get();
       
-      if (snapshot.empty) return false;
+      if (snapshot.empty) return { success: false, error: "User not found in database" };
       const uid = snapshot.docs[0].id;
 
-      await db.collection("users").doc(uid).delete();
-      await db.collection("trackers").doc(uid).delete();
-      return true;
-    } catch (e) {
-      return false;
+      // 2. Delete Profile & Tracker Data
+      // Note: Auth User cannot be deleted by another user client-side, 
+      // but deleting Firestore data effectively blocks them from logging in (getUserProfile returns null).
+      await Promise.all([
+         db.collection("users").doc(uid).delete(),
+         db.collection("trackers").doc(uid).delete()
+      ]);
+      
+      return { success: true };
+    } catch (e: any) {
+      console.error("Delete User Error:", e);
+      let errMsg = e.message || "Delete failed";
+      
+      // Handle Permission Error explicitly
+      if (e.code === 'permission-denied') {
+         errMsg = "Permission Denied. Pastikan Rules Firestore mengizinkan Mentor menghapus data.";
+      }
+      
+      return { success: false, error: errMsg };
     }
   }
 
