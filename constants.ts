@@ -5,7 +5,7 @@ export { HIJRI_YEAR } from './types';
 
 // Placeholder Assets (Supabase project lama sudah tidak aktif, gunakan ini agar tampilan tidak rusak)
 export const GAME_LOGO_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771129900/gamelogo_spesial_ramadhan_njoju3.png";
-export const MENTOR_AVATAR_URL = "https://ui-avatars.com/api/?name=Mentor&background=fbbf24&color=000&size=256";
+export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771130765/Avatar_Afriza_Mentor_1_b5sjcw.png";
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
 export const RAMADHAN_START_DATE = new Date('2026-02-18T00:00:00'); 
