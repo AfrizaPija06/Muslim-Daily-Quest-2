@@ -38,7 +38,7 @@ interface LeaderboardData {
   monthlyPoints: number; 
   rankName: string;
   rankColor: string;
-  rankIcon?: string;
+  rankAssetKey?: string; // Add asset key field
   activeDays: number;
   lastUpdated: string;
   status: string;
@@ -90,7 +90,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             monthlyPoints,
             rankName: rankInfo.name,
             rankColor: rankInfo.color,
-            rankIcon: getRankIconUrl(rankInfo.assetKey),
+            rankAssetKey: rankInfo.assetKey, // Store asset key for icon
             activeDays,
             lastUpdated: trackerData?.lastUpdated || 'No Data',
             status: u.status,
@@ -160,7 +160,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
      const wsDetails = XLSX.utils.json_to_sheet(detailedLog);
      
-     // Mengatur lebar kolom agar rapi (Opsional, tapi Excel JS standar tidak support style penuh tanpa versi Pro, tapi kita coba set width basic)
+     // Mengatur lebar kolom agar rapi
      wsDetails['!cols'] = [
         { wch: 15 }, // Hari
         { wch: 25 }, // Nama
@@ -283,9 +283,15 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                                     {m.role === 'mentor' && <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black uppercase">MENTOR</span>}
                                   </div>
                                   <div className="text-[10px] opacity-40 font-mono mb-1">{m.username}</div>
+                                  
+                                  {/* MODIFIED: Display Rank Icon Image if available */}
                                   <div className="flex items-center gap-2">
+                                    {m.rankAssetKey && (
+                                       <img src={getRankIconUrl(m.rankAssetKey)} className="w-6 h-6 object-contain" alt="Rank" />
+                                    )}
                                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
                                   </div>
+
                                 </div>
                             </div>
                           </td>

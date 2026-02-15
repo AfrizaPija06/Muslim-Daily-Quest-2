@@ -17,7 +17,7 @@ import {
   deleteDoc
 } from "firebase/firestore";
 import { WeeklyData, User } from '../types';
-import { INITIAL_DATA, ADMIN_CREDENTIALS } from '../constants';
+import { INITIAL_DATA, ADMIN_CREDENTIALS, MENTOR_AVATAR_URL } from '../constants';
 
 // Domain dummy untuk mengubah username menjadi format email
 const AUTH_DOMAIN = "@muslimquest.app";
@@ -49,6 +49,12 @@ class ApiService {
         const tData = trackerDoc.data() as any;
         trackerData = tData.data as WeeklyData;
       }
+      
+      // Override avatar admin with constant to ensure instant update
+      let finalAvatar = userData.avatarSeed;
+      if (userData.username === ADMIN_CREDENTIALS.username) {
+         finalAvatar = MENTOR_AVATAR_URL;
+      }
 
       const appUser: User = {
         username: userData.username,
@@ -57,7 +63,7 @@ class ApiService {
         role: userData.role,
         group: userData.group,
         status: userData.status,
-        avatarSeed: userData.avatarSeed,
+        avatarSeed: finalAvatar,
         characterId: userData.characterId
       };
 
@@ -119,8 +125,11 @@ class ApiService {
       
       // Override Role jika username adalah Admin yang ditentukan di config
       let finalRole = newUser.role;
+      let finalAvatar = newUser.avatarSeed;
+      
       if (newUser.username === ADMIN_CREDENTIALS.username) {
         finalRole = 'mentor';
+        finalAvatar = MENTOR_AVATAR_URL;
       }
 
       // 1. Create Auth User
@@ -136,7 +145,7 @@ class ApiService {
           role: finalRole, // Simpan role yang sudah divalidasi
           group: newUser.group,
           status: newUser.status,
-          avatarSeed: newUser.avatarSeed,
+          avatarSeed: finalAvatar,
           characterId: newUser.characterId,
           createdAt: new Date().toISOString()
         }),
@@ -165,9 +174,6 @@ class ApiService {
     if (!currentUser) return { success: false };
     if (!db || !auth) return { success: false };
     
-    // HAPUS PENGECUALIAN ADMIN. Admin juga harus sync data.
-    // if (currentUser.username === ADMIN_CREDENTIALS.username) return { success: true };
-
     try {
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) {
@@ -205,6 +211,13 @@ class ApiService {
 
       const users = usersSnap.docs.map(d => {
         const userData = d.data();
+        
+        // Force override avatar admin in list
+        let finalAvatar = userData.avatarSeed;
+        if (userData.username === ADMIN_CREDENTIALS.username) {
+           finalAvatar = MENTOR_AVATAR_URL;
+        }
+
         return {
           uid: d.id,
           username: userData.username,
@@ -212,7 +225,7 @@ class ApiService {
           role: userData.role,
           group: userData.group,
           status: userData.status,
-          avatarSeed: userData.avatarSeed,
+          avatarSeed: finalAvatar,
           characterId: userData.characterId,
           // Match data tracker berdasarkan UID
           trackerData: trackersMap[d.id]?.data || null

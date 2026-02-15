@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS } from './types';
-import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl } from './constants';
+import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
 import { Loader2, Shield, Settings, Flame } from 'lucide-react';
@@ -96,6 +96,11 @@ const App: React.FC = () => {
           // Fetch data terbaru dari Firestore
           const profile = await api.getUserProfile(user.uid);
           if (profile) {
+            // FIX: Force update avatar jika user adalah admin agar sesuai constants.ts
+            if (profile.user.username === ADMIN_CREDENTIALS.username) {
+               profile.user.avatarSeed = MENTOR_AVATAR_URL;
+            }
+
             setCurrentUser(profile.user);
             setData(profile.data);
             setView('tracker');
@@ -117,7 +122,8 @@ const App: React.FC = () => {
              const parsed = JSON.parse(savedUser);
              if (parsed.username === ADMIN_CREDENTIALS.username) {
                 // Restore Admin Session secara manual karena admin tidak pakai Firebase Auth
-                setCurrentUser({ ...ADMIN_CREDENTIALS });
+                // FIX: Force use latest Avatar URL
+                setCurrentUser({ ...ADMIN_CREDENTIALS, avatarSeed: MENTOR_AVATAR_URL });
                 setData(INITIAL_DATA);
                 setView('tracker');
              } else {
@@ -310,9 +316,7 @@ const App: React.FC = () => {
                                 className="w-full h-full object-contain"
                                 onError={(e) => e.currentTarget.style.display = 'none'}
                             />
-                            <div className="absolute inset-0 flex items-center justify-center -z-10 text-[10px] text-white/20 font-mono uppercase text-center p-2">
-                                {currentRank.assetKey}
-                            </div>
+                            {/* REMOVED: The distracting text overlay block that was here */}
                           </div>
                       </div>
 
