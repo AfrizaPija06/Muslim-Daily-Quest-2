@@ -7,6 +7,10 @@ export { HIJRI_YEAR } from './types';
 export const GAME_LOGO_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771129900/gamelogo_spesial_ramadhan_njoju3.png";
 export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771130765/Avatar_Afriza_Mentor_1_b5sjcw.png";
 
+// BACKGROUND MUSIC (BGM)
+// Ganti link ini dengan file MP3 pilihan Anda (Direct Link)
+export const GAME_BGM_URL = "https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3?filename=islamic-background-drone-126625.mp3"; 
+
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
 export const RAMADHAN_START_DATE = new Date('2026-02-18T00:00:00'); 
 

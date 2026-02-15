@@ -18,6 +18,7 @@ import GameDock from './components/GameDock';
 import MiniLeaderboard from './components/MiniLeaderboard';
 import DailyTargetPanel from './components/DailyTargetPanel';
 import LevelUpModal from './components/LevelUpModal';
+import BackgroundMusic from './components/BackgroundMusic';
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -273,9 +274,15 @@ const App: React.FC = () => {
     );
   }
 
+  // --- RENDER COMPONENT BACKGROUND MUSIC ---
+  // Kita taruh di sini agar selalu muncul terlepas dari view (Login/Tracker)
+  
+  const BackgroundMusicComponent = <BackgroundMusic themeStyles={themeStyles} />;
+
   if (view === 'login' || view === 'register') {
     return (
       <>
+        {BackgroundMusicComponent}
         {view === 'login' && <LoginPage setView={setView} setCurrentUser={setCurrentUser} setData={setData} setError={setError} error={error} {...commonProps} />}
         {view === 'register' && <RegisterPage setView={setView} setError={setError} error={error} groups={groups} {...commonProps} />}
       </>
@@ -285,6 +292,8 @@ const App: React.FC = () => {
   return (
     <div className={`relative h-full w-full overflow-hidden flex flex-col ${themeStyles.bg}`}>
       
+      {BackgroundMusicComponent}
+
       {/* LEVEL UP MODAL */}
       {showLevelUp && (
          <LevelUpModal 
