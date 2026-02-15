@@ -9,7 +9,7 @@ export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upl
 
 // BACKGROUND MUSIC (BGM)
 // Ganti link ini dengan file MP3 pilihan Anda (Direct Link)
-export const GAME_BGM_URL = "https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3?filename=islamic-background-drone-126625.mp3"; 
+export const GAME_BGM_URL = "https://res.cloudinary.com/dauvrgbcp/video/upload/v1771148350/Main_Theme___Pirates_of_the_Caribbean_edq2ql.mp4"; 
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
 export const RAMADHAN_START_DATE = new Date('2026-02-18T00:00:00'); 
