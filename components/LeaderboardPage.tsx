@@ -307,7 +307,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                           <td className="px-6 py-4 text-right font-black text-emerald-500 text-lg">{m.points}</td>
                           <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                              <div className="flex items-center justify-center gap-2">
-                                <button className="p-2 text-white/20 hover:text-[#fbbf24]" title="View Profile">
+                                {/* FIX: Added explicit onClick handler here even though row click exists, because e.stopPropagation prevents row click */}
+                                <button 
+                                  className="p-2 text-white/20 hover:text-[#fbbf24]" 
+                                  title="View Profile"
+                                  onClick={() => onUserClick && onUserClick(m)}
+                                >
                                    <ExternalLink className="w-4 h-4" />
                                 </button>
                                 {m.role !== 'mentor' && currentUser?.role === 'mentor' && (
