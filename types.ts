@@ -13,6 +13,8 @@ export interface User {
   status?: UserStatus;
   avatarSeed?: string; 
   characterId?: string; // New field to track selected character ID
+  unlockedBadges?: string[]; // Array of Badge IDs
+  bonusPoints?: number; // Extra XP from badges/events
 }
 
 export interface Character {
@@ -23,6 +25,16 @@ export interface Character {
   abilities: string[]; // Fluff text for RPG feel
   imageUrl: string;
   color: string; // Tailwind color class for borders/glows
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: any; // Lucide Icon Name or Component
+  bonusXP: number;
+  condition: (data: WeeklyData) => boolean;
+  color: string;
 }
 
 export interface DayData {

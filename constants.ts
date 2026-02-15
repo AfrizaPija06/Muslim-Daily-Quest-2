@@ -1,5 +1,6 @@
 
-import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerState, Character, UserStatus } from './types';
+import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerState, Character, UserStatus, Badge } from './types';
+import { Flame, Star, BookOpen, Shield, Crown } from 'lucide-react';
 
 export { HIJRI_YEAR } from './types';
 
@@ -93,6 +94,75 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     abilities: ['Algorithm', 'Problem Solving', 'System Design'],
     imageUrl: 'https://res.cloudinary.com/dauvrgbcp/image/upload/v1771126218/alkhwarizmi_quscvg.png',
     color: 'text-indigo-500'
+  }
+];
+
+// --- BADGES SYSTEM ---
+export const BADGES: Badge[] = [
+  {
+    id: 'badge_first_step',
+    name: 'First Step',
+    description: 'Lengkap sholat 5 waktu dalam 1 hari. Awal yang baik!',
+    icon: Flame,
+    bonusXP: 50,
+    color: 'text-orange-400 border-orange-400 bg-orange-500/10',
+    condition: (data) => {
+       return data.days.some(day => 
+          Object.values(day.prayers).every(status => status > 0)
+       );
+    }
+  },
+  {
+    id: 'badge_istiqamah_3',
+    name: 'Istiqamah Seeker',
+    description: 'Konsisten sholat 5 waktu selama 3 hari. Keep it up!',
+    icon: Shield,
+    bonusXP: 150,
+    color: 'text-blue-400 border-blue-400 bg-blue-500/10',
+    condition: (data) => {
+       // Check for at least 3 days with full prayers
+       const fullDays = data.days.filter(day => Object.values(day.prayers).every(status => status > 0)).length;
+       return fullDays >= 3;
+    }
+  },
+  {
+    id: 'badge_quran_150',
+    name: 'Quran Reciter',
+    description: 'Total tilawah mencapai 150 baris.',
+    icon: BookOpen,
+    bonusXP: 200,
+    color: 'text-cyan-400 border-cyan-400 bg-cyan-500/10',
+    condition: (data) => {
+       const totalLines = data.days.reduce((acc, day) => acc + (day.tilawah || 0), 0);
+       return totalLines >= 150;
+    }
+  },
+  {
+    id: 'badge_mosque_guardian',
+    name: 'Mosque Guardian',
+    description: 'Total 10 kali sholat berjamaah di masjid.',
+    icon: Star,
+    bonusXP: 300,
+    color: 'text-yellow-400 border-yellow-400 bg-yellow-500/10',
+    condition: (data) => {
+       const totalMosque = data.days.reduce((acc, day) => {
+         const mosqueCount = Object.values(day.prayers).filter(p => p === 2).length;
+         return acc + mosqueCount;
+       }, 0);
+       return totalMosque >= 10;
+    }
+  },
+  {
+    id: 'badge_ramadhan_warrior',
+    name: 'Ramadhan Warrior',
+    description: 'Berpuasa penuh selama 7 hari.',
+    icon: Crown,
+    bonusXP: 500,
+    color: 'text-red-400 border-red-400 bg-red-500/10',
+    condition: (data) => {
+       const totalShaum = data.days.filter(day => day.shaum).length;
+       return totalShaum >= 7;
+    }
   }
 ];
 

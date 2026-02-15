@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS } from './types';
-import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL } from './constants';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge } from './types';
+import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL, BADGES } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X } from 'lucide-react';
+import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X, Medal } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 
 // Import Pages & Components
@@ -17,6 +18,7 @@ import MiniLeaderboard from './components/MiniLeaderboard';
 import DailyTargetPanel from './components/DailyTargetPanel';
 import LevelUpModal from './components/LevelUpModal';
 import BackgroundMusic from './components/BackgroundMusic';
+import BadgeModal from './components/BadgeModal'; // New Import
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -28,7 +30,7 @@ const App: React.FC = () => {
   
   // State untuk Melihat Profil Orang Lain
   const [viewingUser, setViewingUser] = useState<User | null>(null);
-  const [viewingStats, setViewingStats] = useState<{points: number, rank: any} | null>(null);
+  const [viewingStats, setViewingStats] = useState<{points: number, rank: any, unlockedBadges: string[]} | null>(null);
 
   // State untuk Mobile Leaderboard Modal
   const [showMobileLeaderboard, setShowMobileLeaderboard] = useState(false);
@@ -45,8 +47,9 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [networkLogs, setNetworkLogs] = useState<string[]>([]);
   
-  // LEVEL UP STATE
+  // LEVEL UP & BADGE STATE
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<Badge | null>(null);
   const prevRankRef = useRef<string>(""); 
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -181,7 +184,7 @@ const App: React.FC = () => {
   };
 
   const totalPoints = useMemo(() => {
-    return data.days.reduce((acc: number, day: DayData) => {
+    const rawPoints = data.days.reduce((acc: number, day: DayData) => {
       const prayerPoints = (Object.values(day.prayers) as number[]).reduce((pAcc: number, val: number) => {
         if (val === 1) return pAcc + POINTS.HOME;
         if (val === 2) return pAcc + POINTS.MOSQUE;
@@ -195,7 +198,12 @@ const App: React.FC = () => {
 
       return acc + prayerPoints + extraPoints;
     }, 0);
-  }, [data]);
+
+    // ADD BONUS POINTS from Badges
+    const bonus = currentUser?.bonusPoints || 0;
+    return rawPoints + bonus;
+
+  }, [data, currentUser]); // Depends on currentUser for bonusPoints
 
   // --- RANK UP DETECTION LOGIC ---
   const currentRank = getRankInfo(totalPoints);
@@ -219,6 +227,47 @@ const App: React.FC = () => {
         prevRankRef.current = currentRank.name;
     }
   }, [totalPoints, currentRank.name, isSessionLoading, currentUser]);
+
+
+  // --- BADGE DETECTION LOGIC ---
+  useEffect(() => {
+    if (!currentUser || isSessionLoading || isResetting) return;
+
+    const unlocked = currentUser.unlockedBadges || [];
+    let newUnlocked: Badge | null = null;
+    let accumulatedBonus = 0;
+    const newBadgeIds: string[] = [];
+
+    // Check all badges
+    BADGES.forEach(badge => {
+       if (!unlocked.includes(badge.id)) {
+          if (badge.condition(data)) {
+             // Unlock this badge!
+             if (!newUnlocked) newUnlocked = badge; // Show first unlocked
+             accumulatedBonus += badge.bonusXP;
+             newBadgeIds.push(badge.id);
+          }
+       }
+    });
+
+    if (newBadgeIds.length > 0) {
+       // Update User State & Fire Modal
+       const updatedUser = {
+          ...currentUser,
+          unlockedBadges: [...unlocked, ...newBadgeIds],
+          bonusPoints: (currentUser.bonusPoints || 0) + accumulatedBonus
+       };
+       
+       // Update Local
+       setCurrentUser(updatedUser);
+       // Update Remote (Fire & Forget)
+       api.updateUserProfile(updatedUser);
+
+       // Show Modal for the first one found
+       if (newUnlocked) setNewlyUnlockedBadge(newUnlocked);
+    }
+
+  }, [data, currentUser, isSessionLoading, isResetting]);
 
 
   const currentDayIndex = useMemo(() => {
@@ -245,9 +294,12 @@ const App: React.FC = () => {
   // --- HANDLE VIEW OTHER USER PROFILE ---
   const handleViewUserProfile = (user: any) => {
      setViewingUser(user);
+     // Calculate total including bonus if available in user object
+     const totalP = (user.monthlyPoints || user.points) + (user.bonusPoints || 0);
      setViewingStats({
-        points: user.points,
-        rank: getRankInfo(user.monthlyPoints || user.points)
+        points: user.points, // Keep track points raw or combined? Let's use combined logic in display
+        rank: getRankInfo(totalP),
+        unlockedBadges: user.unlockedBadges || []
      });
      setView('profile');
   };
@@ -259,8 +311,13 @@ const App: React.FC = () => {
 
   // Determine Profile Data to Show (Mine vs Others)
   const profileUser = viewingUser || currentUser;
+  // If viewing others, we might need to approximate total points if 'points' in list is raw
+  // Assuming list.points includes calculation logic from ApiService which might be raw.
+  // Ideally, ApiService list should provide total points. 
+  // For simplicity, viewingStats uses logic passed from MiniLeaderboard or LeaderboardPage.
   const profilePoints = viewingStats ? viewingStats.points : totalPoints;
   const profileRank = viewingStats ? viewingStats.rank : currentRank;
+  const profileBadges = viewingStats ? viewingStats.unlockedBadges : (currentUser?.unlockedBadges || []);
 
   // Rank Progress Calculation for Profile View
   const profileRankIndex = RANK_TIERS.findIndex(r => r.name === profileRank.name);
@@ -280,8 +337,6 @@ const App: React.FC = () => {
   }
 
   // --- RENDER COMPONENT BACKGROUND MUSIC ---
-  // Kita taruh di sini agar selalu muncul terlepas dari view (Login/Tracker)
-  
   const BackgroundMusicComponent = <BackgroundMusic themeStyles={themeStyles} />;
 
   if (view === 'login' || view === 'register') {
@@ -335,6 +390,15 @@ const App: React.FC = () => {
             newRank={currentRank} 
             themeStyles={themeStyles} 
             onClose={() => setShowLevelUp(false)} 
+         />
+      )}
+
+      {/* BADGE UNLOCKED MODAL */}
+      {newlyUnlockedBadge && (
+         <BadgeModal 
+            badge={newlyUnlockedBadge}
+            themeStyles={themeStyles}
+            onClose={() => setNewlyUnlockedBadge(null)}
          />
       )}
 
@@ -458,6 +522,39 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     
+                    {/* --- BADGES SHOWCASE SECTION --- */}
+                    <div className="mb-8 text-left relative z-10">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-3 flex items-center gap-2">
+                           <Medal className="w-3 h-3" /> Badge Collection
+                        </p>
+                        <div className="grid grid-cols-5 gap-2">
+                           {BADGES.map(badge => {
+                              const isUnlocked = profileBadges.includes(badge.id);
+                              const Icon = badge.icon;
+                              
+                              return (
+                                <div key={badge.id} className="relative group cursor-pointer">
+                                   <div className={`aspect-square rounded-xl flex items-center justify-center border transition-all ${isUnlocked ? `${badge.color} bg-black/50 shadow-[0_0_10px_currentColor]` : 'border-white/5 bg-white/5 opacity-30 grayscale'}`}>
+                                      <Icon className={`w-5 h-5 ${isUnlocked ? '' : 'text-white'}`} />
+                                   </div>
+                                   {/* Tooltip */}
+                                   {isUnlocked && (
+                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-black border border-white/10 p-2 rounded-lg text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 backdrop-blur-md">
+                                        <p className="text-[9px] font-bold uppercase text-[#fbbf24] mb-1">{badge.name}</p>
+                                        <p className="text-[8px] leading-tight text-white/70">{badge.description}</p>
+                                     </div>
+                                   )}
+                                </div>
+                              )
+                           })}
+                           {profileBadges.length === 0 && (
+                              <div className="col-span-5 text-center py-4 text-[10px] text-white/20 italic">
+                                 Belum ada badge yang terbuka.
+                              </div>
+                           )}
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3 mb-6 relative z-10">
                       <div className="p-4 bg-white/5 rounded-2xl border border-white/5 flex flex-col items-center gap-2 hover:bg-white/10 transition-colors">
                           <Shield className="w-5 h-5 opacity-50" />

@@ -1,3 +1,4 @@
+
 import { auth, db } from '../lib/firebase';
 import { WeeklyData, User } from '../types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, MENTOR_AVATAR_URL } from '../constants';
@@ -46,7 +47,9 @@ class ApiService {
         group: userData.group,
         status: userData.status,
         avatarSeed: finalAvatar,
-        characterId: userData.characterId
+        characterId: userData.characterId,
+        unlockedBadges: userData.unlockedBadges || [], // Default empty
+        bonusPoints: userData.bonusPoints || 0 // Default 0
       };
 
       return { user: appUser, data: trackerData };
@@ -126,6 +129,8 @@ class ApiService {
           status: newUser.status,
           avatarSeed: finalAvatar,
           characterId: newUser.characterId,
+          unlockedBadges: [],
+          bonusPoints: 0,
           createdAt: new Date().toISOString()
         }),
         db.collection("trackers").doc(firebaseUser.uid).set({
@@ -206,6 +211,9 @@ class ApiService {
           status: userData.status,
           avatarSeed: finalAvatar,
           characterId: userData.characterId,
+          // Tambahkan points data agar admin bisa melihat
+          unlockedBadges: userData.unlockedBadges || [],
+          bonusPoints: userData.bonusPoints || 0,
           // Match data tracker berdasarkan UID
           trackerData: trackersMap[d.id]?.data || null
         };
@@ -242,11 +250,17 @@ class ApiService {
        let uid = auth.currentUser?.uid;
        if (!uid) return false;
 
-       await db.collection("users").doc(uid).set({
+       // Hanya update field yang perlu
+       const updateData: any = {
           fullName: user.fullName,
           avatarSeed: user.avatarSeed,
-          characterId: user.characterId
-       }, { merge: true });
+          characterId: user.characterId,
+          // Pastikan badge dan bonus points tersimpan saat ada update
+          unlockedBadges: user.unlockedBadges || [],
+          bonusPoints: user.bonusPoints || 0
+       };
+
+       await db.collection("users").doc(uid).set(updateData, { merge: true });
       
       return true;
     } catch (e) {
