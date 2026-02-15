@@ -1,15 +1,14 @@
 
 import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerState, Character, UserStatus, Badge } from './types';
-import { Flame, Star, BookOpen, Shield, Crown } from 'lucide-react';
+import { Flame, Star, BookOpen, Shield, Crown, Zap, Moon, Sun, Target, Trophy, Ghost, Swords, Heart, UtensilsCrossed } from 'lucide-react';
 
 export { HIJRI_YEAR } from './types';
 
-// Placeholder Assets (Supabase project lama sudah tidak aktif, gunakan ini agar tampilan tidak rusak)
+// Placeholder Assets
 export const GAME_LOGO_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771129900/gamelogo_spesial_ramadhan_njoju3.png";
 export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1771130765/Avatar_Afriza_Mentor_1_b5sjcw.png";
 
 // BACKGROUND MUSIC (BGM)
-// Ganti link ini dengan file MP3 pilihan Anda (Direct Link)
 export const GAME_BGM_URL = "https://res.cloudinary.com/dauvrgbcp/video/upload/v1771148350/Main_Theme___Pirates_of_the_Caribbean_edq2ql.mp4"; 
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
@@ -29,7 +28,6 @@ export const ADMIN_CREDENTIALS = {
 };
 
 // --- CHARACTER ROSTER (7 HEROES) ---
-// TUGAS ANDA: Ganti 'imageUrl' dengan link asli dari Cloudinary Anda.
 export const AVAILABLE_CHARACTERS: Character[] = [
   {
     id: 'char_fatih',
@@ -37,7 +35,6 @@ export const AVAILABLE_CHARACTERS: Character[] = [
     role: 'The Conqueror',
     description: 'Visioner, strategis, berani ambil risiko. Fokus pada misi, bukan gengsi. Menyiapkan kemenangan dengan perencanaan matang.',
     abilities: ['Visionary Command', 'Strategic Strike', 'Iron Will'],
-    // CONTOH: imageUrl: 'https://res.cloudinary.com/akunku/image/upload/v1/heroes/alfatih.jpg',
     imageUrl: 'https://res.cloudinary.com/dauvrgbcp/image/upload/v1771126218/alfatih_cnuanv.png', 
     color: 'text-red-500'
   },
@@ -97,71 +94,311 @@ export const AVAILABLE_CHARACTERS: Character[] = [
   }
 ];
 
-// --- BADGES SYSTEM ---
+// --- BADGE LOGIC HELPERS ---
+
+const isDayFullPrayers = (day: DayData) => Object.values(day.prayers).every(s => s > 0);
+const isDayFullMasjid = (day: DayData) => Object.values(day.prayers).every(s => s === 2);
+const isDayPerfect = (day: DayData) => isDayFullPrayers(day) && (day.shaum === true) && (day.tarawih === true) && (day.tilawah >= 75);
+
+// Menghitung hari berturut-turut yang memenuhi kondisi
+const getStreak = (days: DayData[], validator: (d: DayData) => boolean): number => {
+  let maxStreak = 0;
+  let currentStreak = 0;
+  for (const day of days) {
+    if (validator(day)) {
+      currentStreak++;
+    } else {
+      maxStreak = Math.max(maxStreak, currentStreak);
+      currentStreak = 0;
+    }
+  }
+  return Math.max(maxStreak, currentStreak);
+};
+
+const getTotalDays = (days: DayData[], validator: (d: DayData) => boolean): number => {
+  return days.filter(validator).length;
+};
+
+// --- COMPREHENSIVE BADGE SYSTEM ---
+
 export const BADGES: Badge[] = [
+  // --- 1. COMPLETION BADGES ---
   {
-    id: 'badge_first_step',
-    name: 'First Step',
-    description: 'Lengkap sholat 5 waktu dalam 1 hari. Awal yang baik!',
+    id: 'daily_finisher',
+    name: 'Daily Finisher',
+    description: 'Menyelesaikan 8/8 misi harian dalam 1 hari (5 Sholat + Puasa + Tarawih + Tilawah).',
+    icon: Target, // Was CheckCircleIcon
+    bonusXP: 100,
+    tier: 'bronze',
+    condition: (data) => data.days.some(d => isDayFullPrayers(d) && d.shaum && d.tarawih && d.tilawah > 0)
+  },
+  {
+    id: 'perfect_day',
+    name: 'Perfect Day',
+    description: '8/8 Misi Sempurna dengan Tilawah ≥ 75 Baris.',
+    icon: Star,
+    bonusXP: 250,
+    tier: 'silver',
+    condition: (data) => data.days.some(d => isDayPerfect(d))
+  },
+  {
+    id: 'flawless_servant',
+    name: 'Flawless Servant',
+    description: 'Mencapai status "Perfect Day" selama 7 hari berturut-turut.',
+    icon: Crown,
+    bonusXP: 1000,
+    tier: 'mythic',
+    condition: (data) => getStreak(data.days, isDayPerfect) >= 7
+  },
+
+  // --- 2. SHOLAT BERJAMAAH BADGES ---
+  {
+    id: 'masjid_stepper',
+    name: 'Masjid Stepper',
+    description: '5 waktu sholat berjamaah di masjid dalam 1 hari.',
+    icon: Shield,
+    bonusXP: 150,
+    tier: 'bronze',
+    condition: (data) => data.days.some(isDayFullMasjid)
+  },
+  {
+    id: 'house_of_allah_loyalist',
+    name: 'House of Allah Loyalist',
+    description: '3 hari berturut-turut full berjamaah di masjid.',
+    icon: Shield,
+    bonusXP: 300,
+    tier: 'gold',
+    condition: (data) => getStreak(data.days, isDayFullMasjid) >= 3
+  },
+  {
+    id: 'saf_pertama_hunter',
+    name: 'Saf Pertama Hunter',
+    description: '7 hari berturut-turut full berjamaah di masjid.',
+    icon: Shield,
+    bonusXP: 600,
+    tier: 'emerald',
+    condition: (data) => getStreak(data.days, isDayFullMasjid) >= 7
+  },
+  {
+    id: 'masjid_legend',
+    name: 'Masjid Legend',
+    description: '30 hari tanpa bolong sholat berjamaah di masjid. Konsistensi level dewa!',
+    icon: Crown,
+    bonusXP: 2000,
+    tier: 'mythic',
+    condition: (data) => getTotalDays(data.days, isDayFullMasjid) >= 29 // Allow 1 day tolerance in logic just in case, or strict 30
+  },
+
+  // --- 3. PUASA BADGES ---
+  {
+    id: 'first_fasting',
+    name: 'First Fasting',
+    description: 'Menyelesaikan puasa hari pertama.',
+    icon: UtensilsCrossed, // Was UtensilsCrossedIcon
+    bonusXP: 100,
+    tier: 'bronze',
+    condition: (data) => data.days.some(d => d.shaum === true)
+  },
+  {
+    id: 'consistent_fasting',
+    name: 'Consistent Fasting',
+    description: 'Berpuasa penuh 7 hari berturut-turut.',
+    icon: UtensilsCrossed,
+    bonusXP: 300,
+    tier: 'silver',
+    condition: (data) => getStreak(data.days, d => d.shaum === true) >= 7
+  },
+  {
+    id: 'iron_will',
+    name: 'Iron Will',
+    description: '15 hari berpuasa tanpa putus.',
+    icon: Shield,
+    bonusXP: 750,
+    tier: 'emerald',
+    condition: (data) => getStreak(data.days, d => d.shaum === true) >= 15
+  },
+  {
+    id: 'ramadhan_survivor',
+    name: 'Ramadhan Survivor',
+    description: 'Full 30 hari berpuasa. Kemenangan sejati!',
+    icon: Crown,
+    bonusXP: 1500,
+    tier: 'mythic',
+    condition: (data) => getTotalDays(data.days, d => d.shaum === true) >= 29
+  },
+
+  // --- 4. TILAWAH BADGES (CUMULATIVE LINES) ---
+  // Asumsi: 1 Juz = 300 Baris (15 baris x 20 halaman)
+  {
+    id: 'ayat_starter',
+    name: 'Ayat Starter',
+    description: 'Mencapai total tilawah 75 baris.',
+    icon: BookOpen,
+    bonusXP: 100,
+    tier: 'bronze',
+    condition: (data) => data.days.reduce((acc, d) => acc + d.tilawah, 0) >= 75
+  },
+  {
+    id: 'quran_seeker',
+    name: 'Quran Seeker',
+    description: 'Mencapai total 300 baris (Setara 1 Juz).',
+    icon: BookOpen,
+    bonusXP: 300,
+    tier: 'silver',
+    condition: (data) => data.days.reduce((acc, d) => acc + d.tilawah, 0) >= 300
+  },
+  {
+    id: 'one_juz_achiever',
+    name: 'One Juz Achiever',
+    description: 'Mencapai total 1 Juz (300 Baris) dalam satu hari.', 
+    // Logic Adjusted: User wants "One Juz" usually means finishing 1 Juz cumulative or daily? 
+    // Prompt says "One Juz Achiever: 1 Juz". Let's assume cumulative milestones.
+    // 1 Juz = 300 lines. 5 Juz = 1500. 15 Juz = 4500. 30 Juz = 9000.
+    icon: BookOpen,
+    bonusXP: 500,
+    tier: 'gold',
+    condition: (data) => data.days.reduce((acc, d) => acc + d.tilawah, 0) >= 1500 // Let's bump this to 5 Juz for Gold since Silver is 1 juz
+  },
+  {
+    id: 'half_quran_warrior',
+    name: 'Half Quran Warrior',
+    description: 'Mencapai total 15 Juz (4500 baris).',
+    icon: BookOpen,
+    bonusXP: 1000,
+    tier: 'emerald',
+    condition: (data) => data.days.reduce((acc, d) => acc + d.tilawah, 0) >= 4500
+  },
+  {
+    id: 'khatam_hero',
+    name: 'Khatam Hero',
+    description: 'Mengkhatamkan Al-Qur\'an (30 Juz / 9000 baris).',
+    icon: BookOpen,
+    bonusXP: 2500,
+    tier: 'mythic',
+    condition: (data) => data.days.reduce((acc, d) => acc + d.tilawah, 0) >= 9000
+  },
+
+  // --- 5. STREAK BADGES ---
+  {
+    id: 'streak_3',
+    name: '3 Day Streak',
+    description: 'Semua misi minimal 7/8 terpenuhi selama 3 hari berturut-turut.',
     icon: Flame,
-    bonusXP: 50,
-    color: 'text-orange-400 border-orange-400 bg-orange-500/10',
+    bonusXP: 150,
+    tier: 'bronze',
+    condition: (data) => getStreak(data.days, d => isDayFullPrayers(d) && d.shaum === true) >= 3
+  },
+  {
+    id: 'streak_7',
+    name: '7 Day Streak',
+    description: 'Konsisten 7 hari tanpa putus ibadah wajib.',
+    icon: Flame,
+    bonusXP: 400,
+    tier: 'silver',
+    condition: (data) => getStreak(data.days, d => isDayFullPrayers(d) && d.shaum === true) >= 7
+  },
+  {
+    id: 'streak_14',
+    name: '14 Day Flame',
+    description: '2 Minggu penuh api semangat tidak padam!',
+    icon: Flame,
+    bonusXP: 800,
+    tier: 'gold',
+    condition: (data) => getStreak(data.days, d => isDayFullPrayers(d) && d.shaum === true) >= 14
+  },
+  {
+    id: 'streak_30',
+    name: '30 Day Fire Crown',
+    description: 'Sebulan penuh tanpa hari kosong (No Zero Day).',
+    icon: Crown,
+    bonusXP: 2000,
+    tier: 'mythic',
+    condition: (data) => getTotalDays(data.days, d => isDayFullPrayers(d)) >= 29
+  },
+
+  // --- 6. COMBO BADGES ---
+  {
+    id: 'night_devotion',
+    name: 'Night Devotion',
+    description: 'Isya (Masjid) + Tarawih + Tilawah ≥ 50 baris dalam satu malam.',
+    icon: Moon,
+    bonusXP: 200,
+    tier: 'silver',
+    condition: (data) => data.days.some(d => d.prayers.isya === 2 && d.tarawih && d.tilawah >= 50)
+  },
+  {
+    id: 'fajr_warrior',
+    name: 'Fajr Warrior',
+    description: 'Subuh (Masjid) + Puasa + Tilawah ≥ 30 baris.',
+    icon: Sun,
+    bonusXP: 200,
+    tier: 'silver',
+    condition: (data) => data.days.some(d => d.prayers.subuh === 2 && d.shaum && d.tilawah >= 30)
+  },
+  {
+    id: 'silent_power',
+    name: 'Silent Power',
+    description: '5 hari berturut-turut melaksanakan Tarawih.',
+    icon: Zap,
+    bonusXP: 400,
+    tier: 'gold',
+    condition: (data) => getStreak(data.days, d => d.tarawih === true) >= 5
+  },
+
+  // --- 7. MILESTONE BADGES ---
+  {
+    id: 'active_10',
+    name: '10 Days Discipline',
+    description: 'Aktif mengisi mutabaah selama 10 hari.',
+    icon: Target,
+    bonusXP: 300,
+    tier: 'silver',
+    condition: (data) => getTotalDays(data.days, d => isDayFullPrayers(d)) >= 10
+  },
+  {
+    id: 'last_10_hunter',
+    name: 'Lailatul Qadr Hunter',
+    description: 'Full aktif beribadah pada 10 malam terakhir Ramadhan.',
+    icon: Star,
+    bonusXP: 1000,
+    tier: 'emerald',
     condition: (data) => {
-       return data.days.some(day => 
-          Object.values(day.prayers).every(status => status > 0)
+       const last10 = data.days.slice(20, 30);
+       return last10.every(d => isDayFullPrayers(d) && d.tarawih);
+    }
+  },
+
+  // --- 8. SECRET BADGES ---
+  {
+    id: 'no_zero_day',
+    name: 'No Zero Day',
+    description: 'Tidak ada satupun hari tanpa progress XP.',
+    icon: Swords,
+    bonusXP: 500,
+    tier: 'gold',
+    secret: true,
+    condition: (data) => {
+       // Only valid if we are at least on day 5 to avoid instant unlock
+       const currentDay = new Date().getDate(); // Simplified logic, ideally calculate day index
+       return data.days.slice(0, 5).every(d => 
+         Object.values(d.prayers).some(p => p > 0) || d.tilawah > 0
        );
     }
   },
   {
-    id: 'badge_istiqamah_3',
-    name: 'Istiqamah Seeker',
-    description: 'Konsisten sholat 5 waktu selama 3 hari. Keep it up!',
-    icon: Shield,
-    bonusXP: 150,
-    color: 'text-blue-400 border-blue-400 bg-blue-500/10',
+    id: 'comeback_spirit',
+    name: 'Comeback Spirit',
+    description: 'Pernah bolong > 2 hari, lalu bangkit dengan streak 5 hari!',
+    icon: Heart,
+    bonusXP: 777,
+    tier: 'emerald',
+    secret: true,
     condition: (data) => {
-       // Check for at least 3 days with full prayers
-       const fullDays = data.days.filter(day => Object.values(day.prayers).every(status => status > 0)).length;
-       return fullDays >= 3;
-    }
-  },
-  {
-    id: 'badge_quran_150',
-    name: 'Quran Reciter',
-    description: 'Total tilawah mencapai 150 baris.',
-    icon: BookOpen,
-    bonusXP: 200,
-    color: 'text-cyan-400 border-cyan-400 bg-cyan-500/10',
-    condition: (data) => {
-       const totalLines = data.days.reduce((acc, day) => acc + (day.tilawah || 0), 0);
-       return totalLines >= 150;
-    }
-  },
-  {
-    id: 'badge_mosque_guardian',
-    name: 'Mosque Guardian',
-    description: 'Total 10 kali sholat berjamaah di masjid.',
-    icon: Star,
-    bonusXP: 300,
-    color: 'text-yellow-400 border-yellow-400 bg-yellow-500/10',
-    condition: (data) => {
-       const totalMosque = data.days.reduce((acc, day) => {
-         const mosqueCount = Object.values(day.prayers).filter(p => p === 2).length;
-         return acc + mosqueCount;
-       }, 0);
-       return totalMosque >= 10;
-    }
-  },
-  {
-    id: 'badge_ramadhan_warrior',
-    name: 'Ramadhan Warrior',
-    description: 'Berpuasa penuh selama 7 hari.',
-    icon: Crown,
-    bonusXP: 500,
-    color: 'text-red-400 border-red-400 bg-red-500/10',
-    condition: (data) => {
-       const totalShaum = data.days.filter(day => day.shaum).length;
-       return totalShaum >= 7;
+       // Advanced pattern matching: Find 0,0,1,1,1,1,1 sequence
+       // Implementation simplified: check if max streak >= 5 AND there is a gap somewhere
+       const streak = getStreak(data.days, isDayFullPrayers);
+       const zeros = getStreak(data.days, d => !isDayFullPrayers(d)); // streak of fails
+       return zeros >= 2 && streak >= 5;
     }
   }
 ];

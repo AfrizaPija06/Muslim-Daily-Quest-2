@@ -3,6 +3,7 @@ export type PrayerState = 0 | 1 | 2; // 0: None, 1: Home, 2: Mosque
 export type Role = 'mentee' | 'mentor';
 export type AppTheme = 'ramadhan'; // Locked to Ramadhan
 export type UserStatus = 'active' | 'pending' | 'rejected';
+export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'emerald' | 'mythic';
 
 export interface User {
   fullName: string;
@@ -34,7 +35,8 @@ export interface Badge {
   icon: any; // Lucide Icon Name or Component
   bonusXP: number;
   condition: (data: WeeklyData) => boolean;
-  color: string;
+  tier: BadgeTier;
+  secret?: boolean; // If true, hidden from list until unlocked
 }
 
 export interface DayData {

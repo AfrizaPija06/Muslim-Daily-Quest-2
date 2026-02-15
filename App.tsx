@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge } from './types';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge, BadgeTier } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL, BADGES } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X, Medal } from 'lucide-react';
+import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X, Medal, Lock, HelpCircle } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 
 // Import Pages & Components
@@ -18,7 +18,7 @@ import MiniLeaderboard from './components/MiniLeaderboard';
 import DailyTargetPanel from './components/DailyTargetPanel';
 import LevelUpModal from './components/LevelUpModal';
 import BackgroundMusic from './components/BackgroundMusic';
-import BadgeModal from './components/BadgeModal'; // New Import
+import BadgeModal from './components/BadgeModal'; 
 
 const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
@@ -311,10 +311,6 @@ const App: React.FC = () => {
 
   // Determine Profile Data to Show (Mine vs Others)
   const profileUser = viewingUser || currentUser;
-  // If viewing others, we might need to approximate total points if 'points' in list is raw
-  // Assuming list.points includes calculation logic from ApiService which might be raw.
-  // Ideally, ApiService list should provide total points. 
-  // For simplicity, viewingStats uses logic passed from MiniLeaderboard or LeaderboardPage.
   const profilePoints = viewingStats ? viewingStats.points : totalPoints;
   const profileRank = viewingStats ? viewingStats.rank : currentRank;
   const profileBadges = viewingStats ? viewingStats.unlockedBadges : (currentUser?.unlockedBadges || []);
@@ -527,31 +523,53 @@ const App: React.FC = () => {
                         <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-3 flex items-center gap-2">
                            <Medal className="w-3 h-3" /> Badge Collection
                         </p>
+                        
                         <div className="grid grid-cols-5 gap-2">
-                           {BADGES.map(badge => {
-                              const isUnlocked = profileBadges.includes(badge.id);
+                           {/* Render Unlocked Badges */}
+                           {BADGES.filter(b => profileBadges.includes(b.id)).map(badge => {
                               const Icon = badge.icon;
-                              
+                              const tierColor = {
+                                 bronze: 'text-orange-400 border-orange-600',
+                                 silver: 'text-slate-300 border-slate-400',
+                                 gold: 'text-yellow-400 border-yellow-500',
+                                 emerald: 'text-emerald-400 border-emerald-500',
+                                 mythic: 'text-purple-400 border-purple-500'
+                              }[badge.tier || 'bronze'];
+
                               return (
-                                <div key={badge.id} className="relative group cursor-pointer">
-                                   <div className={`aspect-square rounded-xl flex items-center justify-center border transition-all ${isUnlocked ? `${badge.color} bg-black/50 shadow-[0_0_10px_currentColor]` : 'border-white/5 bg-white/5 opacity-30 grayscale'}`}>
-                                      <Icon className={`w-5 h-5 ${isUnlocked ? '' : 'text-white'}`} />
+                                <div key={badge.id} className="relative group cursor-pointer animate-in zoom-in-50 duration-500">
+                                   <div className={`aspect-square rounded-xl flex items-center justify-center border bg-black/50 shadow-[0_0_10px_rgba(0,0,0,0.5)] ${tierColor}`}>
+                                      <Icon className={`w-5 h-5 ${tierColor.split(' ')[0]} drop-shadow-md`} />
                                    </div>
                                    {/* Tooltip */}
-                                   {isUnlocked && (
-                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-black border border-white/10 p-2 rounded-lg text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 backdrop-blur-md">
-                                        <p className="text-[9px] font-bold uppercase text-[#fbbf24] mb-1">{badge.name}</p>
-                                        <p className="text-[8px] leading-tight text-white/70">{badge.description}</p>
-                                     </div>
-                                   )}
+                                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 bg-black border border-white/10 p-2 rounded-lg text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 backdrop-blur-md">
+                                      <p className={`text-[9px] font-bold uppercase mb-1 ${tierColor.split(' ')[0]}`}>{badge.name}</p>
+                                      <p className="text-[8px] leading-tight text-white/70">{badge.description}</p>
+                                   </div>
                                 </div>
                               )
                            })}
-                           {profileBadges.length === 0 && (
-                              <div className="col-span-5 text-center py-4 text-[10px] text-white/20 italic">
-                                 Belum ada badge yang terbuka.
+
+                           {/* Render Locked Non-Secret Badges (Preview) */}
+                           {BADGES.filter(b => !profileBadges.includes(b.id) && !b.secret).map(badge => (
+                              <div key={badge.id} className="relative group cursor-not-allowed opacity-40 grayscale">
+                                 <div className={`aspect-square rounded-xl flex items-center justify-center border border-white/10 bg-white/5`}>
+                                    <Lock className="w-4 h-4 text-white/30" />
+                                 </div>
                               </div>
-                           )}
+                           ))}
+
+                           {/* Render Locked Secret Badges (Hidden/Mystery) */}
+                           {BADGES.filter(b => !profileBadges.includes(b.id) && b.secret).map((badge, idx) => (
+                              <div key={`secret-${idx}`} className="relative group cursor-help opacity-20">
+                                 <div className={`aspect-square rounded-xl flex items-center justify-center border border-white/5 bg-black/20`}>
+                                    <HelpCircle className="w-4 h-4 text-white/20" />
+                                 </div>
+                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-24 bg-black border border-white/10 p-2 rounded-lg text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                      <p className="text-[8px] leading-tight text-white/70 italic">Secret Achievement</p>
+                                 </div>
+                              </div>
+                           ))}
                         </div>
                     </div>
 
@@ -595,7 +613,7 @@ const App: React.FC = () => {
         activeView={view} 
         setView={setView} 
         themeStyles={themeStyles} 
-        currentTheme={currentTheme}
+        currentTheme={currentTheme} 
         role={currentUser?.role || 'mentee'}
       />
 
