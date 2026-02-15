@@ -317,7 +317,11 @@ const App: React.FC = () => {
       <div className="flex-grow flex w-full overflow-hidden">
         
         <div className="hidden xl:block w-[300px] shrink-0 pt-[80px] pb-[120px] px-4 overflow-y-auto no-scrollbar border-r border-white/5">
-          <MiniLeaderboard currentUser={currentUser} themeStyles={themeStyles} />
+          <MiniLeaderboard 
+            currentUser={currentUser} 
+            themeStyles={themeStyles} 
+            onUserClick={handleViewUserProfile}
+          />
         </div>
 
         <div className="flex-grow overflow-y-auto no-scrollbar pt-[80px] px-4 pb-[120px] relative z-10 w-full">

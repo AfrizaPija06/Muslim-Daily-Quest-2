@@ -8,9 +8,10 @@ import { api } from '../services/ApiService';
 interface MiniLeaderboardProps {
   currentUser: User | null;
   themeStyles: any;
+  onUserClick?: (user: any) => void;
 }
 
-const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeStyles }) => {
+const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeStyles, onUserClick }) => {
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,9 +75,10 @@ const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeSty
             if (idx === 2) rankIcon = <Medal className="w-5 h-5 text-amber-600" />;
 
             return (
-              <div 
+              <button 
                 key={user.username} 
-                className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isMe ? 'bg-[#fbbf24]/20 border border-[#fbbf24]/50' : 'bg-white/5 border border-transparent hover:bg-white/10'}`}
+                onClick={() => onUserClick && onUserClick(user)}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer text-left ${isMe ? 'bg-[#fbbf24]/20 border border-[#fbbf24]/50' : 'bg-white/5 border border-transparent hover:bg-white/10 hover:scale-[1.02]'}`}
               >
                 <div className="flex items-center justify-center w-6 shrink-0">
                   {rankIcon}
@@ -97,7 +99,7 @@ const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeSty
                   <p className="text-xs font-black text-[#fbbf24]">{user.points}</p>
                   <p className="text-[8px] opacity-50">XP</p>
                 </div>
-              </div>
+              </button>
             );
           })
         )}
