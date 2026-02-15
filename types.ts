@@ -72,13 +72,15 @@ export const POINTS = {
   TARAWIH: 50
 };
 
-// RANK SYSTEM - GANTI 'assetKey' DENGAN LINK CLOUDINARY ANDA
+// RANK SYSTEM (Updated to MLBB Style)
+// TUGAS ANDA: Ganti 'assetKey' dengan Link Cloudinary untuk setiap Rank.
 export const RANK_TIERS = [
   { 
     name: 'Mythical Immortal', 
     min: 9000, 
     color: 'text-red-500', 
     bg: 'bg-red-500/20 border-red-500', 
+    // Contoh: assetKey: 'https://res.cloudinary.com/.../ranks/immortal.png'
     assetKey: 'https://ui-avatars.com/api/?name=Im&background=ef4444&color=fff&size=128&rounded=true'
   },
   { 

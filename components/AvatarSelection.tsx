@@ -55,6 +55,7 @@ const AvatarSelection: React.FC<AvatarSelectionProps> = ({ selectedId, onSelect,
                       alt={char.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       onError={(e) => {
+                        // Fallback UI Avatar jika Cloudinary belum diset
                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${char.name}&background=1e1b4b&color=fff&size=512`;
                       }}
                     />
