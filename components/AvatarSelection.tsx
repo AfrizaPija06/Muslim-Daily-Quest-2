@@ -1,8 +1,8 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AVAILABLE_CHARACTERS } from '../constants';
 import { Character } from '../types';
-import { Shield, Sparkles, Swords } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, Shield, Sparkles } from 'lucide-react';
 
 interface AvatarSelectionProps {
   selectedId: string | undefined;
@@ -11,128 +11,125 @@ interface AvatarSelectionProps {
 }
 
 const AvatarSelection: React.FC<AvatarSelectionProps> = ({ selectedId, onSelect, themeStyles }) => {
-  const selectedChar = AVAILABLE_CHARACTERS.find(c => c.id === selectedId) || AVAILABLE_CHARACTERS[0];
-  const selectedRef = useRef<HTMLButtonElement>(null);
+  const [direction, setDirection] = useState<'left' | 'right' | null>(null);
 
-  // Auto scroll ke hero yang dipilih di list vertical
+  // Cari index karakter yang sedang dipilih
+  const currentIndex = AVAILABLE_CHARACTERS.findIndex(c => c.id === selectedId);
+  const activeIndex = currentIndex === -1 ? 0 : currentIndex;
+  const selectedChar = AVAILABLE_CHARACTERS[activeIndex];
+
+  // Logic Navigasi
+  const handleNext = () => {
+    setDirection('right');
+    const nextIndex = (activeIndex + 1) % AVAILABLE_CHARACTERS.length;
+    onSelect(AVAILABLE_CHARACTERS[nextIndex]);
+  };
+
+  const handlePrev = () => {
+    setDirection('left');
+    const prevIndex = (activeIndex - 1 + AVAILABLE_CHARACTERS.length) % AVAILABLE_CHARACTERS.length;
+    onSelect(AVAILABLE_CHARACTERS[prevIndex]);
+  };
+
+  // Keyboard Navigation Support
   useEffect(() => {
-    if (selectedRef.current) {
-      selectedRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-    }
-  }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') handleNext();
+      if (e.key === 'ArrowLeft') handlePrev();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeIndex]);
 
   return (
-    <div className="flex flex-col w-full h-full animate-reveal">
+    <div className="flex items-center justify-center w-full h-full py-4 relative group">
       
-      {/* HEADER KECIL */}
-      <div className="flex justify-between items-end mb-2 px-1">
-          <h3 className={`text-xs font-black uppercase tracking-widest ${themeStyles.textSecondary}`}>
-            <Swords className="w-3 h-3 inline-block mr-1 text-[#fbbf24]" />
-            Select Hero
-          </h3>
-          <span className="text-[9px] opacity-50 font-mono">ROSTER: {AVAILABLE_CHARACTERS.length}</span>
-      </div>
+      {/* --- PREV BUTTON --- */}
+      <button 
+        onClick={handlePrev}
+        className="absolute left-0 z-20 p-3 rounded-full bg-[#ea580c] text-white shadow-[0_0_15px_rgba(234,88,12,0.6)] hover:scale-110 hover:bg-[#c2410c] transition-all border-2 border-white/20 active:scale-95 md:relative md:mr-6"
+      >
+        <ChevronsLeft className="w-8 h-8" />
+      </button>
 
-      {/* MAIN SPLIT VIEW CONTAINER */}
-      {/* Menggunakan h-[60vh] atau min-h-[400px] agar pas di layar mobile tanpa scroll body */}
-      <div className="flex flex-row gap-3 h-[55vh] min-h-[400px] max-h-[600px]">
+      {/* --- MAIN CARD --- */}
+      <div className="relative w-full max-w-[320px] aspect-[3/4.5] rounded-3xl overflow-hidden border-4 border-[#fbbf24] shadow-[0_0_40px_rgba(251,191,36,0.3)] bg-black">
         
-        {/* --- LEFT COLUMN: VERTICAL ROSTER LIST --- */}
-        <div className="w-20 md:w-32 shrink-0 flex flex-col gap-3 overflow-y-auto no-scrollbar pb-10 pr-1">
-          {AVAILABLE_CHARACTERS.map((char) => {
-            const isSelected = selectedId === char.id;
-            const borderColor = isSelected ? '#fbbf24' : 'transparent'; 
-            
-            return (
-              <button
-                key={char.id}
-                ref={isSelected ? selectedRef : null}
-                onClick={() => onSelect(char)}
-                className={`
-                  relative shrink-0 w-full aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300
-                  ${isSelected 
-                    ? 'border-[#fbbf24] shadow-[0_0_15px_rgba(251,191,36,0.5)] scale-100 z-10 opacity-100' 
-                    : 'border-white/10 opacity-50 hover:opacity-100 scale-95 grayscale'
-                  }
-                `}
-              >
-                <img 
-                  src={char.imageUrl} 
-                  alt={char.name}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                
-                {/* Role Icon Overlay */}
-                <div className="absolute bottom-0 right-0 p-1 bg-black/60 rounded-tl-lg backdrop-blur-sm">
-                   <Shield className={`w-3 h-3 ${char.color}`} />
+        {/* Animated Image Container */}
+        <div key={selectedChar.id} className={`w-full h-full relative animate-in fade-in duration-500 ${direction === 'right' ? 'slide-in-from-right-10' : direction === 'left' ? 'slide-in-from-left-10' : ''}`}>
+           <img 
+              src={selectedChar.imageUrl} 
+              alt={selectedChar.name}
+              className="w-full h-full object-cover transform scale-105"
+           />
+           
+           {/* Cinematic Gradient Overlay */}
+           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+           
+           {/* Top Sparkle Effect */}
+           <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#fbbf24]/20 to-transparent mix-blend-overlay"></div>
+        </div>
+
+        {/* --- TEXT CONTENT (OVERLAY) --- */}
+        <div className="absolute bottom-0 inset-x-0 p-6 flex flex-col justify-end text-left pb-8">
+           
+           {/* Role Badge */}
+           <div className="flex items-center gap-2 mb-1 opacity-90">
+              <Shield className={`w-3 h-3 ${selectedChar.color}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-[0.2em] text-[#fbbf24]`}>
+                {selectedChar.role}
+              </span>
+           </div>
+
+           {/* Hero Name */}
+           <h2 className={`text-2xl ${themeStyles.fontDisplay} font-black text-white leading-tight uppercase mb-2 drop-shadow-md`}>
+             {selectedChar.name}
+           </h2>
+
+           {/* Description */}
+           <p className="text-[10px] text-white/80 italic leading-relaxed mb-4 border-l-2 border-[#fbbf24]/50 pl-2">
+             "{selectedChar.description}"
+           </p>
+
+           {/* Skills List (Compact) */}
+           <div className="space-y-1">
+              <p className="text-[9px] font-bold uppercase text-[#fbbf24]/80 mb-1 flex items-center gap-1">
+                 <Sparkles className="w-3 h-3" /> Unique Skills
+              </p>
+              {selectedChar.abilities.slice(0, 3).map((ability, idx) => (
+                <div key={idx} className="text-[10px] font-bold text-white/90 flex items-center gap-2">
+                   <div className={`w-1 h-1 rounded-full ${selectedChar.color.replace('text-', 'bg-')}`}></div>
+                   {ability}
                 </div>
-              </button>
-            );
-          })}
+              ))}
+           </div>
+
         </div>
 
-        {/* --- RIGHT COLUMN: DETAILS PANEL --- */}
-        <div className={`
-            flex-1 relative rounded-2xl overflow-hidden border border-white/10 bg-[#0f0518]/80
-            shadow-2xl flex flex-col
-        `}>
-            
-            {/* BACKGROUND IMAGE (Blurred & Darkened) */}
-            <div className="absolute inset-0 z-0">
-               <img src={selectedChar.imageUrl} className="w-full h-full object-cover opacity-30 blur-sm" />
-               <div className="absolute inset-0 bg-gradient-to-t from-[#0f0518] via-[#0f0518]/80 to-transparent"></div>
-            </div>
-
-            {/* CONTENT SCROLLABLE AREA */}
-            <div className="relative z-10 flex flex-col h-full overflow-y-auto p-4 md:p-6 no-scrollbar">
-               
-               {/* Hero Header */}
-               <div className="mt-auto mb-6">
-                   <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 mb-2 backdrop-blur-md`}>
-                      <Shield className={`w-3 h-3 ${selectedChar.color}`} />
-                      <span className={`text-[9px] font-black uppercase tracking-widest text-white`}>
-                        {selectedChar.role}
-                      </span>
-                   </div>
-
-                   <h2 className={`text-2xl md:text-3xl ${themeStyles.fontDisplay} font-black text-white leading-none uppercase drop-shadow-lg mb-2`}>
-                     {selectedChar.name}
-                   </h2>
-
-                   {/* Description Box */}
-                   <div className="p-3 bg-black/40 rounded-lg border border-white/5 backdrop-blur-sm">
-                      <p className="text-xs leading-relaxed text-slate-300 italic">
-                        "{selectedChar.description}"
-                      </p>
-                   </div>
-               </div>
-
-               {/* Abilities List */}
-               <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                   <p className="text-[9px] font-bold uppercase tracking-widest opacity-50 mb-2 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-[#fbbf24]" /> Unique Skills
-                   </p>
-                   <div className="space-y-2">
-                      {selectedChar.abilities.map((ability, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                            <div className={`w-1.5 h-1.5 rounded-full ${selectedChar.color.replace('text-', 'bg-')}`}></div>
-                            <span className="text-xs font-bold text-white/90">{ability}</span>
-                        </div>
-                      ))}
-                   </div>
-               </div>
-
-            </div>
-
-            {/* Decorative Top Right Glow */}
-            <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-[60px] opacity-40 pointer-events-none ${selectedChar.color.replace('text-', 'bg-')}`} />
-        </div>
+        {/* Decorative Borders/Corners */}
+        <div className="absolute top-4 right-4 w-16 h-16 border-t-2 border-r-2 border-[#fbbf24]/50 rounded-tr-xl pointer-events-none"></div>
+        <div className="absolute bottom-4 left-4 w-16 h-16 border-b-2 border-l-2 border-[#fbbf24]/50 rounded-bl-xl pointer-events-none"></div>
 
       </div>
+
+      {/* --- NEXT BUTTON --- */}
+      <button 
+        onClick={handleNext}
+        className="absolute right-0 z-20 p-3 rounded-full bg-[#ea580c] text-white shadow-[0_0_15px_rgba(234,88,12,0.6)] hover:scale-110 hover:bg-[#c2410c] transition-all border-2 border-white/20 active:scale-95 md:relative md:ml-6"
+      >
+        <ChevronsRight className="w-8 h-8" />
+      </button>
+
+      {/* Indicator Dots (Optional visually, helps user know there are more) */}
+      <div className="absolute -bottom-6 flex gap-1.5">
+         {AVAILABLE_CHARACTERS.map((_, idx) => (
+            <div 
+              key={idx} 
+              className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeIndex ? 'w-6 bg-[#fbbf24]' : 'w-1.5 bg-white/20'}`} 
+            />
+         ))}
+      </div>
+
     </div>
   );
 };
