@@ -2,7 +2,7 @@
 export type PrayerState = 0 | 1 | 2; // 0: None, 1: Home, 2: Mosque
 export type Role = 'mentee' | 'mentor';
 export type AppTheme = 'ramadhan'; // Locked to Ramadhan
-export type UserStatus = 'active' | 'pending' | 'rejected';
+export type UserStatus = 'active' | 'pending' | 'rejected' | 'banned';
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'emerald' | 'mythic';
 
 export interface User {

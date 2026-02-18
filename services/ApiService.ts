@@ -23,6 +23,9 @@ class ApiService {
 
       if (!userDoc.exists) return null;
       const userData = userDoc.data() as any;
+      
+      // Jika status banned, jangan izinkan login/load profile
+      if (userData.status === 'banned') return null;
 
       // 2. Fetch Tracker Data
       const trackerDoc = await db.collection("trackers").doc(uid).get();
@@ -84,7 +87,7 @@ class ApiService {
         // Jika login auth sukses tapi data firestore tidak ada
         // (Mungkin admin baru yang belum diregister lewat app?)
         await auth.signOut();
-        return { success: false, error: 'Akun ditemukan tapi Data Profile kosong. Silakan Register ulang.' };
+        return { success: false, error: 'Akun tidak ditemukan atau telah dinonaktifkan.' };
       }
 
       return { 
@@ -201,31 +204,32 @@ class ApiService {
         trackersMap[d.id] = d.data();
       });
 
-      const users = usersSnap.docs.map((d: any) => {
-        const userData = d.data();
-        
-        // Force override avatar admin in list
-        let finalAvatar = userData.avatarSeed;
-        if (userData.username === ADMIN_CREDENTIALS.username) {
-           finalAvatar = MENTOR_AVATAR_URL;
-        }
+      const users = usersSnap.docs
+        .map((d: any) => {
+            const userData = d.data();
+            
+            // Force override avatar admin in list
+            let finalAvatar = userData.avatarSeed;
+            if (userData.username === ADMIN_CREDENTIALS.username) {
+            finalAvatar = MENTOR_AVATAR_URL;
+            }
 
-        return {
-          uid: d.id,
-          username: userData.username,
-          fullName: userData.fullName,
-          role: userData.role,
-          group: userData.group,
-          status: userData.status,
-          avatarSeed: finalAvatar,
-          characterId: userData.characterId,
-          // Tambahkan points data agar admin bisa melihat
-          unlockedBadges: userData.unlockedBadges || [],
-          bonusPoints: userData.bonusPoints || 0,
-          // Match data tracker berdasarkan UID
-          trackerData: trackersMap[d.id]?.data || null
-        };
-      });
+            return {
+            uid: d.id,
+            username: userData.username,
+            fullName: userData.fullName,
+            role: userData.role,
+            group: userData.group,
+            status: userData.status,
+            avatarSeed: finalAvatar,
+            characterId: userData.characterId,
+            unlockedBadges: userData.unlockedBadges || [],
+            bonusPoints: userData.bonusPoints || 0,
+            trackerData: trackersMap[d.id]?.data || null
+            };
+        })
+        // FILTER: HANYA TAMPILKAN YANG TIDAK BANNED
+        .filter((u: any) => u.status !== 'banned');
 
       return users;
 
@@ -244,22 +248,21 @@ class ApiService {
       if (snapshot.empty) return { success: false, error: "User not found in database" };
       const uid = snapshot.docs[0].id;
 
-      // 2. Delete Profile & Tracker Data
-      // Note: Auth User cannot be deleted by another user client-side, 
-      // but deleting Firestore data effectively blocks them from logging in (getUserProfile returns null).
-      await Promise.all([
-         db.collection("users").doc(uid).delete(),
-         db.collection("trackers").doc(uid).delete()
-      ]);
+      // 2. SOFT DELETE (BAN) - Lebih aman daripada hard delete
+      // Mengubah status jadi 'banned' dan menyembunyikannya dari UI
+      // Permission UPDATE biasanya lebih diizinkan daripada DELETE
+      await db.collection("users").doc(uid).update({
+          status: 'banned',
+          group: 'ARCHIVED'
+      });
       
       return { success: true };
     } catch (e: any) {
-      console.error("Delete User Error:", e);
+      console.error("Soft Delete User Error:", e);
       let errMsg = e.message || "Delete failed";
       
-      // Handle Permission Error explicitly with helpful hint
       if (e.code === 'permission-denied') {
-         errMsg = "Permission Denied. Database menolak penghapusan. Coba LOGOUT dan LOGIN kembali sebagai Admin untuk memperbaiki status permission.";
+         errMsg = "Permission Denied. Pastikan Anda sudah login sebagai Admin dan klik tombol 'Fix Access'.";
       }
       
       return { success: false, error: errMsg };
