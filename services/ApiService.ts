@@ -69,6 +69,14 @@ class ApiService {
       const email = this.toEmail(username);
       const userCredential = await auth.signInWithEmailAndPassword(email, password);
       
+      // [FIX] Self-Heal: Force update role for Admin to ensure Permissions work correctly
+      // This handles cases where the admin account was created before roles were enforced
+      if (username === ADMIN_CREDENTIALS.username) {
+        await db.collection("users").doc(userCredential.user!.uid).set({
+           role: 'mentor'
+        }, { merge: true });
+      }
+      
       // 2. Fetch Data via Helper
       const profile = await this.getUserProfile(userCredential.user!.uid);
       
@@ -249,12 +257,26 @@ class ApiService {
       console.error("Delete User Error:", e);
       let errMsg = e.message || "Delete failed";
       
-      // Handle Permission Error explicitly
+      // Handle Permission Error explicitly with helpful hint
       if (e.code === 'permission-denied') {
-         errMsg = "Permission Denied. Pastikan Rules Firestore mengizinkan Mentor menghapus data.";
+         errMsg = "Permission Denied. Database menolak penghapusan. Coba LOGOUT dan LOGIN kembali sebagai Admin untuk memperbaiki status permission.";
       }
       
       return { success: false, error: errMsg };
+    }
+  }
+
+  // Method to manually trigger repair if needed
+  async repairAdminRole(): Promise<void> {
+    if (!auth || !db) return;
+    const user = auth.currentUser;
+    if (user) {
+       const doc = await db.collection("users").doc(user.uid).get();
+       // Only run if it matches admin credentials
+       if (doc.exists && doc.data()?.username === ADMIN_CREDENTIALS.username) {
+           await db.collection("users").doc(user.uid).set({ role: 'mentor' }, { merge: true });
+           console.log("Admin permissions repaired.");
+       }
     }
   }
 

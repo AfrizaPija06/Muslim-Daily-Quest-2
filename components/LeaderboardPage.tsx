@@ -8,7 +8,7 @@ import Footer from './Footer';
 import SummaryCard from './SummaryCard';
 import AdminCharts from './AdminCharts'; // Import Komponen Grafik Baru
 import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord, PRAYER_KEYS } from '../types';
-import { getAvatarSrc, getRankIconUrl } from '../constants';
+import { getAvatarSrc, getRankIconUrl, ADMIN_CREDENTIALS } from '../constants';
 import { api } from '../services/ApiService';
 
 interface LeaderboardPageProps {
@@ -109,6 +109,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   useEffect(() => {
+    // Attempt to repair permissions silently on load if Admin
+    if (currentUser?.username === ADMIN_CREDENTIALS.username) {
+        api.repairAdminRole().catch(console.error);
+    }
     loadData();
   }, []); 
 
