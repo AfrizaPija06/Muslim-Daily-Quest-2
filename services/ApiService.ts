@@ -267,16 +267,40 @@ class ApiService {
   }
 
   // Method to manually trigger repair if needed
-  async repairAdminRole(): Promise<void> {
-    if (!auth || !db) return;
+  async repairAdminRole(): Promise<boolean> {
+    if (!auth || !db) return false;
     const user = auth.currentUser;
-    if (user) {
-       const doc = await db.collection("users").doc(user.uid).get();
-       // Only run if it matches admin credentials
-       if (doc.exists && doc.data()?.username === ADMIN_CREDENTIALS.username) {
+    if (!user) return false;
+    
+    try {
+        const adminEmail = this.toEmail(ADMIN_CREDENTIALS.username);
+        
+        // Cek apakah email user saat ini adalah email admin
+        if (user.email === adminEmail) {
+            // Force create/update doc
+            await db.collection("users").doc(user.uid).set({
+                username: ADMIN_CREDENTIALS.username,
+                role: 'mentor',
+                status: 'active',
+                fullName: ADMIN_CREDENTIALS.fullName,
+                avatarSeed: MENTOR_AVATAR_URL
+            }, { merge: true });
+            
+            console.log("Admin permissions repaired via Email match.");
+            return true;
+        }
+
+        const doc = await db.collection("users").doc(user.uid).get();
+        if (doc.exists && doc.data()?.username === ADMIN_CREDENTIALS.username) {
            await db.collection("users").doc(user.uid).set({ role: 'mentor' }, { merge: true });
-           console.log("Admin permissions repaired.");
-       }
+           console.log("Admin permissions repaired via Username match.");
+           return true;
+        }
+        
+        return false;
+    } catch (e) {
+        console.error("Repair failed", e);
+        return false;
     }
   }
 

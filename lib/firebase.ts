@@ -12,14 +12,17 @@ const cleanEnv = (val: string | undefined) => {
   return val.replace(/^"|"$/g, '').replace(/^'|'$/g, ''); 
 };
 
-// NOTE: We must access import.meta.env.VITE_XXX explicitly for Vite to perform static replacement.
+// SAFEGUARD: Ensure env object exists to prevent "Cannot read properties of undefined" error
+const env = import.meta.env || {} as any;
+
+// NOTE: We access properties off 'env' to avoid runtime crashes.
 const firebaseConfig = {
-  apiKey: cleanEnv(import.meta.env.VITE_FIREBASE_API_KEY),
-  authDomain: cleanEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId: cleanEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID),
-  storageBucket: cleanEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
-  messagingSenderId: cleanEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
-  appId: cleanEnv(import.meta.env.VITE_FIREBASE_APP_ID)
+  apiKey: cleanEnv(env.VITE_FIREBASE_API_KEY),
+  authDomain: cleanEnv(env.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: cleanEnv(env.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: cleanEnv(env.VITE_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: cleanEnv(env.VITE_FIREBASE_MESSAGING_SENDER_ID),
+  appId: cleanEnv(env.VITE_FIREBASE_APP_ID)
 };
 
 // Log Config Status (Tanpa menampilkan full key demi keamanan, tapi cukup untuk debug)
@@ -49,7 +52,7 @@ try {
   } else {
     // Menggunakan console.error agar muncul merah jika gagal
     console.error("❌ [SYSTEM] Firebase config missing or invalid. Check .env file.");
-    console.log("Debug Config Object:", firebaseConfig);
+    console.log("Debug: API Key is " + (firebaseConfig.apiKey ? "Present" : "Missing"));
   }
 } catch (e) {
   console.error("❌ [SYSTEM] Firebase Initialization Error:", e);

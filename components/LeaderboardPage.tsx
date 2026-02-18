@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, BarChart3, ExternalLink } from 'lucide-react';
+import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, BarChart3, ExternalLink, Shield } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -185,6 +185,22 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
      XLSX.writeFile(wb, `Laporan_Mutabaah_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
+  const handleFixAccess = async () => {
+     setIsProcessing(true);
+     try {
+        const success = await api.repairAdminRole();
+        if (success) {
+            alert("✅ Access Repaired! Permission Admin telah dipulihkan. Silakan coba hapus user kembali.");
+        } else {
+            alert("⚠️ Akun ini tidak terdeteksi sebagai Admin utama di konfigurasi.");
+        }
+     } catch (e) {
+        alert("Error: " + e);
+     } finally {
+        setIsProcessing(false);
+     }
+  };
+
   const handleKickUser = async (targetUsername: string, targetName: string) => {
     if (!confirm(`PERINGATAN: Hapus permanen ${targetName}?\n\nData yang dihapus tidak bisa dikembalikan.`)) return;
     setIsProcessing(true);
@@ -232,6 +248,15 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           </div>
           <div className="flex gap-2">
              <div className="flex items-center gap-2 bg-black/30 p-1 pr-3 rounded-full border border-white/10">
+                <button 
+                  onClick={handleFixAccess}
+                  disabled={isProcessing}
+                  className={`flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all hover:text-emerald-400 text-white/70 px-2 border-r border-white/10 pr-4 mr-2`}
+                  title="Perbaiki Permission Admin"
+                >
+                  <Shield className="w-4 h-4 text-emerald-500" /> Fix Access
+                </button>
+
                 <button onClick={handleDetailedExport} className={`flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-all hover:text-white text-white/70`}>
                   <Download className="w-4 h-4" /> Export Excel
                 </button>
