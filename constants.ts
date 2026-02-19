@@ -12,7 +12,7 @@ export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upl
 export const GAME_BGM_URL = "https://res.cloudinary.com/dauvrgbcp/video/upload/v1771148350/Main_Theme___Pirates_of_the_Caribbean_edq2ql.mp4"; 
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
-export const RAMADHAN_START_DATE = new Date('2026-02-18T00:00:00'); 
+export const RAMADHAN_START_DATE = new Date('2026-02-19T00:00:00'); 
 
 export const TARGET_TILAWAH_DAILY = 75; // Target Tilawah harian
 
@@ -96,7 +96,7 @@ export const AVAILABLE_CHARACTERS: Character[] = [
 
 // --- BADGE LOGIC HELPERS ---
 
-const isDayFullPrayers = (day: DayData) => Object.values(day.prayers).every(s => s > 0);
+const isDayFullPrayers = (day: DayData) => Object.values(day.prayers).every(s => s > -1);
 const isDayFullMasjid = (day: DayData) => Object.values(day.prayers).every(s => s === 2);
 const isDayPerfect = (day: DayData) => isDayFullPrayers(day) && (day.shaum === true) && (day.tarawih === true) && (day.tilawah >= 75);
 
