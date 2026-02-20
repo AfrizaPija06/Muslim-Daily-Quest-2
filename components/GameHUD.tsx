@@ -2,7 +2,7 @@
 import React from 'react';
 import { User, getRankInfo } from '../types';
 import { getAvatarSrc } from '../constants';
-import { Trophy, WifiOff, RotateCw } from 'lucide-react';
+import { Trophy, WifiOff, RotateCw, Scroll } from 'lucide-react';
 
 interface GameHUDProps {
   currentUser: User;
@@ -13,11 +13,12 @@ interface GameHUDProps {
   isSyncing: boolean;
   performSync: () => void;
   openProfile: () => void;
+  openQuestBoard: () => void;
 }
 
 const GameHUD: React.FC<GameHUDProps> = ({ 
   currentUser, totalPoints, themeStyles, 
-  isOnline, isSyncing, performSync, openProfile 
+  isOnline, isSyncing, performSync, openProfile, openQuestBoard
 }) => {
   // Logic Leveling: Misal 1 Level setiap 1000 poin
   const currentLevel = Math.floor(totalPoints / 1000) + 1;
@@ -64,6 +65,15 @@ const GameHUD: React.FC<GameHUDProps> = ({
                  <div className={`h-full bg-gradient-to-r from-[#7c3aed] to-[#fbbf24]`} style={{ width: `${progressPercent}%` }}></div>
               </div>
            </div>
+
+           {/* QUEST BOARD BUTTON */}
+           <button 
+             onClick={openQuestBoard}
+             className={`p-2 rounded-full border bg-black/40 backdrop-blur-md ${themeStyles.border} ${themeStyles.textAccent} hover:bg-white/10 transition-colors`}
+             title="Quest Board"
+           >
+             <Scroll className="w-4 h-4" />
+           </button>
 
            {/* SYNC BUTTON */}
            <button 

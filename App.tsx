@@ -20,6 +20,7 @@ import DailyTargetPanel from './components/DailyTargetPanel';
 import LevelUpModal from './components/LevelUpModal';
 import BackgroundMusic from './components/BackgroundMusic';
 import BadgeModal from './components/BadgeModal'; 
+import BadgeQuestBoard from './components/BadgeQuestBoard'; 
 
 const App: React.FC = () => {
   const [isResetting] = useState(false);
@@ -50,6 +51,7 @@ const App: React.FC = () => {
   
   // LEVEL UP & BADGE STATE
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showQuestBoard, setShowQuestBoard] = useState(false);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<Badge | null>(null);
   const prevRankRef = useRef<string>(""); 
 
@@ -381,6 +383,15 @@ const App: React.FC = () => {
          />
       )}
 
+      {/* QUEST BOARD MODAL */}
+      {showQuestBoard && (
+        <BadgeQuestBoard
+          unlockedBadges={currentUser?.unlockedBadges || []}
+          onClose={() => setShowQuestBoard(false)}
+          themeStyles={themeStyles}
+        />
+      )}
+
       <GameHUD 
         currentUser={currentUser!}
         totalPoints={totalPoints}
@@ -390,6 +401,7 @@ const App: React.FC = () => {
         isSyncing={isSyncing}
         performSync={performSync}
         openProfile={() => { handleBackToMyProfile(); setView('profile'); }}
+        openQuestBoard={() => setShowQuestBoard(true)}
       />
 
       <div className="flex-grow flex w-full overflow-hidden">
