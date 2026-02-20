@@ -277,10 +277,10 @@ const App: React.FC = () => {
   // --- HANDLE VIEW OTHER USER PROFILE ---
   const handleViewUserProfile = (user: any) => {
      setViewingUser(user);
-     // Calculate total including bonus if available in user object
-     const totalP = (user.monthlyPoints || user.points) + (user.bonusPoints || 0);
+     // Points from Leaderboard/MiniLeaderboard are already calculated via calculateTotalUserPoints
+     const totalP = user.points || 0;
      setViewingStats({
-        points: user.points, // Keep track points raw or combined? Let's use combined logic in display
+        points: totalP,
         rank: getRankInfo(totalP),
         unlockedBadges: user.unlockedBadges || []
      });
