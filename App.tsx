@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge } from './types';
+import { WeeklyData, User, AppTheme, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL, BADGES } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
+import { calculateTotalUserPoints } from './utils';
 import { Loader2, Shield, Flame, ArrowLeft, Trophy, X, Medal, Lock, HelpCircle } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 
@@ -184,26 +185,8 @@ const App: React.FC = () => {
   };
 
   const totalPoints = useMemo(() => {
-    const rawPoints = data.days.reduce((acc: number, day: DayData) => {
-      const prayerPoints = (Object.values(day.prayers) as number[]).reduce((pAcc: number, val: number) => {
-        if (val === 1) return pAcc + POINTS.HOME;
-        if (val === 2) return pAcc + POINTS.MOSQUE;
-        return pAcc;
-      }, 0);
-      
-      const extraPoints = 
-        (day.tilawah * POINTS.TILAWAH_PER_LINE) + 
-        (day.shaum ? POINTS.SHAUM : 0) + 
-        (day.tarawih ? POINTS.TARAWIH : 0);
-
-      return acc + prayerPoints + extraPoints;
-    }, 0);
-
-    // ADD BONUS POINTS from Badges
-    const bonus = currentUser?.bonusPoints || 0;
-    return rawPoints + bonus;
-
-  }, [data, currentUser]); // Depends on currentUser for bonusPoints
+    return calculateTotalUserPoints(currentUser, data);
+  }, [data, currentUser]);
 
   // --- RANK UP DETECTION LOGIC ---
   const currentRank = getRankInfo(totalPoints);

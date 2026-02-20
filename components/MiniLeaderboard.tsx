@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Trophy, Crown, Medal, Loader2 } from 'lucide-react';
-import { User, POINTS } from '../types';
+import { User } from '../types';
 import { getAvatarSrc } from '../constants';
 import { api } from '../services/ApiService';
+import { calculateTotalUserPoints } from '../utils';
 
 interface MiniLeaderboardProps {
   currentUser: User | null;
@@ -20,17 +21,7 @@ const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({ currentUser, themeSty
       try {
         const users = await api.getAllUsersWithPoints();
         const processed = users.map(u => {
-          let points = 0;
-          if (u.trackerData && u.trackerData.days) {
-            u.trackerData.days.forEach((day: any) => {
-              const prayerPoints = Object.values(day.prayers as any).reduce<number>((acc: number, val: any) => {
-                if (val === 1) return acc + POINTS.HOME;
-                if (val === 2) return acc + POINTS.MOSQUE;
-                return acc;
-              }, 0);
-              points += prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE) + (day.shaum ? POINTS.SHAUM : 0) + (day.tarawih ? POINTS.TARAWIH : 0);
-            });
-          }
+          const points = calculateTotalUserPoints(u, u.trackerData);
           return { ...u, points };
         })
         .sort((a, b) => b.points - a.points)

@@ -199,9 +199,24 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                             return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
                          });
                       }}
-                      className={`w-6 h-6 rounded flex items-center justify-center border border-white/20 hover:bg-white/10 text-xs font-bold`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center border border-white/20 hover:bg-white/10 text-lg font-bold transition-colors`}
                     >-</button>
-                    <span className={`text-sm font-bold w-6 text-center text-cyan-400`}>{day.tilawah}</span>
+                    
+                    <input 
+                      type="number" 
+                      min="0"
+                      value={day.tilawah}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setData(prev => {
+                           const newDays = [...prev.days];
+                           newDays[day.id] = { ...newDays[day.id], tilawah: Math.max(0, val) };
+                           return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
+                        });
+                      }}
+                      className="w-16 bg-transparent text-center text-sm font-bold text-cyan-400 border-b border-white/20 focus:border-cyan-400 outline-none p-1"
+                    />
+
                     <button 
                        onClick={() => {
                          setData(prev => {
@@ -210,7 +225,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
                             return { ...prev, days: newDays, lastUpdated: new Date().toISOString() };
                          });
                       }}
-                      className={`w-6 h-6 rounded flex items-center justify-center bg-cyan-600 text-white text-xs font-bold hover:bg-cyan-500`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center bg-cyan-600 text-white text-lg font-bold hover:bg-cyan-500 transition-colors shadow-lg shadow-cyan-500/20`}
                     >+</button>
                  </div>
               </div>

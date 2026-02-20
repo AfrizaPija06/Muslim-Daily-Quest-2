@@ -10,6 +10,7 @@ import AdminCharts from './AdminCharts'; // Import Komponen Grafik Baru
 import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord } from '../types';
 import { getAvatarSrc, getRankIconUrl, ADMIN_CREDENTIALS } from '../constants';
 import { api } from '../services/ApiService';
+import { calculateTotalUserPoints } from '../utils';
 
 interface LeaderboardPageProps {
   currentUser: User | null;
@@ -64,9 +65,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         .map(u => {
           const trackerData: WeeklyData | null = u.trackerData;
           
-          let points = 0;
           let activeDays = 0;
-
           if (trackerData && trackerData.days) {
             trackerData.days.forEach(day => {
               const prayerPoints = Object.values(day.prayers as any).reduce<number>((acc: number, val: any) => {
@@ -74,12 +73,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 if (val === 2) return acc + POINTS.MOSQUE;
                 return acc;
               }, 0);
-              points += prayerPoints + (day.tilawah * POINTS.TILAWAH_PER_LINE);
-              if (prayerPoints > 0 || day.tilawah > 0) activeDays++;
+              if (prayerPoints > 0 || day.tilawah > 0 || day.shaum || day.tarawih) activeDays++;
             });
           }
 
-          const monthlyPoints = points * 4; // Estimasi poin bulanan
+          const points = calculateTotalUserPoints(u, trackerData);
+          const monthlyPoints = points; // Use actual points, no multiplier
           const rankInfo = getRankInfo(monthlyPoints);
 
           return {
