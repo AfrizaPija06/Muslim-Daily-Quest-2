@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Target, CheckCircle2, Circle, Moon, Sun, BookOpen, UtensilsCrossed } from 'lucide-react';
-import { DayData, PRAYER_KEYS } from '../types';
+import { DayData } from '../types';
 import { TARGET_TILAWAH_DAILY } from '../constants';
 
 interface DailyTargetPanelProps {

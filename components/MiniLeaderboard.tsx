@@ -1,5 +1,5 @@
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trophy, Crown, Medal, Loader2 } from 'lucide-react';
 import { User, POINTS } from '../types';
 import { getAvatarSrc } from '../constants';

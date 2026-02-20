@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Trophy, Sparkles, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { getRankIconUrl } from '../constants';
 
 interface LevelUpModalProps {

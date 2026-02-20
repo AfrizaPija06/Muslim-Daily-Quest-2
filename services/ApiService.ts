@@ -165,7 +165,7 @@ class ApiService {
     }
   }
 
-  async sync(currentUser: User | null, localData: WeeklyData, localGroups: string[]): Promise<any> {
+  async sync(currentUser: User | null, localData: WeeklyData, _localGroups: string[]): Promise<any> {
     if (!currentUser) return { success: false };
     if (!db || !auth) return { success: false };
     

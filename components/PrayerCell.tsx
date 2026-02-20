@@ -35,7 +35,7 @@ const MosqueIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const PrayerCell: React.FC<PrayerCellProps> = ({ state, isLocked, onClick, themeStyles, currentTheme, label }) => {
+const PrayerCell: React.FC<PrayerCellProps> = ({ state, onClick, themeStyles, label }) => {
 
   let bgClass = `${themeStyles.inputBg} border-2 border-dashed ${themeStyles.border} opacity-50`;
   let icon = <div className="w-1.5 h-1.5 rounded-full bg-slate-500/50" />;

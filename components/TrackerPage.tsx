@@ -16,7 +16,7 @@ interface TrackerPageProps {
 }
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
-  currentUser, data, setData, themeStyles, currentTheme, totalPoints 
+  data, setData, themeStyles, currentTheme 
 }) => {
   const activeDayRef = useRef<HTMLDivElement>(null);
 

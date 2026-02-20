@@ -2,7 +2,7 @@
 import React from 'react';
 import { User, getRankInfo } from '../types';
 import { getAvatarSrc } from '../constants';
-import { Trophy, Zap, WifiOff, RotateCw } from 'lucide-react';
+import { Trophy, WifiOff, RotateCw } from 'lucide-react';
 
 interface GameHUDProps {
   currentUser: User;
@@ -16,7 +16,7 @@ interface GameHUDProps {
 }
 
 const GameHUD: React.FC<GameHUDProps> = ({ 
-  currentUser, totalPoints, themeStyles, currentTheme, 
+  currentUser, totalPoints, themeStyles, 
   isOnline, isSyncing, performSync, openProfile 
 }) => {
   // Logic Leveling: Misal 1 Level setiap 1000 poin

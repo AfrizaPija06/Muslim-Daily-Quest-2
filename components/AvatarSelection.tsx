@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { AVAILABLE_CHARACTERS } from '../constants';
 import { Character } from '../types';
-import { Shield, Sparkles, Zap, Swords } from 'lucide-react';
+import { Shield, Zap, Swords } from 'lucide-react';
 
 interface AvatarSelectionProps {
   selectedId: string | undefined;

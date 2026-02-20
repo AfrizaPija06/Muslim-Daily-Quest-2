@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Scroll, User, LayoutDashboard, Moon } from 'lucide-react';
+import { User, LayoutDashboard, Moon } from 'lucide-react';
 import { AppTheme } from '../types';
 
 interface GameDockProps {
@@ -11,7 +11,7 @@ interface GameDockProps {
   role: string;
 }
 
-const GameDock: React.FC<GameDockProps> = ({ activeView, setView, themeStyles, currentTheme, role }) => {
+const GameDock: React.FC<GameDockProps> = ({ activeView, setView, role }) => {
   const navItems = [
     { id: 'tracker', label: 'Quests', icon: <Moon className="w-5 h-5" /> },
     ...(role === 'mentor' ? [{ id: 'leaderboard', label: 'Admin', icon: <LayoutDashboard className="w-5 h-5" /> }] : []),

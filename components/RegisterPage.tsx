@@ -4,7 +4,7 @@ import { ShieldCheck, Eye, EyeOff, Clock, Loader2, ArrowRight, ArrowLeft } from 
 import BackgroundOrnament from './BackgroundOrnament';
 import AvatarSelection from './AvatarSelection';
 import { User, AppTheme, Character } from '../types';
-import { ADMIN_CREDENTIALS, AVAILABLE_CHARACTERS } from '../constants';
+import { AVAILABLE_CHARACTERS } from '../constants';
 import { api } from '../services/ApiService';
 
 interface RegisterPageProps {
@@ -16,7 +16,7 @@ interface RegisterPageProps {
   groups: string[];
 }
 
-const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, themeStyles, currentTheme, groups }) => {
+const RegisterPage: React.FC<RegisterPageProps> = ({ setView, setError, error, themeStyles, groups }) => {
   const [step, setStep] = useState<1 | 2>(1); // Step 1: Character, Step 2: Form
   const [selectedChar, setSelectedChar] = useState<Character>(AVAILABLE_CHARACTERS[0]);
   

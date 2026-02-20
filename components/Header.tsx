@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Moon, Edit2 } from 'lucide-react';
 import { User, AppTheme, getRankInfo, GlobalAssets, HIJRI_YEAR, Character } from '../types';
-import { getAvatarSrc, AVAILABLE_CHARACTERS } from '../constants';
-import { api } from '../services/ApiService';
+import { getAvatarSrc } from '../constants';
 import AvatarSelection from './AvatarSelection';
 
 interface HeaderProps {
@@ -22,7 +21,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  currentUser, setView, handleLogout, activeView, themeStyles, currentTheme, performSync, handleUpdateProfile, totalPoints, globalAssets
+  currentUser, setView, handleLogout, activeView, themeStyles, performSync, handleUpdateProfile, totalPoints
 }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingAvatar, setIsChangingAvatar] = useState(false);

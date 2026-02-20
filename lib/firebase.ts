@@ -33,7 +33,7 @@ const keyStatus = firebaseConfig.apiKey
 console.log(`🔑 [SYSTEM] API Key Status: ${keyStatus}`);
 
 // Initialize Firebase with error handling
-let app;
+let app: firebase.app.App | undefined;
 let auth: firebase.auth.Auth;
 let db: firebase.firestore.Firestore;
 

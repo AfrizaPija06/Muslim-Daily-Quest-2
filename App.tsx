@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge, BadgeTier } from './types';
+import { WeeklyData, User, AppTheme, POINTS, DayData, MENTORING_GROUPS, GlobalAssets, ArchivedData, AttendanceRecord, getRankInfo, RANK_TIERS, Badge } from './types';
 import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, MENTOR_AVATAR_URL, BADGES } from './constants';
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
-import { Loader2, Shield, Settings, Flame, ArrowLeft, Trophy, X, Medal, Lock, HelpCircle } from 'lucide-react';
+import { Loader2, Shield, Flame, ArrowLeft, Trophy, X, Medal, Lock, HelpCircle } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 
 // Import Pages & Components
@@ -21,7 +21,7 @@ import BackgroundMusic from './components/BackgroundMusic';
 import BadgeModal from './components/BadgeModal'; 
 
 const App: React.FC = () => {
-  const [isResetting, setIsResetting] = useState(false);
+  const [isResetting] = useState(false);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
 
   // VIEW STATE
@@ -39,13 +39,13 @@ const App: React.FC = () => {
   
   const groups = MENTORING_GROUPS;
   const [globalAssets, setGlobalAssets] = useState<GlobalAssets>({});
-  const [archives, setArchives] = useState<ArchivedData[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord>({});
+  const [archives] = useState<ArchivedData[]>([]);
+  const [attendance] = useState<AttendanceRecord>({});
   
   const [error, setError] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [networkLogs, setNetworkLogs] = useState<string[]>([]);
+  const [networkLogs] = useState<string[]>([]);
   
   // LEVEL UP & BADGE STATE
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -438,7 +438,7 @@ const App: React.FC = () => {
                 setView={setView} 
                 handleLogout={handleLogout} 
                 groups={groups} 
-                updateGroups={(g) => Promise.resolve()} 
+                updateGroups={(_g) => Promise.resolve()} 
                 handleUpdateProfile={handleUpdateProfile}
                 archives={archives} 
                 attendance={attendance}
@@ -560,7 +560,7 @@ const App: React.FC = () => {
                            ))}
 
                            {/* Render Locked Secret Badges (Hidden/Mystery) */}
-                           {BADGES.filter(b => !profileBadges.includes(b.id) && b.secret).map((badge, idx) => (
+                           {BADGES.filter(b => !profileBadges.includes(b.id) && b.secret).map((_, idx) => (
                               <div key={`secret-${idx}`} className="relative group cursor-help opacity-20">
                                  <div className={`aspect-square rounded-xl flex items-center justify-center border border-white/5 bg-black/20`}>
                                     <HelpCircle className="w-4 h-4 text-white/20" />

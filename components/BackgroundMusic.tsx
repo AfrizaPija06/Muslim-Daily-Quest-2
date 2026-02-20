@@ -1,15 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, Music } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 import { GAME_BGM_URL } from '../constants';
 
 interface BackgroundMusicProps {
   themeStyles: any;
 }
 
-const BackgroundMusic: React.FC<BackgroundMusicProps> = ({ themeStyles }) => {
+const BackgroundMusic: React.FC<BackgroundMusicProps> = () => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -41,7 +40,7 @@ const BackgroundMusic: React.FC<BackgroundMusicProps> = ({ themeStyles }) => {
       // We try to play, if it fails, we wait for interaction.
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
-        playPromise.catch((error) => {
+        playPromise.catch(() => {
           console.log("Autoplay prevented by browser. Waiting for interaction.");
           setIsPlaying(false); // Force UI to show Muted until interaction
         });
@@ -55,7 +54,6 @@ const BackgroundMusic: React.FC<BackgroundMusicProps> = ({ themeStyles }) => {
   }, [isPlaying]);
 
   const toggleMusic = () => {
-    setHasInteracted(true);
     setIsPlaying(!isPlaying);
   };
 

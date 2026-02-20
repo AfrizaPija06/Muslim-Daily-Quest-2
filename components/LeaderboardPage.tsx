@@ -1,13 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, BarChart3, ExternalLink, Shield } from 'lucide-react';
+import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, ExternalLink, Shield } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
 import AdminCharts from './AdminCharts'; // Import Komponen Grafik Baru
-import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord, PRAYER_KEYS } from '../types';
+import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord } from '../types';
 import { getAvatarSrc, getRankIconUrl, ADMIN_CREDENTIALS } from '../constants';
 import { api } from '../services/ApiService';
 
@@ -48,7 +48,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, performSync, networkLogs, groups, updateGroups, handleUpdateProfile, globalAssets, refreshAssets, attendance = {}, onUserClick
+  currentUser, setView, handleLogout, themeStyles, currentTheme, handleUpdateProfile, globalAssets, refreshAssets, onUserClick
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -303,7 +303,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                       </tr>
                     </thead>
                     <tbody className={`divide-y divide-white/5`}>
-                      {sortedWeekly.map((m, i) => (
+                      {sortedWeekly.map((m) => (
                         <tr 
                           key={m.username} 
                           className={`group hover:bg-white/[0.05] transition-colors cursor-pointer border-l-4 border-transparent hover:border-[#fbbf24]`}
@@ -313,7 +313,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                             <div className="flex items-start gap-4">
                                 {/* Small Avatar in Table */}
                                 <div className="w-12 h-12 rounded-xl bg-slate-800 overflow-hidden shrink-0 bg-black/50 border border-white/10 group-hover:scale-110 transition-transform">
-                                  <img src={getAvatarSrc(m.avatarSeed || m.username, globalAssets)} className="w-full h-full object-cover" />
+                                  <img src={getAvatarSrc(m.avatarSeed || m.username)} className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-2 font-bold text-base group-hover:text-[#fbbf24] transition-colors">

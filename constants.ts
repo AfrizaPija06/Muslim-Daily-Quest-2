@@ -1,6 +1,6 @@
 
-import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, GlobalAssets, DayData, PrayerState, Character, UserStatus, Badge } from './types';
-import { Flame, Star, BookOpen, Shield, Crown, Zap, Moon, Sun, Target, Trophy, Ghost, Swords, Heart, UtensilsCrossed } from 'lucide-react';
+import { Role, WeeklyData, TOTAL_RAMADHAN_DAYS, DayData, PrayerState, Character, UserStatus, Badge } from './types';
+import { Flame, Star, BookOpen, Shield, Crown, Zap, Moon, Sun, Target, Swords, Heart, UtensilsCrossed } from 'lucide-react';
 
 export { HIJRI_YEAR } from './types';
 
@@ -11,7 +11,7 @@ export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upl
 // BACKGROUND MUSIC (BGM)
 export const GAME_BGM_URL = "https://res.cloudinary.com/dauvrgbcp/video/upload/v1771148350/Main_Theme___Pirates_of_the_Caribbean_edq2ql.mp4"; 
 
-// SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 18 FEBRUARI 2026)
+// SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 19 FEBRUARI 2026)
 export const RAMADHAN_START_DATE = new Date('2026-02-19T00:00:00'); 
 
 export const TARGET_TILAWAH_DAILY = 75; // Target Tilawah harian
@@ -379,7 +379,6 @@ export const BADGES: Badge[] = [
     secret: true,
     condition: (data) => {
        // Only valid if we are at least on day 5 to avoid instant unlock
-       const currentDay = new Date().getDate(); // Simplified logic, ideally calculate day index
        return data.days.slice(0, 5).every(d => 
          Object.values(d.prayers).some(p => p > 0) || d.tilawah > 0
        );
@@ -431,7 +430,7 @@ export const INITIAL_DATA: WeeklyData = {
 const DEFAULT_AVATAR_BASE = "https://ui-avatars.com/api/?background=0D8ABC&color=fff&size=128&name=";
 
 // Helper Avatar
-export const getAvatarSrc = (seedOrUrl?: string, assets?: any) => {
+export const getAvatarSrc = (seedOrUrl?: string) => {
   if (!seedOrUrl) return `${DEFAULT_AVATAR_BASE}User`;
   
   // Jika path dimulai dengan 'http' (link Cloudinary/luar), gunakan langsung

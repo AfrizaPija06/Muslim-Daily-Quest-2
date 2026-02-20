@@ -1,6 +1,4 @@
 
-import { AppTheme } from './types';
-
 export const THEMES = {
   ramadhan: {
     id: 'ramadhan',
