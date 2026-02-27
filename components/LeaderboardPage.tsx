@@ -7,6 +7,7 @@ import Header from './Header';
 import Footer from './Footer';
 import SummaryCard from './SummaryCard';
 import AdminCharts from './AdminCharts'; // Import Komponen Grafik Baru
+import CommunityRaid from './CommunityRaid'; // Import Community Raid
 import { User, AppTheme, POINTS, WeeklyData, getRankInfo, GlobalAssets, ArchivedData, AttendanceRecord } from '../types';
 import { getAvatarSrc, getRankIconUrl, ADMIN_CREDENTIALS } from '../constants';
 import { api } from '../services/ApiService';
@@ -220,6 +221,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
   };
 
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
+  const totalCommunityXP = useMemo(() => menteesData.reduce((acc, curr) => acc + curr.points, 0), [menteesData]);
 
   return (
     <div className={`min-h-screen ${themeStyles.bg} ${themeStyles.textPrimary} flex flex-col relative transition-colors duration-500`}>
@@ -240,6 +242,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
       />
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24 animate-reveal">
+        
+        {/* COMMUNITY RAID WIDGET */}
+        <CommunityRaid totalXP={totalCommunityXP} themeStyles={themeStyles} />
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold tracking-tighter flex items-center gap-3 ${themeStyles.textPrimary} uppercase`}>
