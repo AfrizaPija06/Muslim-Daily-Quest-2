@@ -5,7 +5,7 @@ import { INITIAL_DATA, ADMIN_CREDENTIALS, RAMADHAN_START_DATE, getRankIconUrl, M
 import { THEMES } from './theme';
 import { api } from './services/ApiService';
 import { calculateTotalUserPoints } from './utils';
-import { Loader2, Shield, Flame, ArrowLeft, Trophy, X, Medal, Lock, HelpCircle } from 'lucide-react';
+import { Loader2, Shield, Flame, ArrowLeft, Trophy, X, Medal, Lock, HelpCircle, Award } from 'lucide-react';
 import { isFirebaseConfigured, auth } from './lib/firebase';
 
 // Import Pages & Components
@@ -21,6 +21,7 @@ import LevelUpModal from './components/LevelUpModal';
 import BackgroundMusic from './components/BackgroundMusic';
 import BadgeModal from './components/BadgeModal'; 
 import BadgeQuestBoard from './components/BadgeQuestBoard'; 
+import AshraReportModal from './components/AshraReportModal'; 
 
 const App: React.FC = () => {
   const [isResetting] = useState(false);
@@ -52,13 +53,37 @@ const App: React.FC = () => {
   // LEVEL UP & BADGE STATE
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showQuestBoard, setShowQuestBoard] = useState(false);
+  const [showAshraReport, setShowAshraReport] = useState(false);
+  const [hasNewAshraReport, setHasNewAshraReport] = useState(false);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<Badge | null>(null);
   const prevRankRef = useRef<string>(""); 
 
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentTheme: AppTheme = 'ramadhan';
-  const themeStyles = THEMES['ramadhan'];
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>('ramadhan');
+  const themeStyles = THEMES[currentTheme];
+
+  // --- CALCULATE CURRENT DAY INDEX ---
+  const currentDayIndex = useMemo(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const start = new Date(RAMADHAN_START_DATE);
+    start.setHours(0,0,0,0);
+    const diffTime = today.getTime() - start.getTime();
+    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  }, []);
+
+  // --- THEME LOGIC BASED ON PHASE ---
+  useEffect(() => {
+     // Phase 1: Ramadhan (Day 1-10) -> 'ramadhan'
+     // Phase 2: Maghfirah (Day 11-20) -> 'maghfirah'
+     
+     if (currentDayIndex >= 10) {
+        setCurrentTheme('maghfirah');
+     } else {
+        setCurrentTheme('ramadhan');
+     }
+  }, [currentDayIndex]);
 
   // --- FIREBASE CONFIGURATION CHECK ---
   if (!isFirebaseConfigured()) {
@@ -254,15 +279,22 @@ const App: React.FC = () => {
 
   }, [data, currentUser, isSessionLoading, isResetting]);
 
-
-  const currentDayIndex = useMemo(() => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const start = new Date(RAMADHAN_START_DATE);
-    start.setHours(0,0,0,0);
-    const diffTime = today.getTime() - start.getTime();
-    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  }, []);
+  // --- ASHRA REPORT CHECK ---
+  useEffect(() => {
+     if (isSessionLoading || !currentUser) return;
+     
+     // Trigger on Day 11 (Index 10) or later
+     if (currentDayIndex >= 10) {
+        const hasSeen = localStorage.getItem(`ashra_report_1_${currentUser.username}`);
+        if (!hasSeen) {
+           setHasNewAshraReport(true);
+           // Auto-open is optional, but let's keep it for now
+           setTimeout(() => setShowAshraReport(true), 1500); 
+        } else {
+           setHasNewAshraReport(false);
+        }
+     }
+  }, [currentDayIndex, isSessionLoading, currentUser]);
 
   const todayData = data.days[currentDayIndex] || data.days[0];
 
@@ -392,6 +424,19 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* ASHRA REPORT MODAL */}
+      {showAshraReport && currentUser && (
+        <AshraReportModal
+          data={data}
+          currentUser={currentUser}
+          onClose={() => {
+             setShowAshraReport(false);
+             setHasNewAshraReport(false); // Clear notification
+             localStorage.setItem(`ashra_report_1_${currentUser.username}`, 'true');
+          }}
+        />
+      )}
+
       <GameHUD 
         currentUser={currentUser!}
         totalPoints={totalPoints}
@@ -402,6 +447,8 @@ const App: React.FC = () => {
         performSync={performSync}
         openProfile={() => { handleBackToMyProfile(); setView('profile'); }}
         openQuestBoard={() => setShowQuestBoard(true)}
+        openAshraReport={() => setShowAshraReport(true)}
+        hasNewAshraReport={hasNewAshraReport}
       />
 
       <div className="flex-grow flex w-full overflow-hidden">
@@ -483,6 +530,12 @@ const App: React.FC = () => {
                     <div className="relative z-10 mb-8">
                       <p className="text-3xl font-black text-white mb-1 uppercase tracking-tight">{profileUser?.fullName}</p>
                       <p className="text-sm opacity-60 font-mono tracking-widest">@{profileUser?.username}</p>
+                      {profileUser?.specialTitle && (
+                          <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-purple-900/80 to-blue-900/80 border border-white/20 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.4)] animate-pulse-slow">
+                            <Award className="w-3 h-3 text-yellow-300" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white drop-shadow-md">{profileUser.specialTitle}</span>
+                          </div>
+                      )}
                     </div>
 
                     <div className={`mb-8 p-6 rounded-3xl bg-black/40 border border-white/5 relative overflow-hidden backdrop-blur-md`}>

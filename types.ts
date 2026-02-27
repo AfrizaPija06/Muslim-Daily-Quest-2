@@ -1,7 +1,7 @@
 
 export type PrayerState = 0 | 1 | 2; // 0: None, 1: Home, 2: Mosque
 export type Role = 'mentee' | 'mentor';
-export type AppTheme = 'ramadhan'; // Locked to Ramadhan
+export type AppTheme = 'ramadhan' | 'maghfirah'; // Locked to Ramadhan phases
 export type UserStatus = 'active' | 'pending' | 'rejected' | 'banned';
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'emerald' | 'mythic';
 
@@ -16,6 +16,7 @@ export interface User {
   characterId?: string; // New field to track selected character ID
   unlockedBadges?: string[]; // Array of Badge IDs
   bonusPoints?: number; // Extra XP from badges/events
+  specialTitle?: string; // Title from Ashra Report (e.g., "Guardian of Dawn")
 }
 
 export interface Character {

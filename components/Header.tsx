@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Moon, Edit2 } from 'lucide-react';
+import { LogOut, RefreshCw, X, Save, UserCircle, Trophy, Moon, Edit2, Award } from 'lucide-react';
 import { User, AppTheme, getRankInfo, GlobalAssets, HIJRI_YEAR, Character } from '../types';
 import { getAvatarSrc } from '../constants';
 import AvatarSelection from './AvatarSelection';
@@ -172,15 +172,21 @@ const Header: React.FC<HeaderProps> = ({
                     <div className="absolute -bottom-1 -right-1 bg-[#fbbf24] text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase">Change</div>
                   </div>
                   
-                  <div className="flex flex-col justify-center">
-                      <div className={`inline-flex items-center gap-3 px-4 py-2 mb-2 rounded-full border ${currentRank.bg}`}>
-                        <Trophy className={`w-6 h-6 ${currentRank.color}`} />
-                        <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
-                          {currentRank.name}
-                        </span>
-                    </div>
-                    <p className="text-xs opacity-50 font-mono">Season EXP: {seasonPoints}</p>
-                  </div>
+                      <div className="flex flex-col justify-center">
+                          <div className={`inline-flex items-center gap-3 px-4 py-2 mb-2 rounded-full border ${currentRank.bg}`}>
+                            <Trophy className={`w-6 h-6 ${currentRank.color}`} />
+                            <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
+                              {currentRank.name}
+                            </span>
+                        </div>
+                        {currentUser?.specialTitle && (
+                          <div className="mb-2 px-3 py-1.5 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-white/10 rounded-lg inline-flex items-center gap-2 w-fit">
+                            <Award className="w-3 h-3 text-yellow-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/90">{currentUser.specialTitle}</span>
+                          </div>
+                        )}
+                        <p className="text-xs opacity-50 font-mono">Season EXP: {seasonPoints}</p>
+                      </div>
                 </div>
 
                 <div className="space-y-2">
