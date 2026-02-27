@@ -22,6 +22,7 @@ import BackgroundMusic from './components/BackgroundMusic';
 import BadgeModal from './components/BadgeModal'; 
 import BadgeQuestBoard from './components/BadgeQuestBoard'; 
 import AshraReportModal from './components/AshraReportModal'; 
+import PhaseAnnouncementModal from './components/PhaseAnnouncementModal'; // Import Phase Announcement Modal 
 
 const App: React.FC = () => {
   const [isResetting] = useState(false);
@@ -55,6 +56,7 @@ const App: React.FC = () => {
   const [showQuestBoard, setShowQuestBoard] = useState(false);
   const [showAshraReport, setShowAshraReport] = useState(false);
   const [hasNewAshraReport, setHasNewAshraReport] = useState(false);
+  const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false); // State for Phase Announcement
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<Badge | null>(null);
   const prevRankRef = useRef<string>(""); 
 
@@ -279,6 +281,19 @@ const App: React.FC = () => {
 
   }, [data, currentUser, isSessionLoading, isResetting]);
 
+  // --- PHASE ANNOUNCEMENT CHECK (DAY 10) ---
+  useEffect(() => {
+     if (isSessionLoading || !currentUser) return;
+     
+     // Trigger on Day 10 (Index 9) ONLY
+     if (currentDayIndex === 9) {
+        const hasSeen = localStorage.getItem(`phase_2_announcement_${currentUser.username}`);
+        if (!hasSeen) {
+           setShowPhaseAnnouncement(true);
+        }
+     }
+  }, [currentDayIndex, currentUser, isSessionLoading]);
+
   // --- ASHRA REPORT CHECK ---
   useEffect(() => {
      if (isSessionLoading || !currentUser) return;
@@ -437,6 +452,16 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* PHASE 2 ANNOUNCEMENT MODAL */}
+      {showPhaseAnnouncement && (
+         <PhaseAnnouncementModal 
+            onClose={() => {
+               setShowPhaseAnnouncement(false);
+               if (currentUser) localStorage.setItem(`phase_2_announcement_${currentUser.username}`, 'true');
+            }} 
+         />
+      )}
+
       <GameHUD 
         currentUser={currentUser!}
         totalPoints={totalPoints}
@@ -485,6 +510,7 @@ const App: React.FC = () => {
                 archives={archives} 
                 attendance={attendance}
                 onUserClick={handleViewUserProfile} 
+                currentDayIndex={currentDayIndex}
                 {...commonProps} 
               />
             )}

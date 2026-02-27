@@ -30,6 +30,7 @@ interface LeaderboardPageProps {
   archives?: ArchivedData[]; 
   attendance?: AttendanceRecord;
   onUserClick?: (user: any) => void; // New prop for click handling
+  currentDayIndex?: number; // Add currentDayIndex prop
 }
 
 interface LeaderboardData {
@@ -51,7 +52,7 @@ interface LeaderboardData {
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
-  currentUser, setView, handleLogout, themeStyles, currentTheme, handleUpdateProfile, globalAssets, refreshAssets, onUserClick
+  currentUser, setView, handleLogout, themeStyles, currentTheme, handleUpdateProfile, globalAssets, refreshAssets, onUserClick, currentDayIndex = 0
 }) => {
   const [activeTab, setActiveTab] = useState<'leaderboard'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
@@ -243,8 +244,10 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
 
       <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8 pb-24 animate-reveal">
         
-        {/* COMMUNITY RAID WIDGET */}
-        <CommunityRaid totalXP={totalCommunityXP} themeStyles={themeStyles} />
+        {/* COMMUNITY RAID WIDGET - Only Show on Day 11+ (Index >= 10) */}
+        {currentDayIndex >= 10 && (
+           <CommunityRaid totalXP={totalCommunityXP} themeStyles={themeStyles} />
+        )}
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -338,7 +341,8 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                                     )}
                                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>
                                       {m.rankName}
-                                      {m.rankStars && m.rankStars > 0 && (
+                                      {/* Show Stars only on Day 11+ */}
+                                      {currentDayIndex >= 10 && m.rankStars && m.rankStars > 0 && (
                                          <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{m.rankStars}</span>
                                       )}
                                     </span>

@@ -18,10 +18,11 @@ interface HeaderProps {
   handleUpdateProfile?: (user: User) => void;
   globalAssets?: GlobalAssets;
   refreshAssets?: (assets: GlobalAssets) => void;
+  currentDayIndex?: number; // Add currentDayIndex prop
 }
 
 const Header: React.FC<HeaderProps> = ({ 
-  currentUser, setView, handleLogout, activeView, themeStyles, performSync, handleUpdateProfile, totalPoints
+  currentUser, setView, handleLogout, activeView, themeStyles, performSync, handleUpdateProfile, totalPoints, currentDayIndex = 0
 }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingAvatar, setIsChangingAvatar] = useState(false);
@@ -94,7 +95,8 @@ const Header: React.FC<HeaderProps> = ({
                 <Trophy className={`w-3.5 h-3.5 ${currentRank.color}`} />
                 <span className={`text-[9px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
-                  {currentRank.stars && currentRank.stars > 0 && (
+                  {/* Show Stars only on Day 11+ */}
+                  {currentDayIndex >= 10 && currentRank.stars && currentRank.stars > 0 && (
                      <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{currentRank.stars}</span>
                   )}
                 </span>
@@ -180,7 +182,8 @@ const Header: React.FC<HeaderProps> = ({
                             <Trophy className={`w-6 h-6 ${currentRank.color}`} />
                             <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
                               {currentRank.name}
-                              {currentRank.stars && currentRank.stars > 0 && (
+                              {/* Show Stars only on Day 11+ */}
+                              {currentDayIndex >= 10 && currentRank.stars && currentRank.stars > 0 && (
                                  <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{currentRank.stars}</span>
                               )}
                             </span>
