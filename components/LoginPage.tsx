@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ArrowRight, ShieldAlert, Eye, EyeOff, Moon, Loader2, Sparkles } from 'lucide-react';
 import BackgroundOrnament from './BackgroundOrnament';
@@ -53,10 +52,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 relative transition-colors duration-1000 ${themeStyles.bg} overflow-hidden`}>
+      
       <BackgroundOrnament colorClass={themeStyles.bgPatternColor} />
       <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[150px] opacity-20 animate-pulse-glow pointer-events-none bg-purple-500`} />
 
-      {/* Main Card - Responsive Width */}
+      {/* MAIN CARD LAYOUT (Responsive) */}
       <div className={`w-full max-w-md md:max-w-4xl ${themeStyles.card} rounded-3xl overflow-hidden ${themeStyles.glow} relative z-10 animate-reveal border-t border-white/10 backdrop-blur-2xl flex flex-col md:flex-row shadow-2xl`}>
         
         {/* LEFT SIDE: Visuals (Hidden on mobile, Visible on Desktop) */}
@@ -86,19 +86,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
         </div>
 
         {/* RIGHT SIDE: Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-black/20">
+        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-black/40">
+            
             {/* Mobile Logo Only - ENLARGED */}
             <div className="md:hidden text-center mb-8">
-              <div className="w-48 h-48 mx-auto mb-6 relative animate-float">
+              <div className="w-32 h-32 mx-auto mb-6 relative animate-float">
                 <img 
                   src={GAME_LOGO_URL} 
-                  className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]" 
+                  className="w-full h-full object-contain drop-shadow-[0_0_25px_rgba(251,191,36,0.4)]" 
                   onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} 
                 />
               </div>
-              <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2`}>LOGIN</h2>
+              <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2 drop-shadow-lg`}>LOGIN</h2>
             </div>
-            
+
             <div className="hidden md:block mb-8">
                <h2 className={`text-3xl ${themeStyles.fontDisplay} font-black ${themeStyles.textPrimary} tracking-widest uppercase mb-2`}>Are You Ready?</h2>
                <div className="flex items-center gap-3">
@@ -134,7 +135,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ setView, setCurrentUser, setData,
         </div>
       </div>
       
-      <div className="absolute bottom-4 text-[10px] text-white/20 font-mono">v9.0.0 • Firebase Edition</div>
+      <div className="absolute bottom-4 text-[10px] text-white/20 font-mono z-10">v9.0.0 • Firebase Edition</div>
     </div>
   );
 };
