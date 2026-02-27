@@ -90,10 +90,13 @@ const Header: React.FC<HeaderProps> = ({
                  />
               </div>
               
-              <div className={`absolute -bottom-2 -right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-lg ${currentRank.bg}`}>
+                <div className={`absolute -bottom-2 -right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-lg ${currentRank.bg}`}>
                 <Trophy className={`w-3.5 h-3.5 ${currentRank.color}`} />
                 <span className={`text-[9px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
+                  {currentRank.stars && currentRank.stars > 0 && (
+                     <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{currentRank.stars}</span>
+                  )}
                 </span>
               </div>
             </button>
@@ -177,6 +180,9 @@ const Header: React.FC<HeaderProps> = ({
                             <Trophy className={`w-6 h-6 ${currentRank.color}`} />
                             <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
                               {currentRank.name}
+                              {currentRank.stars && currentRank.stars > 0 && (
+                                 <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{currentRank.stars}</span>
+                              )}
                             </span>
                         </div>
                         {currentUser?.specialTitle && (

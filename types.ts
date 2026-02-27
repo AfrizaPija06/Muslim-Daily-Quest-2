@@ -89,7 +89,16 @@ export const POINTS = {
 
 // RANK SYSTEM (Updated to MLBB Style)
 // TUGAS ANDA: Ganti 'assetKey' dengan Link Cloudinary untuk setiap Rank.
-export const RANK_TIERS = [
+export interface RankTier {
+  name: string;
+  min: number;
+  color: string;
+  bg: string;
+  assetKey: string;
+  stars?: number; // Optional stars for Mythical Immortal
+}
+
+export const RANK_TIERS: RankTier[] = [
   { 
     name: 'Mythical Immortal', 
     min: 9000, 
@@ -164,5 +173,13 @@ export const RANK_TIERS = [
 ];
 
 export const getRankInfo = (points: number) => {
-  return RANK_TIERS.find(r => points >= r.min) || RANK_TIERS[RANK_TIERS.length - 1];
+  const rank = RANK_TIERS.find(r => points >= r.min) || RANK_TIERS[RANK_TIERS.length - 1];
+  
+  if (rank.name === 'Mythical Immortal') {
+    const excess = Math.max(0, points - rank.min);
+    const stars = Math.floor(excess / 1000); // 1 Star per 1000 XP excess
+    return { ...rank, stars };
+  }
+  
+  return { ...rank, stars: 0 };
 };

@@ -41,6 +41,7 @@ interface LeaderboardData {
   rankName: string;
   rankColor: string;
   rankAssetKey?: string; // Add asset key field
+  rankStars?: number; // Add stars field
   activeDays: number;
   lastUpdated: string;
   status: string;
@@ -91,6 +92,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             rankName: rankInfo.name,
             rankColor: rankInfo.color,
             rankAssetKey: rankInfo.assetKey, // Store asset key for icon
+            rankStars: rankInfo.stars, // Store stars
             activeDays,
             lastUpdated: trackerData?.lastUpdated || 'No Data',
             status: u.status,
@@ -328,7 +330,12 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                                           <img src={getRankIconUrl(m.rankAssetKey)} className="w-full h-full object-contain" alt="Rank" />
                                        </div>
                                     )}
-                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>{m.rankName}</span>
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${m.rankColor.replace('text-', 'border-').replace('400', '500')} ${m.rankColor} bg-white/5`}>
+                                      {m.rankName}
+                                      {m.rankStars && m.rankStars > 0 && (
+                                         <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{m.rankStars}</span>
+                                      )}
+                                    </span>
                                   </div>
 
                                 </div>
