@@ -6,6 +6,7 @@ import { PRAYER_KEYS, PrayerState, WeeklyData, POINTS, User, HIJRI_YEAR } from '
 import { RAMADHAN_START_DATE } from '../constants';
 import DailyTargetPanel from './DailyTargetPanel';
 import CommunityRaid from './CommunityRaid';
+import RaidNotification from './RaidNotification';
 import { api } from '../services/ApiService';
 import { calculateTotalUserPoints } from '../utils';
 
@@ -24,6 +25,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   const activeDayRef = useRef<HTMLDivElement>(null);
   const [totalCommunityXP, setTotalCommunityXP] = useState(0);
   const [showDailyTarget, setShowDailyTarget] = useState(false);
+  const [showRaidNotif, setShowRaidNotif] = useState(false);
 
   const getTodayIndex = () => {
     const today = new Date();
@@ -59,6 +61,11 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
         }
       };
       fetchCommunityXP();
+      
+      // Show Notification
+      setShowRaidNotif(true);
+      const timer = setTimeout(() => setShowRaidNotif(false), 8000);
+      return () => clearTimeout(timer);
     }
   }, [currentDayIndex]);
 
@@ -74,6 +81,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
   return (
     <div className="w-full pb-32">
+      {/* RAID NOTIFICATION */}
+      <RaidNotification isVisible={showRaidNotif} onClose={() => setShowRaidNotif(false)} />
+
       {/* HEADER SECTION */}
       <div className="mb-8 mt-2 relative overflow-hidden rounded-3xl p-8 border border-white/10 shadow-2xl">
          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/50 to-amber-600/20 z-0"></div>

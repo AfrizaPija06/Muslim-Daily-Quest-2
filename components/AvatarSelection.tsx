@@ -33,8 +33,39 @@ const AvatarSelection: React.FC<AvatarSelectionProps> = ({ selectedId, onSelect,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeIndex, count, onSelect]);
 
+  // 3. Touch Gesture Logic (Swipe)
+  const [touchStart, setTouchStart] = React.useState(0);
+  const [touchEnd, setTouchEnd] = React.useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      const nextIndex = (activeIndex + 1) % count;
+      onSelect(AVAILABLE_CHARACTERS[nextIndex]);
+    }
+    if (isRightSwipe) {
+      const prevIndex = (activeIndex - 1 + count) % count;
+      onSelect(AVAILABLE_CHARACTERS[prevIndex]);
+    }
+    
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
   /**
-   * 3. LOGIC UTAMA: Circular Offset Calculation
+   * 4. LOGIC UTAMA: Circular Offset Calculation
    * Menghitung jarak visual relatif terhadap activeIndex dengan konsep lingkaran.
    * Contoh: Jika total 7 item. Kita di index 6. Index 0 dianggap jaraknya +1 (sebelah kanan), bukan -6.
    */
@@ -46,7 +77,12 @@ const AvatarSelection: React.FC<AvatarSelectionProps> = ({ selectedId, onSelect,
   };
 
   return (
-    <div className="relative w-full h-[500px] flex items-center justify-center overflow-hidden py-4 select-none perspective-1000">
+    <div 
+      className="relative w-full h-[500px] flex items-center justify-center overflow-hidden py-4 select-none perspective-1000 touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
       {/* --- BACKGROUND GLOW --- */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#fbbf24]/5 blur-[120px] rounded-full pointer-events-none z-0"></div>
