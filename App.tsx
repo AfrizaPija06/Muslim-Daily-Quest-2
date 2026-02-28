@@ -577,7 +577,7 @@ const App: React.FC = () => {
 
                       <h3 className={`text-2xl font-black uppercase tracking-widest ${profileRank.color} mb-1 drop-shadow-sm`}>
                           {profileRank.name}
-                          {profileRank.stars && profileRank.stars > 0 && (
+                          {profileRank.stars !== undefined && profileRank.stars > 0 && (
                              <span className="ml-2 text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">★{profileRank.stars}</span>
                           )}
                       </h3>

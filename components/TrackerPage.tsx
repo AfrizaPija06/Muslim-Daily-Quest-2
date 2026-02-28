@@ -1,10 +1,13 @@
 
-import React, { useEffect, useRef } from 'react';
-import { BookOpen, Moon, UtensilsCrossed, Calendar } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { BookOpen, Moon, UtensilsCrossed, Calendar, Target, X } from 'lucide-react';
 import PrayerCell from './PrayerCell';
 import { PRAYER_KEYS, PrayerState, WeeklyData, POINTS, User, HIJRI_YEAR } from '../types';
 import { RAMADHAN_START_DATE } from '../constants';
 import DailyTargetPanel from './DailyTargetPanel';
+import CommunityRaid from './CommunityRaid';
+import { api } from '../services/ApiService';
+import { calculateTotalUserPoints } from '../utils';
 
 interface TrackerPageProps {
   currentUser: User;
@@ -19,6 +22,8 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   data, setData, themeStyles, currentTheme 
 }) => {
   const activeDayRef = useRef<HTMLDivElement>(null);
+  const [totalCommunityXP, setTotalCommunityXP] = useState(0);
+  const [showDailyTarget, setShowDailyTarget] = useState(false);
 
   const getTodayIndex = () => {
     const today = new Date();
@@ -37,6 +42,25 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       activeDayRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, []);
+
+  // Fetch Community XP for Raid Boss (Day 11+)
+  useEffect(() => {
+    if (currentDayIndex >= 10) {
+      const fetchCommunityXP = async () => {
+        try {
+          const users = await api.getAllUsersWithPoints();
+          const total = users.reduce((acc, user) => {
+             const points = calculateTotalUserPoints(user, user.trackerData);
+             return acc + points;
+          }, 0);
+          setTotalCommunityXP(total);
+        } catch (e) {
+          console.error("Failed to fetch community XP", e);
+        }
+      };
+      fetchCommunityXP();
+    }
+  }, [currentDayIndex]);
 
   const calculateDayPoints = (day: any) => {
     const prayerPoints = Object.values(day.prayers as Record<string, number>).reduce((acc: number, val: number) => {
@@ -64,10 +88,40 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
          </div>
       </div>
 
-      {/* MOBILE DAILY TARGET (Visible only on Mobile/Tablet, hidden on XL because sidebar exists) */}
-      <div className="mb-6 xl:hidden">
-         <DailyTargetPanel dayData={data.days[currentDayIndex]} themeStyles={themeStyles} dayIndex={currentDayIndex} />
+      {/* COMMUNITY RAID WIDGET - Only Show on Day 11+ */}
+      {currentDayIndex >= 10 && (
+         <div className="mb-8 animate-reveal">
+            <CommunityRaid totalXP={totalCommunityXP} themeStyles={themeStyles} />
+         </div>
+      )}
+
+      {/* MOBILE DAILY TARGET BUTTON (Replaces Inline Panel) */}
+      <div className="fixed bottom-24 left-4 z-40 xl:hidden">
+         <button 
+           onClick={() => setShowDailyTarget(true)}
+           className={`w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(250,204,21,0.3)] border border-yellow-500/30 bg-black/80 backdrop-blur-md text-white transition-transform active:scale-95`}
+         >
+            <Target className="w-7 h-7 text-yellow-400" />
+            <span className="absolute -bottom-6 text-[9px] font-black uppercase tracking-widest text-white/80 bg-black/50 px-2 py-0.5 rounded-full">Misi</span>
+         </button>
       </div>
+
+      {/* DAILY TARGET MODAL */}
+      {showDailyTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowDailyTarget(false)}>
+           <div className="relative w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-end mb-2">
+                <button 
+                  onClick={() => setShowDailyTarget(false)}
+                  className="p-2 text-white/70 hover:text-white bg-white/10 rounded-full"
+                >
+                   <X className="w-6 h-6" />
+                </button>
+              </div>
+              <DailyTargetPanel dayData={data.days[currentDayIndex]} themeStyles={themeStyles} dayIndex={currentDayIndex} />
+           </div>
+        </div>
+      )}
 
       {/* DAYS GRID SYSTEM */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">

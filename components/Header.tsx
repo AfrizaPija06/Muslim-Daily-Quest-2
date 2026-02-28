@@ -96,7 +96,7 @@ const Header: React.FC<HeaderProps> = ({
                 <span className={`text-[9px] font-black uppercase tracking-wider ${themeStyles.textPrimary}`}>
                   {currentRank.name}
                   {/* Show Stars only on Day 11+ */}
-                  {currentDayIndex >= 10 && currentRank.stars && currentRank.stars > 0 && (
+                  {currentDayIndex >= 10 && currentRank.stars !== undefined && currentRank.stars > 0 && (
                      <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{currentRank.stars}</span>
                   )}
                 </span>
@@ -183,7 +183,7 @@ const Header: React.FC<HeaderProps> = ({
                             <span className={`text-sm font-black uppercase tracking-widest ${themeStyles.textPrimary}`}>
                               {currentRank.name}
                               {/* Show Stars only on Day 11+ */}
-                              {currentDayIndex >= 10 && currentRank.stars && currentRank.stars > 0 && (
+                              {currentDayIndex >= 10 && currentRank.stars !== undefined && currentRank.stars > 0 && (
                                  <span className="ml-1 text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.8)]">★{currentRank.stars}</span>
                               )}
                             </span>
