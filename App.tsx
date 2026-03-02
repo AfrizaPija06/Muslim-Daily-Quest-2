@@ -495,6 +495,7 @@ const App: React.FC = () => {
                 data={data}
                 setData={setData}
                 totalPoints={totalPoints}
+                onUpdateUser={handleUpdateProfile}
                 {...commonProps}
               />
             )}

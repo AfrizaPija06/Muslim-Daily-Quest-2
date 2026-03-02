@@ -17,15 +17,38 @@ interface TrackerPageProps {
   themeStyles: any;
   currentTheme: string;
   totalPoints: number;
+  onUpdateUser: (user: User) => void;
 }
 
 const TrackerPage: React.FC<TrackerPageProps> = ({ 
-  data, setData, themeStyles, currentTheme 
+  data, setData, themeStyles, currentTheme, currentUser, onUpdateUser 
 }) => {
   const activeDayRef = useRef<HTMLDivElement>(null);
   const [totalCommunityXP, setTotalCommunityXP] = useState(0);
   const [showDailyTarget, setShowDailyTarget] = useState(false);
   const [showRaidNotif, setShowRaidNotif] = useState(false);
+  const [hasClaimedRaidReward, setHasClaimedRaidReward] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      const claimed = localStorage.getItem(`raid_reward_claimed_1447_${currentUser.username}`);
+      setHasClaimedRaidReward(!!claimed);
+    }
+  }, [currentUser]);
+
+  const handleClaimRaidReward = () => {
+    if (!currentUser) return;
+    
+    const updatedUser = {
+      ...currentUser,
+      bonusPoints: (currentUser.bonusPoints || 0) + 1000
+    };
+    
+    onUpdateUser(updatedUser);
+    localStorage.setItem(`raid_reward_claimed_1447_${currentUser.username}`, 'true');
+    setHasClaimedRaidReward(true);
+    alert("ALHAMDULILLAH! You have claimed your victory reward: 1000 XP!");
+  };
 
   const getTodayIndex = () => {
     const today = new Date();
@@ -101,7 +124,12 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       {/* COMMUNITY RAID WIDGET - Only Show on Day 11+ */}
       {currentDayIndex >= 10 && (
          <div className="mb-8 animate-reveal">
-            <CommunityRaid totalXP={totalCommunityXP} themeStyles={themeStyles} />
+            <CommunityRaid 
+              totalXP={totalCommunityXP} 
+              themeStyles={themeStyles} 
+              onClaimReward={handleClaimRaidReward}
+              hasClaimedReward={hasClaimedRaidReward}
+            />
          </div>
       )}
 
