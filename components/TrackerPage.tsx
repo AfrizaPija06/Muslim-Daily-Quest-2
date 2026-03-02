@@ -129,6 +129,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
               themeStyles={themeStyles} 
               onClaimReward={handleClaimRaidReward}
               hasClaimedReward={hasClaimedRaidReward}
+              currentDayIndex={currentDayIndex}
             />
          </div>
       )}

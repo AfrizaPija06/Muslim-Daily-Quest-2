@@ -1,14 +1,15 @@
 import React from 'react';
-import { Target, Zap, Gift, CheckCircle } from 'lucide-react';
+import { Target, Zap, Gift, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
 interface CommunityRaidProps {
   totalXP: number;
   themeStyles: any;
   onClaimReward?: () => void;
   hasClaimedReward?: boolean;
+  currentDayIndex: number;
 }
 
-const CommunityRaid: React.FC<CommunityRaidProps> = ({ totalXP, themeStyles, onClaimReward, hasClaimedReward }) => {
+const CommunityRaid: React.FC<CommunityRaidProps> = ({ totalXP, themeStyles, onClaimReward, hasClaimedReward, currentDayIndex }) => {
   // Config Target (Bisa dibuat dinamis nanti)
   const RAID_TARGET = 300000; // Adjusted from 500k based on community performance
   const progress = Math.min(100, (totalXP / RAID_TARGET) * 100);
@@ -19,22 +20,22 @@ const CommunityRaid: React.FC<CommunityRaidProps> = ({ totalXP, themeStyles, onC
   const bossHP = Math.max(0, RAID_TARGET - totalXP);
   const isDefeated = totalXP >= RAID_TARGET;
 
+  // Deadline Calculation (Phase 2 ends on Day 20)
+  const PHASE_2_END_DAY = 20;
+  const currentDay = currentDayIndex + 1;
+  const daysRemaining = Math.max(0, PHASE_2_END_DAY - currentDay);
+  const isUrgent = daysRemaining <= 3;
+
   // Dynamic Boss Image Logic
   let bossAvatarUrl = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1772177051/Raid_Boss_fmf0o7.png"; // Default (100-50%)
   let bossPhase = "PHASE 1";
   let imageStyle = "";
 
   if (hpPercent < 30 && !isDefeated) {
-     // Phase 3: Critical (<30%)
-     // Placeholder: Use same image but with red tint/shake effect
-     // TODO: Replace with actual "Critical/Enraged" Boss Image
      bossAvatarUrl = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1772436406/Boss_Raid_30_z0oucl.png"; 
      bossPhase = "FINAL PHASE";
      imageStyle = "animate-pulse sepia hue-rotate-[-50deg] saturate-200"; 
   } else if (hpPercent < 50 && !isDefeated) {
-     // Phase 2: Damaged (<50%)
-     // Placeholder: Use same image but with grayscale/damaged effect
-     // TODO: Replace with actual "Damaged" Boss Image
      bossAvatarUrl = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1772436406/Boss_Raid_50_mtxc5c.png";
      bossPhase = "PHASE 2";
      imageStyle = "grayscale contrast-125";
@@ -103,9 +104,19 @@ const CommunityRaid: React.FC<CommunityRaidProps> = ({ totalXP, themeStyles, onC
                 <h3 className={`text-2xl md:text-3xl font-black uppercase tracking-widest ${isDefeated ? 'text-emerald-400' : 'text-red-500'} drop-shadow-md leading-none mb-1`}>
                    {isDefeated ? "COMMUNITY VICTORY!" : `RAID: ${bossName}`}
                 </h3>
-                <p className="text-xs md:text-sm text-white/60 font-mono uppercase tracking-widest">
-                   {isDefeated ? "The Great Nafsu has been defeated!" : `HP: ${bossHP.toLocaleString()} XP REMAINING`}
-                </p>
+                <div className="flex flex-col gap-1">
+                    <p className="text-xs md:text-sm text-white/60 font-mono uppercase tracking-widest">
+                    {isDefeated ? "The Great Nafsu has been defeated!" : `HP: ${bossHP.toLocaleString()} XP REMAINING`}
+                    </p>
+                    
+                    {/* DEADLINE INDICATOR */}
+                    {!isDefeated && (
+                        <div className={`flex items-center gap-2 text-[10px] md:text-xs font-bold uppercase tracking-widest ${isUrgent ? 'text-red-400 animate-pulse' : 'text-orange-400'}`}>
+                            {isUrgent ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            <span>Ends in: {daysRemaining} Days (Phase 2)</span>
+                        </div>
+                    )}
+                </div>
               </div>
               <div className="text-right self-end">
                  <div className={`text-4xl md:text-5xl font-black ${themeStyles.fontDisplay} ${isDefeated ? 'text-emerald-400' : 'text-white'} drop-shadow-lg`}>
