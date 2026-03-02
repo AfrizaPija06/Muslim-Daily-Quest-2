@@ -12,8 +12,7 @@ export const MENTOR_AVATAR_URL = "https://res.cloudinary.com/dauvrgbcp/image/upl
 export const GAME_BGM_URL = "https://res.cloudinary.com/dauvrgbcp/video/upload/v1771148350/Main_Theme___Pirates_of_the_Caribbean_edq2ql.mp4"; 
 
 // SETTING TANGGAL 1 RAMADHAN 1447 H (ESTIMASI: 19 FEBRUARI 2026)
-// FOR TESTING PHASE 3 (ITQUN MINAN NAR): Set to 2026-02-08
-export const RAMADHAN_START_DATE = new Date('2026-02-08T00:00:00'); 
+export const RAMADHAN_START_DATE = new Date('2026-02-19T00:00:00'); 
 
 export const TARGET_TILAWAH_DAILY = 75; // Target Tilawah harian
 
