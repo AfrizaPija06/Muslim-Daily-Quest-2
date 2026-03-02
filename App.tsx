@@ -79,8 +79,11 @@ const App: React.FC = () => {
   useEffect(() => {
      // Phase 1: Ramadhan (Day 1-10) -> 'ramadhan'
      // Phase 2: Maghfirah (Day 11-20) -> 'maghfirah'
+     // Phase 3: Itqun Minan Nar (Day 21-30) -> 'itqun_minan_nar'
      
-     if (currentDayIndex >= 10) {
+     if (currentDayIndex >= 20) {
+        setCurrentTheme('itqun_minan_nar');
+     } else if (currentDayIndex >= 10) {
         setCurrentTheme('maghfirah');
      } else {
         setCurrentTheme('ramadhan');
@@ -380,6 +383,11 @@ const App: React.FC = () => {
   return (
     <div className={`relative h-full w-full overflow-hidden flex flex-col ${themeStyles.bg}`}>
       
+      {/* Overlay for readability if bg image is used (Itqun Minan Nar) */}
+      {currentTheme === 'itqun_minan_nar' && (
+         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80 z-0 pointer-events-none backdrop-blur-[1px]"></div>
+      )}
+
       {BackgroundMusicComponent}
       
       {/* MOBILE LEADERBOARD FAB */}

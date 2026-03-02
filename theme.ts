@@ -53,5 +53,33 @@ export const THEMES = {
       home: 'text-[#fdba74]',
       mosque: 'text-[#fbbf24] drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]',
     }
+  },
+  itqun_minan_nar: {
+    id: 'itqun_minan_nar',
+    name: 'Itqun Minan Nar',
+    // Deep midnight blue with emerald and gold hints (Night of Power)
+    // Placeholder Background: Starry Night Mosque
+    bg: "bg-[#020617] bg-[url('https://res.cloudinary.com/dauvrgbcp/image/upload/v1772438651/Background_10_Hari_terakhir_polos_mz4yml.png')] bg-cover bg-center bg-fixed bg-no-repeat",
+    bgPatternColor: 'text-[#fbbf24]/20', // Stronger gold stars
+    fontMain: 'font-sans',
+    fontDisplay: 'font-legends',
+    textPrimary: 'text-[#f8fafc]', // Cool white
+    textSecondary: 'text-[#94a3b8]', // Slate
+    textAccent: 'text-[#fbbf24]', // Gold
+    textGold: 'text-[#fcd34d]', // Lighter Gold
+    card: 'glass-card border-[#fbbf24]/40 bg-[#0f172a]/60 backdrop-blur-xl shadow-[0_0_30px_rgba(251,191,36,0.1)]',
+    border: 'border-[#fbbf24]/30',
+    buttonPrimary: 'bg-gradient-to-r from-[#fbbf24] to-[#d97706] border border-[#fcd34d]/50 hover:bg-[#b45309] shadow-[0_0_25px_rgba(251,191,36,0.5)] text-[#0f172a] font-bold',
+    inputBg: 'bg-[#1e293b]/50',
+    inputBorder: 'border-[#fbbf24]/40 focus:border-[#fcd34d]',
+    progressBar: 'from-[#fbbf24] via-[#f59e0b] to-[#10b981]', // Gold to Emerald (Paradise)
+    activeTab: 'bg-gradient-to-r from-[#fbbf24] to-[#f59e0b] text-[#0f172a] border border-[#fcd34d]',
+    inactiveTab: 'text-[#94a3b8] hover:text-[#fbbf24]',
+    glow: 'shadow-[0_0_40px_rgba(251,191,36,0.4)]',
+    icons: {
+      trophy: 'text-[#fbbf24] drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]',
+      home: 'text-[#94a3b8]',
+      mosque: 'text-[#fbbf24] drop-shadow-[0_0_20px_rgba(251,191,36,1)]',
+    }
   }
 };

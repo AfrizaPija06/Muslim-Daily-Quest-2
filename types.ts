@@ -1,7 +1,7 @@
 
 export type PrayerState = 0 | 1 | 2; // 0: None, 1: Home, 2: Mosque
 export type Role = 'mentee' | 'mentor';
-export type AppTheme = 'ramadhan' | 'maghfirah'; // Locked to Ramadhan phases
+export type AppTheme = 'ramadhan' | 'maghfirah' | 'itqun_minan_nar'; // Locked to Ramadhan phases
 export type UserStatus = 'active' | 'pending' | 'rejected' | 'banned';
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'emerald' | 'mythic';
 
