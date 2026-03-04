@@ -5,7 +5,9 @@ import PrayerCell from './PrayerCell';
 import { PRAYER_KEYS, PrayerState, WeeklyData, POINTS, User, HIJRI_YEAR } from '../types';
 import { RAMADHAN_START_DATE } from '../constants';
 import DailyTargetPanel from './DailyTargetPanel';
+import BonusDeedsPanel from './BonusDeedsPanel';
 import CommunityRaid from './CommunityRaid';
+import MidnightFlashQuest from './MidnightFlashQuest';
 import RaidNotification from './RaidNotification';
 import { api } from '../services/ApiService';
 import { calculateTotalUserPoints } from '../utils';
@@ -121,6 +123,17 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
          </div>
       </div>
 
+      {/* MIDNIGHT FLASH QUEST - Only Show on Day 21+ (Phase 3) */}
+      {currentDayIndex >= 20 && (
+         <div className="mb-8 animate-reveal">
+            <MidnightFlashQuest 
+              currentUser={currentUser}
+              onUpdateUser={onUpdateUser}
+              themeStyles={themeStyles}
+            />
+         </div>
+      )}
+
       {/* COMMUNITY RAID WIDGET - Only Show on Day 11+ */}
       {currentDayIndex >= 10 && (
          <div className="mb-8 animate-reveal">
@@ -133,6 +146,15 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             />
          </div>
       )}
+
+      {/* BONUS DEEDS PANEL (THE HIDDEN ARMORY) */}
+      <div className="mb-8 animate-reveal">
+         <BonusDeedsPanel 
+            currentUser={currentUser}
+            onUpdateUser={onUpdateUser}
+            themeStyles={themeStyles}
+         />
+      </div>
 
       {/* MOBILE DAILY TARGET BUTTON (Replaces Inline Panel) */}
       <div className="fixed bottom-24 left-4 z-40 xl:hidden">
