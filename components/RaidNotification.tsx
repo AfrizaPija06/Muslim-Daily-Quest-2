@@ -23,10 +23,10 @@ const RaidNotification: React.FC<RaidNotificationProps> = ({ isVisible, onClose 
         <div className="flex-1 relative z-10">
            <h4 className="text-red-100 font-black uppercase tracking-widest text-xs mb-1 flex items-center gap-2">
              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-             Community Raid Active
+             RAID BOSS AKTIF!
            </h4>
            <p className="text-[11px] text-white/80 leading-relaxed font-medium">
-             <strong className="text-yellow-400">TEAMWORK REQUIRED!</strong> The Great Nafsu is strong. Remind your friends to complete their ibadah. Every point deals damage!
+             <strong className="text-yellow-400">KERJASAMA ADALAH KUNCI!</strong> "The Great Nafsu" sangat kuat. Ingatkan teman satu tim untuk menuntaskan ibadah. Setiap poin sangat berharga!
            </p>
         </div>
         

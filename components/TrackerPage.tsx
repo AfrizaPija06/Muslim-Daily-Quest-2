@@ -9,6 +9,7 @@ import BonusDeedsPanel from './BonusDeedsPanel';
 import CommunityRaid from './CommunityRaid';
 import MidnightFlashQuest from './MidnightFlashQuest';
 import RaidNotification from './RaidNotification';
+import BonusNotification from './BonusNotification';
 import { api } from '../services/ApiService';
 import { calculateTotalUserPoints } from '../utils';
 
@@ -29,6 +30,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   const [totalCommunityXP, setTotalCommunityXP] = useState(0);
   const [showDailyTarget, setShowDailyTarget] = useState(false);
   const [showRaidNotif, setShowRaidNotif] = useState(false);
+  const [showBonusNotif, setShowBonusNotif] = useState(false);
   const [hasClaimedRaidReward, setHasClaimedRaidReward] = useState(false);
 
   useEffect(() => {
@@ -87,10 +89,23 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       };
       fetchCommunityXP();
       
-      // Show Notification
+      // Show Notification Sequence
       setShowRaidNotif(true);
-      const timer = setTimeout(() => setShowRaidNotif(false), 8000);
-      return () => clearTimeout(timer);
+      
+      const timer1 = setTimeout(() => {
+          setShowRaidNotif(false);
+          // Show bonus notif after raid notif closes
+          setTimeout(() => setShowBonusNotif(true), 500);
+      }, 8000);
+
+      const timer2 = setTimeout(() => {
+          setShowBonusNotif(false);
+      }, 16500); // 8000 + 500 + 8000
+
+      return () => {
+          clearTimeout(timer1);
+          clearTimeout(timer2);
+      };
     }
   }, [currentDayIndex]);
 
@@ -108,6 +123,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     <div className="w-full pb-32">
       {/* RAID NOTIFICATION */}
       <RaidNotification isVisible={showRaidNotif} onClose={() => setShowRaidNotif(false)} />
+      <BonusNotification isVisible={showBonusNotif} onClose={() => setShowBonusNotif(false)} />
 
       {/* HEADER SECTION */}
       <div className="mb-8 mt-2 relative overflow-hidden rounded-3xl p-8 border border-white/10 shadow-2xl">
