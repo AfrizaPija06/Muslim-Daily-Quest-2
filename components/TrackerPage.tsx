@@ -10,6 +10,7 @@ import CommunityRaid from './CommunityRaid';
 import MidnightFlashQuest from './MidnightFlashQuest';
 import RaidNotification from './RaidNotification';
 import BonusNotification from './BonusNotification';
+import AnnouncementModal from './AnnouncementModal';
 import { api } from '../services/ApiService';
 import { calculateTotalUserPoints } from '../utils';
 
@@ -121,6 +122,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
   return (
     <div className="w-full pb-32">
+      {/* ANNOUNCEMENT MODAL */}
+      <AnnouncementModal themeStyles={themeStyles} currentUser={currentUser} />
+
       {/* RAID NOTIFICATION */}
       <RaidNotification isVisible={showRaidNotif} onClose={() => setShowRaidNotif(false)} />
       <BonusNotification isVisible={showBonusNotif} onClose={() => setShowBonusNotif(false)} />

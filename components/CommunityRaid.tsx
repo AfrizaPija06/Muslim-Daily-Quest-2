@@ -20,11 +20,23 @@ const CommunityRaid: React.FC<CommunityRaidProps> = ({ totalXP, themeStyles, onC
   const bossHP = Math.max(0, RAID_TARGET - totalXP);
   const isDefeated = totalXP >= RAID_TARGET;
 
-  // Deadline Calculation (Phase 2 ends on Day 20)
+  // Deadline Calculation (Phase 2 ends on Day 20, Ramadhan ends on Day 30)
   const PHASE_2_END_DAY = 20;
+  const RAMADHAN_END_DAY = 30;
   const currentDay = currentDayIndex + 1;
-  const daysRemaining = Math.max(0, PHASE_2_END_DAY - currentDay);
-  const isUrgent = daysRemaining <= 3;
+  
+  const isOvertime = currentDay > PHASE_2_END_DAY;
+  
+  let daysRemaining;
+  let isUrgent;
+  
+  if (isOvertime) {
+     daysRemaining = Math.max(0, RAMADHAN_END_DAY - currentDay);
+     isUrgent = true; // Always urgent in overtime
+  } else {
+     daysRemaining = Math.max(0, PHASE_2_END_DAY - currentDay);
+     isUrgent = daysRemaining <= 3;
+  }
 
   // Dynamic Boss Image Logic
   let bossAvatarUrl = "https://res.cloudinary.com/dauvrgbcp/image/upload/v1772177051/Raid_Boss_fmf0o7.png"; // Default (100-50%)
@@ -113,7 +125,11 @@ const CommunityRaid: React.FC<CommunityRaidProps> = ({ totalXP, themeStyles, onC
                     {!isDefeated && (
                         <div className={`flex items-center gap-2 text-[10px] md:text-xs font-bold uppercase tracking-widest ${isUrgent ? 'text-red-400 animate-pulse' : 'text-orange-400'}`}>
                             {isUrgent ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            <span>Ends in: {daysRemaining} Days (Phase 2)</span>
+                            <span>
+                                {isOvertime 
+                                    ? `OVERTIME: Kalahkan sebelum Idul Fitri! (${daysRemaining} Hari)` 
+                                    : `Sisa Waktu: ${daysRemaining} Hari (Fase 2)`}
+                            </span>
                         </div>
                     )}
                 </div>
