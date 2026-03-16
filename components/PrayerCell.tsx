@@ -58,7 +58,7 @@ const PrayerCell: React.FC<PrayerCellProps> = ({ state, onClick, themeStyles, la
     <div className="flex flex-col items-center gap-1">
       <button 
         onClick={onClick}
-        className={`relative w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 group ${bgClass} ${glowClass}`}
+        className={`relative w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-90 group ${bgClass} ${glowClass}`}
       >
         {state > 0 && (
           <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-10 transition-opacity animate-pulse"></div>
