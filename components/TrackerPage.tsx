@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, Moon, UtensilsCrossed, Calendar, Target, X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { BookOpen, Moon, UtensilsCrossed, Calendar, Target, X, ChevronLeft, ChevronRight, Sparkles, Trophy } from 'lucide-react';
 import PrayerCell from './PrayerCell';
 import { PRAYER_KEYS, PrayerState, WeeklyData, POINTS, User, HIJRI_YEAR } from '../types';
 import { RAMADHAN_START_DATE } from '../constants';
@@ -11,6 +11,7 @@ import MidnightFlashQuest from './MidnightFlashQuest';
 import RaidNotification from './RaidNotification';
 import BonusNotification from './BonusNotification';
 import AnnouncementModal from './AnnouncementModal';
+import RamadhanRecapModal from './RamadhanRecapModal';
 import { api } from '../services/ApiService';
 import { calculateTotalUserPoints } from '../utils';
 
@@ -55,18 +56,29 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     alert("ALHAMDULILLAH! You have claimed your victory reward: 1000 XP!");
   };
 
-  const getTodayIndex = () => {
+  const getActualDayIndex = () => {
     const today = new Date();
     today.setHours(0,0,0,0);
     const start = new Date(RAMADHAN_START_DATE);
     start.setHours(0,0,0,0);
     const diffTime = today.getTime() - start.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays); 
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const currentDayIndex = getTodayIndex();
+  const actualDayIndex = Math.max(0, getActualDayIndex());
+  const currentDayIndex = Math.min(29, actualDayIndex);
   const [selectedDayIndex, setSelectedDayIndex] = useState(currentDayIndex);
+  const [showRecap, setShowRecap] = useState(false);
+
+  useEffect(() => {
+    if (actualDayIndex > 29 && currentUser) {
+      const hasShown = localStorage.getItem(`recap_prompt_shown_1447_${currentUser.username}`);
+      if (!hasShown) {
+        setShowRecap(true);
+        localStorage.setItem(`recap_prompt_shown_1447_${currentUser.username}`, 'true');
+      }
+    }
+  }, [actualDayIndex, currentUser]);
 
   useEffect(() => {
     if (activeDayRef.current) {
@@ -126,12 +138,21 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
       {/* ANNOUNCEMENT MODAL */}
       <AnnouncementModal themeStyles={themeStyles} currentUser={currentUser} />
 
+      {/* RECAP MODAL */}
+      <RamadhanRecapModal 
+        isOpen={showRecap} 
+        onClose={() => setShowRecap(false)} 
+        data={data} 
+        currentUser={currentUser} 
+        themeStyles={themeStyles} 
+      />
+
       {/* RAID NOTIFICATION */}
       <RaidNotification isVisible={showRaidNotif} onClose={() => setShowRaidNotif(false)} />
       <BonusNotification isVisible={showBonusNotif} onClose={() => setShowBonusNotif(false)} />
 
       {/* HEADER SECTION */}
-      <div className="mb-8 mt-2 relative overflow-hidden rounded-3xl p-8 border border-white/10 shadow-2xl">
+      <div className="mb-8 mt-2 relative overflow-hidden rounded-3xl p-8 border border-white/10 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/50 to-amber-600/20 z-0"></div>
          <div className="relative z-10">
             <h2 className={`text-4xl ${themeStyles.fontDisplay} font-bold uppercase tracking-wider ${themeStyles.textPrimary} mb-2 drop-shadow-lg`}>
@@ -142,6 +163,15 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
               {HIJRI_YEAR} • 30 Days of Istiqamah
             </p>
          </div>
+         {actualDayIndex > 29 && (
+           <button 
+             onClick={() => setShowRecap(true)}
+             className="relative z-10 px-6 py-3 rounded-xl bg-yellow-500 text-black font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(250,204,21,0.4)] flex items-center justify-center gap-2 w-full md:w-auto"
+           >
+             <Trophy className="w-5 h-5" />
+             Lihat Pencapaian
+           </button>
+         )}
       </div>
 
       {/* MIDNIGHT FLASH QUEST - Only Show on Day 21+ (Phase 3) */}
