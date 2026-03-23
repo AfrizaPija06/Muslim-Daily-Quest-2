@@ -72,10 +72,26 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
   useEffect(() => {
     if (actualDayIndex > 29 && currentUser) {
-      const hasShown = localStorage.getItem(`recap_prompt_shown_1447_${currentUser.username}`);
-      if (!hasShown) {
-        setShowRecap(true);
-        localStorage.setItem(`recap_prompt_shown_1447_${currentUser.username}`, 'true');
+      // Apply Raid Penalty
+      const penaltyApplied = localStorage.getItem(`raid_penalty_applied_1447_${currentUser.username}`);
+      if (!penaltyApplied) {
+        const updatedUser = {
+          ...currentUser,
+          bonusPoints: (currentUser.bonusPoints || 0) - 10000
+        };
+        onUpdateUser(updatedUser);
+        localStorage.setItem(`raid_penalty_applied_1447_${currentUser.username}`, 'true');
+        setShowRaidNotif(true);
+      }
+
+      // Show Recap Prompt
+      const hasShownRecap = localStorage.getItem(`recap_prompt_shown_1447_${currentUser.username}`);
+      if (!hasShownRecap) {
+        // Delay recap slightly if penalty notification is showing
+        setTimeout(() => {
+          setShowRecap(true);
+          localStorage.setItem(`recap_prompt_shown_1447_${currentUser.username}`, 'true');
+        }, penaltyApplied ? 0 : 3000);
       }
     }
   }, [actualDayIndex, currentUser]);
@@ -88,7 +104,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
 
   // Fetch Community XP for Raid Boss (Day 11+)
   useEffect(() => {
-    if (currentDayIndex >= 10) {
+    if (currentDayIndex >= 10 && actualDayIndex <= 29) {
       const fetchCommunityXP = async () => {
         try {
           const users = await api.getAllUsersWithPoints();
@@ -121,7 +137,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
           clearTimeout(timer2);
       };
     }
-  }, [currentDayIndex]);
+  }, [currentDayIndex, actualDayIndex]);
 
   const calculateDayPoints = (day: any) => {
     const prayerPoints = Object.values(day.prayers as Record<string, number>).reduce((acc: number, val: number) => {
