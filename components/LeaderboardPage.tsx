@@ -53,8 +53,9 @@ interface LeaderboardData {
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ 
   currentUser, setView, handleLogout, themeStyles, currentTheme, handleUpdateProfile, globalAssets, refreshAssets, onUserClick, currentDayIndex = 0
 }) => {
-  const [activeTab, setActiveTab] = useState<'leaderboard'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'feedbacks'>('leaderboard');
   const [menteesData, setMenteesData] = useState<LeaderboardData[]>([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,6 +63,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     setIsLoading(true);
     try {
       const allUsers = await api.getAllUsersWithPoints();
+      const allFeedbacks = await api.getFeedbacks();
       
       const activeUsers = allUsers
         .map(u => {
@@ -103,6 +105,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         });
 
       setMenteesData(activeUsers);
+      setFeedbacks(allFeedbacks);
     } catch (e) {
       console.error(e);
     } finally {
@@ -276,6 +279,7 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
         <div className="flex gap-6 border-b border-white/5 pb-0 overflow-x-auto">
           {[
             { id: 'leaderboard', label: 'Members & Data', icon: <Trophy className="w-4 h-4" /> },
+            { id: 'feedbacks', label: 'Feedbacks & Evaluasi', icon: <Activity className="w-4 h-4" /> },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-4 px-2 text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? `${themeStyles.textAccent} border-current` : 'opacity-40 border-transparent hover:opacity-100'}`}>
               {tab.icon} {tab.label}
@@ -377,6 +381,58 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'feedbacks' && (
+          <div className="animate-reveal space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black uppercase tracking-widest text-white">Feedback & Evaluasi Peserta</h3>
+              <p className="text-xs text-zinc-400 font-mono">{feedbacks.length} Data Ditemukan</p>
+            </div>
+            
+            {isLoading ? (
+              <div className="p-10 flex justify-center"><Loader2 className="animate-spin w-8 h-8 text-white/50" /></div>
+            ) : feedbacks.length === 0 ? (
+              <div className="p-10 text-center text-zinc-500 font-medium border border-white/10 rounded-2xl bg-white/5">
+                Belum ada feedback yang masuk.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {feedbacks.map((fb) => (
+                  <div key={fb.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 hover:bg-white/10 transition-colors">
+                    <div className="flex justify-between items-start border-b border-white/10 pb-3">
+                      <div>
+                        <h4 className="font-bold text-white text-lg">{fb.fullName}</h4>
+                        <p className="text-xs text-zinc-400 font-mono">{fb.username}</p>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest">
+                        {new Date(fb.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <h5 className="text-[10px] uppercase tracking-widest text-yellow-500 font-bold mb-2">Kesan & Pesan:</h5>
+                      <p className="text-sm text-zinc-300 leading-relaxed italic bg-black/20 p-3 rounded-xl border border-white/5">"{fb.message}"</p>
+                    </div>
+
+                    {fb.evaluation && fb.evaluation.length > 0 && (
+                      <div>
+                        <h5 className="text-[10px] uppercase tracking-widest text-cyan-500 font-bold mb-2">Hasil Evaluasi Sistem:</h5>
+                        <ul className="space-y-2">
+                          {fb.evaluation.map((ev: string, idx: number) => (
+                            <li key={idx} className="text-xs text-zinc-400 flex gap-2 items-start">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5 shrink-0"></span>
+                              <span className="leading-relaxed">{ev}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

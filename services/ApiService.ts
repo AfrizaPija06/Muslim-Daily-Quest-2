@@ -330,6 +330,35 @@ class ApiService {
       return false;
     }
   }
+
+  // --- FEEDBACK ---
+  async submitFeedback(username: string, fullName: string, message: string, evaluation: string[]): Promise<boolean> {
+    if (!db) return false;
+    try {
+      await db.collection("feedbacks").add({
+        username,
+        fullName,
+        message,
+        evaluation,
+        createdAt: new Date().toISOString()
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to submit feedback", e);
+      return false;
+    }
+  }
+
+  async getFeedbacks(): Promise<any[]> {
+    if (!db) return [];
+    try {
+      const snapshot = await db.collection("feedbacks").orderBy("createdAt", "desc").get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (e) {
+      console.error("Failed to get feedbacks", e);
+      return [];
+    }
+  }
 }
 
 export const api = new ApiService();

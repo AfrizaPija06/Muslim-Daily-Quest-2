@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Trophy, BookOpen, UtensilsCrossed, Users, Star, X, Quote, Send, Activity, Moon } from 'lucide-react';
 import { WeeklyData, User, PRAYER_KEYS, getRankInfo } from '../types';
 import { calculateTotalUserPoints } from '../utils';
+import { api } from '../services/ApiService';
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +16,7 @@ const RamadhanRecapModal: React.FC<Props> = ({ isOpen, onClose, data, currentUse
   const [step, setStep] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -69,10 +71,12 @@ const RamadhanRecapModal: React.FC<Props> = ({ isOpen, onClose, data, currentUse
     evaluations.push("MasyaAllah! Disiplin, konsistensi, dan semangat ibadahmu sangat luar biasa. Pertahankan kebiasaan emas ini di 11 bulan berikutnya!");
   }
 
-  const handleSendFeedback = () => {
+  const handleSendFeedback = async () => {
     if (!feedback.trim()) return;
-    // In a real app, send to API here
+    setIsSubmitting(true);
+    await api.submitFeedback(currentUser.username, currentUser.fullName || currentUser.username, feedback, evaluations);
     setFeedbackSent(true);
+    setIsSubmitting(false);
   };
 
   return (
@@ -141,6 +145,20 @@ const RamadhanRecapModal: React.FC<Props> = ({ isOpen, onClose, data, currentUse
                 </p>
               </div>
 
+              {/* Raid Boss Failed Section */}
+              {localStorage.getItem(`raid_penalty_applied_1447_${currentUser.username}`) && (
+                <div className="bg-red-950/40 border border-red-500/30 rounded-2xl p-4 text-center space-y-2 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 to-transparent animate-pulse-slow pointer-events-none"></div>
+                  <h4 className="text-red-400 font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                    Raid Boss Gagal Dikalahkan
+                  </h4>
+                  <p className="text-xs text-red-200/80 leading-relaxed">
+                    Komunitas gagal mengalahkan "The Great Nafsu". Sebagai penalti, kamu menerima pengurangan <strong className="text-red-400">-10.000 XP</strong>. Jadikan ini pelajaran untuk Ramadhan berikutnya!
+                  </p>
+                </div>
+              )}
+
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center relative overflow-hidden">
@@ -188,6 +206,14 @@ const RamadhanRecapModal: React.FC<Props> = ({ isOpen, onClose, data, currentUse
                 </div>
               </div>
 
+              {/* Selamat & Doa Section */}
+              <div className="bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border border-yellow-500/30 rounded-2xl p-5 text-center space-y-2">
+                <h4 className="text-yellow-400 font-black text-lg uppercase tracking-widest">Selamat Idul Fitri 1447 H</h4>
+                <p className="text-sm text-yellow-100/90 leading-relaxed">
+                  Taqabbalallahu minna wa minkum. Semoga Allah menerima amal ibadah kita selama bulan suci Ramadhan, mengampuni dosa-dosa kita, dan mempertemukan kita kembali dengan Ramadhan di tahun berikutnya dalam keadaan iman dan sehat wal afiat. Aamiin.
+                </p>
+              </div>
+
               {/* Evaluation Section */}
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -229,10 +255,10 @@ const RamadhanRecapModal: React.FC<Props> = ({ isOpen, onClose, data, currentUse
                     />
                     <button 
                       onClick={handleSendFeedback}
-                      disabled={!feedback.trim()}
+                      disabled={!feedback.trim() || isSubmitting}
                       className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2"
                     >
-                      <Send className="w-4 h-4" /> Kirim Masukan
+                      {isSubmitting ? <span className="animate-pulse">Mengirim...</span> : <><Send className="w-4 h-4" /> Kirim Masukan</>}
                     </button>
                   </div>
                 )}
