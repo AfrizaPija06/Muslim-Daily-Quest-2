@@ -5,15 +5,16 @@ import PrayerCell from './PrayerCell';
 import { PRAYER_KEYS, PrayerState, WeeklyData, POINTS, User, HIJRI_YEAR } from '../types';
 import { RAMADHAN_START_DATE } from '../constants';
 import DailyTargetPanel from './DailyTargetPanel';
-import BonusDeedsPanel from './BonusDeedsPanel';
-import CommunityRaid from './CommunityRaid';
-import MidnightFlashQuest from './MidnightFlashQuest';
+// import BonusDeedsPanel from './BonusDeedsPanel';
+// import CommunityRaid from './CommunityRaid';
+// import MidnightFlashQuest from './MidnightFlashQuest';
 import RaidNotification from './RaidNotification';
 import BonusNotification from './BonusNotification';
 import AnnouncementModal from './AnnouncementModal';
 import RamadhanRecapModal from './RamadhanRecapModal';
-import { api } from '../services/ApiService';
-import { calculateTotalUserPoints } from '../utils';
+import MiniLeaderboard from './MiniLeaderboard';
+// import { api } from '../services/ApiService';
+// import { calculateTotalUserPoints } from '../utils';
 
 interface TrackerPageProps {
   currentUser: User;
@@ -29,32 +30,32 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
   data, setData, themeStyles, currentTheme, currentUser, onUpdateUser 
 }) => {
   const activeDayRef = useRef<HTMLDivElement>(null);
-  const [totalCommunityXP, setTotalCommunityXP] = useState(0);
+  // const [totalCommunityXP, setTotalCommunityXP] = useState(0);
   const [showDailyTarget, setShowDailyTarget] = useState(false);
   const [showRaidNotif, setShowRaidNotif] = useState(false);
   const [showBonusNotif, setShowBonusNotif] = useState(false);
-  const [hasClaimedRaidReward, setHasClaimedRaidReward] = useState(false);
+  // const [hasClaimedRaidReward, setHasClaimedRaidReward] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
-      const claimed = localStorage.getItem(`raid_reward_claimed_1447_${currentUser.username}`);
-      setHasClaimedRaidReward(!!claimed);
+      // const claimed = localStorage.getItem(`raid_reward_claimed_1447_${currentUser.username}`);
+      // setHasClaimedRaidReward(!!claimed);
     }
   }, [currentUser]);
 
-  const handleClaimRaidReward = () => {
-    if (!currentUser) return;
-    
-    const updatedUser = {
-      ...currentUser,
-      bonusPoints: (currentUser.bonusPoints || 0) + 1000
-    };
-    
-    onUpdateUser(updatedUser);
-    localStorage.setItem(`raid_reward_claimed_1447_${currentUser.username}`, 'true');
-    setHasClaimedRaidReward(true);
-    alert("ALHAMDULILLAH! You have claimed your victory reward: 1000 XP!");
-  };
+  // const handleClaimRaidReward = () => {
+  //   if (!currentUser) return;
+  //   
+  //   const updatedUser = {
+  //     ...currentUser,
+  //     bonusPoints: (currentUser.bonusPoints || 0) + 1000
+  //   };
+  //   
+  //   onUpdateUser(updatedUser);
+  //   localStorage.setItem(`raid_reward_claimed_1447_${currentUser.username}`, 'true');
+  //   setHasClaimedRaidReward(true);
+  //   alert("ALHAMDULILLAH! You have claimed your victory reward: 1000 XP!");
+  // };
 
   const getActualDayIndex = () => {
     const today = new Date();
@@ -107,12 +108,12 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
     if (currentDayIndex >= 10 && actualDayIndex <= 29) {
       const fetchCommunityXP = async () => {
         try {
-          const users = await api.getAllUsersWithPoints();
-          const total = users.reduce((acc, user) => {
+          // const users = await api.getAllUsersWithPoints();
+          /* const total = users.reduce((acc, user) => {
              const points = calculateTotalUserPoints(user, user.trackerData);
              return acc + points;
-          }, 0);
-          setTotalCommunityXP(total);
+          }, 0); */
+          // setTotalCommunityXP(total);
         } catch (e) {
           console.error("Failed to fetch community XP", e);
         }
@@ -190,7 +191,17 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
          )}
       </div>
 
-      {/* MIDNIGHT FLASH QUEST - Only Show on Day 21+ (Phase 3) */}
+      {/* TEMPORARY LEADERBOARD */}
+      <div className="mb-8 animate-reveal xl:hidden">
+         <div className="h-[400px]">
+            <MiniLeaderboard 
+               currentUser={currentUser}
+               themeStyles={themeStyles}
+            />
+         </div>
+      </div>
+
+      {/* MIDNIGHT FLASH QUEST - HIDDEN TEMPORARILY
       {currentDayIndex >= 20 && (
          <div className="mb-8 animate-reveal">
             <MidnightFlashQuest 
@@ -200,8 +211,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             />
          </div>
       )}
+      */}
 
-      {/* COMMUNITY RAID WIDGET - Only Show on Day 11+ */}
+      {/* COMMUNITY RAID WIDGET - HIDDEN TEMPORARILY
       {currentDayIndex >= 10 && (
          <div className="mb-8 animate-reveal">
             <CommunityRaid 
@@ -213,8 +225,9 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             />
          </div>
       )}
+      */}
 
-      {/* BONUS DEEDS PANEL (THE HIDDEN ARMORY) */}
+      {/* BONUS DEEDS PANEL (THE HIDDEN ARMORY) - HIDDEN TEMPORARILY
       <div className="mb-8 animate-reveal">
          <BonusDeedsPanel 
             currentUser={currentUser}
@@ -222,6 +235,7 @@ const TrackerPage: React.FC<TrackerPageProps> = ({
             themeStyles={themeStyles}
          />
       </div>
+      */}
 
       {/* MOBILE DAILY TARGET BUTTON (Replaces Inline Panel) */}
       <div className="fixed bottom-24 left-4 z-40 xl:hidden">

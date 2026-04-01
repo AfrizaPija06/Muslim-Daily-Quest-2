@@ -2,7 +2,8 @@
 import React from 'react';
 import { User, getRankInfo } from '../types';
 import { getAvatarSrc } from '../constants';
-import { Trophy, WifiOff, RotateCw, Scroll, FileText } from 'lucide-react';
+import { Trophy, WifiOff, RotateCw } from 'lucide-react';
+// import { Scroll, FileText } from 'lucide-react';
 
 interface GameHUDProps {
   currentUser: User;
@@ -13,15 +14,14 @@ interface GameHUDProps {
   isSyncing: boolean;
   performSync: () => void;
   openProfile: () => void;
-  openQuestBoard: () => void;
-  openAshraReport: () => void;
-  hasNewAshraReport?: boolean;
+  // openQuestBoard: () => void;
+  // openAshraReport: () => void;
+  // hasNewAshraReport?: boolean;
 }
 
 const GameHUD: React.FC<GameHUDProps> = ({ 
   currentUser, totalPoints, themeStyles, 
-  isOnline, isSyncing, performSync, openProfile, openQuestBoard, openAshraReport,
-  hasNewAshraReport
+  isOnline, isSyncing, performSync, openProfile //, openQuestBoard, openAshraReport, hasNewAshraReport
 }) => {
   // Logic Leveling: Misal 1 Level setiap 1000 poin
   const currentLevel = Math.floor(totalPoints / 1000) + 1;
@@ -69,7 +69,7 @@ const GameHUD: React.FC<GameHUDProps> = ({
               </div>
            </div>
 
-           {/* QUEST BOARD BUTTON */}
+           {/* QUEST BOARD BUTTON - HIDDEN TEMPORARILY
            <button 
              onClick={openQuestBoard}
              className={`p-2 rounded-full border bg-black/40 backdrop-blur-md ${themeStyles.border} ${themeStyles.textAccent} hover:bg-white/10 transition-colors`}
@@ -77,8 +77,9 @@ const GameHUD: React.FC<GameHUDProps> = ({
            >
              <Scroll className="w-4 h-4" />
            </button>
+           */}
 
-           {/* ASHRA REPORT BUTTON (DEBUG/MANUAL) */}
+           {/* ASHRA REPORT BUTTON (DEBUG/MANUAL) - HIDDEN TEMPORARILY
            <button 
              onClick={openAshraReport}
              className={`relative p-2 rounded-full border bg-black/40 backdrop-blur-md ${themeStyles.border} text-emerald-400 hover:bg-white/10 transition-colors`}
@@ -89,6 +90,7 @@ const GameHUD: React.FC<GameHUDProps> = ({
                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)] border border-black"></span>
              )}
            </button>
+           */}
 
            {/* SYNC BUTTON */}
            <button 

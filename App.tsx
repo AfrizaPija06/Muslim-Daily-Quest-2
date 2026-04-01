@@ -55,7 +55,7 @@ const App: React.FC = () => {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showQuestBoard, setShowQuestBoard] = useState(false);
   const [showAshraReport, setShowAshraReport] = useState(false);
-  const [hasNewAshraReport, setHasNewAshraReport] = useState(false);
+  // const [hasNewAshraReport, setHasNewAshraReport] = useState(false);
   const [showPhaseAnnouncement, setShowPhaseAnnouncement] = useState(false); // State for Phase Announcement
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<Badge | null>(null);
   const prevRankRef = useRef<string>(""); 
@@ -305,11 +305,11 @@ const App: React.FC = () => {
      if (currentDayIndex >= 10) {
         const hasSeen = localStorage.getItem(`ashra_report_1_${currentUser.username}`);
         if (!hasSeen) {
-           setHasNewAshraReport(true);
+           // setHasNewAshraReport(true);
            // Auto-open is optional, but let's keep it for now
            setTimeout(() => setShowAshraReport(true), 1500); 
         } else {
-           setHasNewAshraReport(false);
+           // setHasNewAshraReport(false);
         }
      }
   }, [currentDayIndex, isSessionLoading, currentUser]);
@@ -454,7 +454,7 @@ const App: React.FC = () => {
           currentUser={currentUser}
           onClose={() => {
              setShowAshraReport(false);
-             setHasNewAshraReport(false); // Clear notification
+             // setHasNewAshraReport(false); // Clear notification
              localStorage.setItem(`ashra_report_1_${currentUser.username}`, 'true');
           }}
         />
@@ -479,9 +479,9 @@ const App: React.FC = () => {
         isSyncing={isSyncing}
         performSync={performSync}
         openProfile={() => { handleBackToMyProfile(); setView('profile'); }}
-        openQuestBoard={() => setShowQuestBoard(true)}
-        openAshraReport={() => setShowAshraReport(true)}
-        hasNewAshraReport={hasNewAshraReport}
+        // openQuestBoard={() => setShowQuestBoard(true)}
+        // openAshraReport={() => setShowAshraReport(true)}
+        // hasNewAshraReport={hasNewAshraReport}
       />
 
       <div className="flex-grow flex w-full overflow-hidden">
