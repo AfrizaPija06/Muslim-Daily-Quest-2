@@ -110,6 +110,23 @@ class ApiService {
     }
   }
 
+  async allowRelinkUser(username: string): Promise<{ success: boolean; error?: string }> {
+    if (!db) return { success: false, error: "Database not initialized" };
+    try {
+      const snapshot = await db.collection("users").where("username", "==", username).get();
+      if (snapshot.empty) return { success: false, error: "User not found" };
+      const uid = snapshot.docs[0].id;
+      
+      await db.collection("users").doc(uid).update({
+        allowRelink: true
+      });
+      return { success: true };
+    } catch (e: any) {
+      console.error("Allow Relink Error:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
   async registerUserSafe(newUser: User): Promise<{ success: boolean; error?: string }> {
     if (!auth || !db) return { success: false, error: "Firebase belum terhubung. Cek koneksi/konfigurasi." };
 
@@ -128,6 +145,48 @@ class ApiService {
       // 1. Create Auth User (v8 style)
       const userCredential = await auth.createUserWithEmailAndPassword(email, newUser.password || '123456');
       const firebaseUser = userCredential.user!;
+
+      // --- RE-LINK LOGIC ---
+      const existingUserSnap = await db.collection("users").where("username", "==", newUser.username).get();
+      
+      if (!existingUserSnap.empty) {
+         const oldDoc = existingUserSnap.docs[0];
+         const oldData = oldDoc.data();
+         
+         if (oldData.allowRelink) {
+            const oldUid = oldDoc.id;
+            
+            // Ambil data tracker lama
+            const oldTrackerDoc = await db.collection("trackers").doc(oldUid).get();
+            const oldTrackerData = oldTrackerDoc.data() || {
+               username: newUser.username,
+               data: { ...INITIAL_DATA, lastUpdated: new Date().toISOString() },
+               lastUpdated: new Date().toISOString()
+            };
+
+            // Simpan ke UID baru
+            await Promise.all([
+               db.collection("users").doc(firebaseUser.uid).set({
+                  ...oldData,
+                  fullName: newUser.fullName, // Update nama jika ada perubahan
+                  avatarSeed: finalAvatar, // Update avatar
+                  allowRelink: false, // Matikan flag relink
+                  status: 'active'
+               }),
+               db.collection("trackers").doc(firebaseUser.uid).set(oldTrackerData),
+               firebaseUser.updateProfile({ displayName: newUser.fullName })
+            ]);
+
+            // Hapus dokumen lama
+            await Promise.all([
+               db.collection("users").doc(oldUid).delete(),
+               db.collection("trackers").doc(oldUid).delete()
+            ]);
+
+            return { success: true };
+         }
+      }
+      // --- END RE-LINK LOGIC ---
 
       // 2. Simpan Profile ke Firestore
       // Kita menggunakan Promise.all untuk mempercepat

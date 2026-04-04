@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, ExternalLink, Shield } from 'lucide-react';
+import { Users, Target, Trophy, Download, Server, Trash2, Activity, Loader2, ExternalLink, Shield, KeyRound } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import BackgroundOrnament from './BackgroundOrnament';
 import Header from './Header';
@@ -223,6 +223,23 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     finally { setIsProcessing(false); }
   };
 
+  const handleAllowRelink = async (targetUsername: string, targetName: string) => {
+    if (!confirm(`Izinkan ${targetName} untuk daftar ulang (Re-link)?\n\nSetelah klik OK, Anda HARUS menghapus akun ini dari tab Authentication di Firebase Console. Setelah itu, peserta bisa mendaftar ulang dengan username yang sama dan data lamanya akan otomatis tersambung.`)) return;
+    setIsProcessing(true);
+    try {
+      const result = await api.allowRelinkUser(targetUsername);
+      if (result.success) {
+        alert(`✅ Akses Re-link dibuka untuk ${targetUsername}.\n\nSEKARANG: Silakan hapus akun ini dari Firebase Console -> Authentication.`);
+      } else {
+        alert(`❌ Gagal membuka akses: ${result.error}`);
+      }
+    } catch (e: any) {
+      alert("System Error: " + e.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const sortedWeekly = useMemo(() => [...menteesData].sort((a, b) => b.points - a.points), [menteesData]);
 
   return (
@@ -362,15 +379,26 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                                    <ExternalLink className="w-4 h-4" />
                                 </button>
                                 {m.role !== 'mentor' && currentUser?.role === 'mentor' && (
-                                  <button 
-                                    onClick={() => handleKickUser(m.username, m.fullName)} 
-                                    type="button"
-                                    className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" 
-                                    disabled={isProcessing} 
-                                    title="Kick User"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  <>
+                                    <button 
+                                      onClick={() => handleKickUser(m.username, m.fullName)} 
+                                      type="button"
+                                      className="p-2 bg-red-950/20 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all disabled:opacity-50" 
+                                      disabled={isProcessing} 
+                                      title="Kick User"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleAllowRelink(m.username, m.fullName)} 
+                                      type="button"
+                                      className="p-2 bg-blue-950/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50" 
+                                      disabled={isProcessing} 
+                                      title="Izinkan Daftar Ulang (Re-link)"
+                                    >
+                                      <KeyRound className="w-4 h-4" />
+                                    </button>
+                                  </>
                                 )}
                              </div>
                           </td>
